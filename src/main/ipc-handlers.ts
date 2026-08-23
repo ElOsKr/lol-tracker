@@ -147,6 +147,14 @@ export function registerIpcHandlers() {
     return dragon.getAugmentDataCache();
   });
 
+  ipcMain.handle("dragon:augment-icon", async (_event, id: number, patch?: string) => {
+    try {
+      return await dragon.resolveAugmentIcon(id, patch);
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.handle("dragon:items", async (_event, patch?: string) => {
     try {
       return await dragon.loadItemData(patch);

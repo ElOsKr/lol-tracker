@@ -82,6 +82,8 @@ const api = {
 
   getAugmentData: () => ipcRenderer.invoke("dragon:augments"),
 
+  resolveAugmentIcon: (id: number, patch?: string) =>
+    ipcRenderer.invoke("dragon:augment-icon", id, patch),
   getItemData: (patch?: string) => ipcRenderer.invoke("dragon:items", patch),
 
   getSummonerSpellData: () => ipcRenderer.invoke("dragon:summoner-spells"),

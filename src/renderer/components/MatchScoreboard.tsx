@@ -303,7 +303,7 @@ function PlayerRow({
       {/* Augments */}
       <div className="flex gap-0.5">
         {p.augments.map((augId, i) => (
-          <AugmentIcon key={i} augmentId={augId} size={22} />
+          <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
         ))}
       </div>
     </div>

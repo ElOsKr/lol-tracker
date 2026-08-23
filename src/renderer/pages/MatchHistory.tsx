@@ -925,7 +925,7 @@ function parseAugmentIds(raw: string | null): number[] {
   return raw.split(",").map(Number).filter(Boolean);
 }
 
-function AugmentGrid({ augmentIds }: { augmentIds: number[] }) {
+function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: string | null }) {
   if (augmentIds.length === 0) return null;
   // Classic can grant bonus augments; spill past 4 into a third column so the
   // grid stays two rows tall and rows keep a uniform height.
@@ -933,7 +933,7 @@ function AugmentGrid({ augmentIds }: { augmentIds: number[] }) {
   return (
     <div className={`grid ${cols} gap-0.5 w-fit`}>
       {augmentIds.map((id, i) => (
-        <AugmentIcon key={i} augmentId={id} size={22} />
+        <AugmentIcon key={i} augmentId={id} size={22} patch={patch} />
       ))}
     </div>
   );
@@ -1045,7 +1045,7 @@ function GameRow({
 
         {/* Augments – reserve 3 columns so mixed-queue lists stay aligned */}
         <div className="w-[70px] shrink-0">
-          <AugmentGrid augmentIds={augmentIds} />
+          <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
         </div>
 
         {/* Items – 3x2 grid, no trinket (slot 6) */}

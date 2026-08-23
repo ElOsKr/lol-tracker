@@ -543,6 +543,7 @@ export interface ElectronAPI {
   getLcuStatus: () => Promise<LcuStatus>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: () => Promise<AugmentData>;
+  resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;
