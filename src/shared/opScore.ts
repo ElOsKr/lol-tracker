@@ -6,7 +6,7 @@
 // so class changes trigger a recompute too). Settings → Repair rescores
 // unconditionally, which is the way out when stored values went stale under a
 // key that never changed.
-export const SCORE_FORMULA_VERSION = 3;
+export const SCORE_FORMULA_VERSION = 4;
 
 // championId → Data Dragon class tag ("Assassin" | "Fighter" | "Mage" |
 // "Marksman" | "Support" | "Tank"). Supplied by the caller from live champion
@@ -17,6 +17,11 @@ export type ScoreBadge = "MVP" | "ACE" | null;
 
 export interface PlayerScore {
   score: number;
+  // Unclamped, unrounded total. Stored alongside `score` purely as an ordering
+  // key: `score` tops out at 10 and rounds to 0.1, so sorting on it leaves the
+  // whole top of a score-sorted list to the secondary sort. Never display it;
+  // it can exceed 10 and fall below 1.
+  raw: number;
   badge: ScoreBadge;
 }
 
@@ -268,7 +273,7 @@ export function computeMatchScores(
 ): Map<number, PlayerScore> {
   const scores = new Map<number, PlayerScore>();
   for (const [id, b] of computeMatchScoreBreakdowns(participants, classes)) {
-    scores.set(id, { score: b.score, badge: b.badge });
+    scores.set(id, { score: b.score, raw: b.raw, badge: b.badge });
   }
   return scores;
 }

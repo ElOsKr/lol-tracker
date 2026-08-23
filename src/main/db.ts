@@ -2,7 +2,12 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import zlib from "zlib";
-import { SCORE_FORMULA_VERSION, computeMatchScores, type ScoreInput } from "../shared/opScore";
+import {
+  SCORE_FORMULA_VERSION,
+  computeMatchScores,
+  type PlayerScore,
+  type ScoreInput,
+} from "../shared/opScore";
 import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
@@ -162,6 +167,8 @@ function createTables() {
       total_heal           INTEGER NOT NULL DEFAULT 0,
       largest_killing_spree INTEGER NOT NULL DEFAULT 0,
       score                REAL,
+      -- Unclamped score, ordering key only — see PlayerScore.raw
+      score_raw            REAL,
       score_badge          TEXT,
       spell1 INTEGER, spell2 INTEGER,
       item0 INTEGER, item1 INTEGER, item2 INTEGER,
@@ -469,7 +476,7 @@ function writeParticipants(gameId: number, meta: GameDenorm, rows: RawParticipan
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -483,6 +490,7 @@ function runMigrations() {
   if (current < 1) migrateToV1();
   if (current < 2) migrateToV2();
   if (current < 3) migrateToV3();
+  if (current < 4) migrateToV4();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -677,6 +685,15 @@ function migrateToV3() {
   // match_participants; the copy below then narrows them to the game's owner.
   rebuildParticipantsFromPayloads();
   backfillPlayerStatsSpells();
+}
+
+// Adds the unclamped score column. Nothing to backfill here: bumping
+// SCORE_FORMULA_VERSION alongside it makes checkScoreBackfill rescore every
+// game on the next launch, which is what fills it in.
+function migrateToV4() {
+  if (!tableColumns("player_stats").has("score_raw")) {
+    db.exec("ALTER TABLE player_stats ADD COLUMN score_raw REAL");
+  }
 }
 
 // Copies each game owner's spells from their participant row onto player_stats.
@@ -985,7 +1002,7 @@ function computeOwnerScore(
   participants: ScoreRow[],
   ownerPuuid: string | null,
   fallback?: { champion_id: number; kills: number; deaths: number; assists: number },
-): { score: number; badge: string | null } | null {
+): PlayerScore | null {
   const inputs = scoreInputsFromRows(participants);
   if (inputs.length === 0) return null;
   let owner = ownerPuuid ? inputs.find((p) => p.puuid === ownerPuuid) : undefined;
@@ -999,8 +1016,7 @@ function computeOwnerScore(
     );
   }
   if (!owner) return null;
-  const s = computeMatchScores(inputs, getChampionClasses()).get(owner.participantId);
-  return s ? { score: s.score, badge: s.badge } : null;
+  return computeMatchScores(inputs, getChampionClasses()).get(owner.participantId) ?? null;
 }
 
 function backfillScores() {
@@ -1028,16 +1044,21 @@ function backfillScores() {
   );
 
   const updateStmt = db.prepare(
-    "UPDATE player_stats SET score = ?, score_badge = ? WHERE game_id = ?",
+    "UPDATE player_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ?",
   );
   const tx = db.transaction(() => {
     for (const row of games) {
       if (row.is_remake) {
-        updateStmt.run(null, null, row.game_id);
+        updateStmt.run(null, null, null, row.game_id);
         continue;
       }
       const result = computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid || null, row);
-      updateStmt.run(result?.score ?? null, result?.badge ?? null, row.game_id);
+      updateStmt.run(
+        result?.score ?? null,
+        result?.raw ?? null,
+        result?.badge ?? null,
+        row.game_id,
+      );
     }
   });
   tx();
@@ -1078,7 +1099,9 @@ const MATCH_SORT_COLUMNS: Record<string, string> = {
   kda: "(ps.kills + ps.assists) * 1.0 / MAX(ps.deaths, 1)",
   kills: "ps.kills",
   duration: "g.game_duration",
-  score: "ps.score",
+  // Ordered on the unclamped score so the 10s at the top of the list — and
+  // every 0.1-rounding tie below them — keep their real order.
+  score: "ps.score_raw",
   damageDealt: "ps.total_damage_dealt",
   damageTaken: "ps.total_damage_taken",
   healing: "ps.total_heal",
@@ -1089,7 +1112,7 @@ function matchOrderBy(sort?: string, sortDir?: string): string {
   const dir = sortDir === "asc" ? "ASC" : "DESC";
   const parts: string[] = [];
   // Games without a score belong at the bottom whichever way we're sorting
-  if (key === "score") parts.push("ps.score IS NULL");
+  if (key === "score") parts.push("ps.score_raw IS NULL");
   parts.push(`${MATCH_SORT_COLUMNS[key]} ${dir}`);
   if (key !== "date") parts.push("g.game_creation DESC");
   return parts.join(", ");
@@ -1716,7 +1739,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
 
   const isRemake = detectRemake(gameData.gameDuration, rows) ? 1 : 0;
 
-  let ownerScore: { score: number; badge: string | null } | null = null;
+  let ownerScore: PlayerScore | null = null;
   if (!isRemake) {
     ownerScore = computeOwnerScore(rows, puuid, {
       champion_id: owner.champion_id,
@@ -1740,8 +1763,8 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       total_damage_dealt, total_damage_taken, gold_earned, total_heal,
       largest_killing_spree, spell1, spell2,
       item0, item1, item2, item3, item4, item5, item6,
-      score, score_badge
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      score, score_raw, score_badge
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertAugmentStmt = db.prepare(`
@@ -1795,6 +1818,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       owner.items[5],
       owner.items[6],
       ownerScore?.score ?? null,
+      ownerScore?.raw ?? null,
       ownerScore?.badge ?? null,
     );
 
@@ -2772,8 +2796,8 @@ function rebuildDerivedStats(): number {
       total_damage_dealt, total_damage_taken, gold_earned, total_heal,
       largest_killing_spree, spell1, spell2,
       item0, item1, item2, item3, item4, item5, item6,
-      score, score_badge
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      score, score_raw, score_badge
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const updateRemake = db.prepare("UPDATE games SET is_remake = ? WHERE game_id = ?");
   const deleteAugments = db.prepare("DELETE FROM game_augments WHERE game_id = ?");
@@ -2806,7 +2830,7 @@ function rebuildDerivedStats(): number {
       const isRemake = detectRemake(row.game_duration, rows) ? 1 : 0;
       updateRemake.run(isRemake, row.game_id);
 
-      let ownerScore: { score: number; badge: string | null } | null = null;
+      let ownerScore: PlayerScore | null = null;
       if (!isRemake) {
         ownerScore = computeOwnerScore(rows, row.puuid || null, {
           champion_id: owner.champion_id,
@@ -2842,6 +2866,7 @@ function rebuildDerivedStats(): number {
         owner.item5,
         owner.item6,
         ownerScore?.score ?? null,
+        ownerScore?.raw ?? null,
         ownerScore?.badge ?? null,
       );
 
