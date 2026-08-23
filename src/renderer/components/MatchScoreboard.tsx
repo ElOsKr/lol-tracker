@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
 import { getChampionName } from "../hooks/useChampions";
@@ -90,16 +90,43 @@ function TeamScoreboard({
   patch?: string | null;
 }) {
   const isWin = players[0]?.win ?? false;
+  const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
   return (
     <div className="rounded-lg border border-lol-border overflow-hidden">
-      {/* Team header */}
+      {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
-        className={`px-3 py-1.5 border-b border-lol-border ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
+        className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
       >
         <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
           Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
         </span>
+        <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <TeamStat label="Avg score">
+            <span
+              className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
+            >
+              {totals.avgScore != null ? totals.avgScore.toFixed(1) : "-"}
+            </span>
+          </TeamStat>
+          <TeamStat label="KDA">
+            <span className="text-lol-text-bright">
+              {formatKDA(totals.kills, totals.deaths, totals.assists)}
+            </span>
+          </TeamStat>
+          <TeamStat label="Damage">
+            <span className="text-red-400">{compact(totals.dmg)}</span>
+          </TeamStat>
+          <TeamStat label="Taken">
+            <span className="text-sky-400">{compact(totals.taken)}</span>
+          </TeamStat>
+          <TeamStat label="Gold">
+            <span className="text-lol-gold">{compact(totals.gold)}</span>
+          </TeamStat>
+          <TeamStat label="Heal">
+            <span className="text-emerald-400">{compact(totals.heal)}</span>
+          </TeamStat>
+        </div>
       </div>
 
       {/* Column headers */}
@@ -129,6 +156,47 @@ function TeamScoreboard({
           patch={patch}
         />
       ))}
+    </div>
+  );
+}
+
+function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, ScoreBreakdown>) {
+  const t = {
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    dmg: 0,
+    taken: 0,
+    gold: 0,
+    heal: 0,
+    avgScore: null as number | null,
+  };
+  let scoreSum = 0,
+    scored = 0;
+
+  for (const p of players) {
+    t.kills += p.kills;
+    t.deaths += p.deaths;
+    t.assists += p.assists;
+    t.dmg += p.totalDamageDealtToChampions;
+    t.taken += p.totalDamageTaken;
+    t.gold += p.goldEarned;
+    t.heal += p.totalHeal;
+    const s = scores.get(p.participantId);
+    if (s) {
+      scoreSum += s.score;
+      scored++;
+    }
+  }
+  if (scored > 0) t.avgScore = scoreSum / scored;
+  return t;
+}
+
+function TeamStat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span className="text-[9px] uppercase tracking-wider text-lol-text">{label}</span>
+      <span className="text-[11px] font-medium tabular-nums">{children}</span>
     </div>
   );
 }
