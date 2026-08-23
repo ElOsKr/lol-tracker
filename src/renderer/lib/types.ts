@@ -454,6 +454,13 @@ export interface BackfillResult {
   cancelled: boolean;
 }
 
+export interface ReleaseNote {
+  version: string;
+  publishedAt: string;
+  body: string;
+  url: string;
+}
+
 export interface UpdateInfo {
   hasUpdate: boolean;
   latest?: string;
@@ -461,6 +468,10 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
+  // Every release newer than the installed version, newest first
+  releases?: ReleaseNote[];
+  // True when there are skipped releases beyond the page the check fetched
+  moreVersions?: boolean;
   error?: string;
 }
 

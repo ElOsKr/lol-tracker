@@ -6,10 +6,23 @@ import os from "os";
 import path from "path";
 
 const CHECK_TIMEOUT_MS = 10_000;
+// One page covers any realistic gap between installs, and costs the same single
+// request the old /releases/latest check did.
+const RELEASE_PAGE_SIZE = 20;
+// Release bodies are hand-written, but they still arrive over the network, so
+// cap what the dialog is asked to lay out.
+const MAX_BODY_CHARS = 4_000;
 // Applied per chunk rather than to the whole download: the asset is ~90 MB, so
 // a total-duration cap would abort a slow but perfectly healthy connection.
 // What we actually want to catch is a transfer that has stopped moving.
 const DOWNLOAD_STALL_TIMEOUT_MS = 30_000;
+
+export interface ReleaseNote {
+  version: string;
+  publishedAt: string;
+  body: string;
+  url: string;
+}
 
 export interface UpdateInfo {
   hasUpdate: boolean;
@@ -18,6 +31,13 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
+  // Every release newer than the installed version, newest first, so someone who
+  // skipped a few versions sees the notes they missed rather than only the last
+  // set. Empty when already up to date.
+  releases?: ReleaseNote[];
+  // True when the fetched page never reached back to the installed version, so
+  // there are skipped releases the dialog cannot show.
+  moreVersions?: boolean;
   error?: string;
 }
 
@@ -25,6 +45,42 @@ export interface UpdateInfo {
 // back an asset URL, so trusting a digest it supplied would verify nothing.
 type CachedAsset = { assetUrl: string; sha256: string | null };
 let lastCheckedAsset: CachedAsset | null = null;
+
+function parseVersion(version: string): number[] | null {
+  const m = version
+    .trim()
+    .replace(/^v/, "")
+    .match(/^(\d+)\.(\d+)\.(\d+)/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+// Positive when a is newer than b, negative when older, 0 when equal. An
+// unparseable tag sorts as older, so a malformed release can never present
+// itself as an update.
+function compareVersions(a: string, b: string): number {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  if (!pa || !pb) return pa ? 1 : pb ? -1 : 0;
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
+}
+
+function toReleaseNote(release: any): ReleaseNote {
+  const body = String(release.body ?? "")
+    .replace(/\r\n/g, "\n")
+    // GitHub appends this to every generated body; the dialog already links to
+    // the release page, so in a small window it is pure noise.
+    .replace(/^[ \t]*\*\*Full Changelog\*\*:.*$/gim, "")
+    .trim();
+  return {
+    version: String(release.tag_name).replace(/^v/, ""),
+    publishedAt: typeof release.published_at === "string" ? release.published_at : "",
+    body: body.length > MAX_BODY_CHARS ? `${body.slice(0, MAX_BODY_CHARS)}…` : body,
+    url: typeof release.html_url === "string" ? release.html_url : "",
+  };
+}
 
 // GitHub reports asset digests as "sha256:<hex>"
 function parseDigest(digest: unknown): string | null {
@@ -35,28 +91,54 @@ function parseDigest(digest: unknown): string | null {
 
 export async function checkForUpdate(): Promise<UpdateInfo> {
   try {
-    const res = await fetch("https://api.github.com/repos/Yhprum/mayhem-tracker/releases/latest", {
-      headers: { "User-Agent": "mayhem-tracker" },
-      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/Yhprum/mayhem-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
+      {
+        headers: { "User-Agent": "mayhem-tracker" },
+        signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+      },
+    );
     if (!res.ok) return { hasUpdate: false, error: "No releases found" };
-    const data = (await res.json()) as any;
-    const latest = (data.tag_name as string).replace(/^v/, "");
+    const page = (await res.json()) as any;
+    // Unlike /releases/latest, this endpoint includes drafts and prereleases,
+    // which were never meant to be offered as an update.
+    const published: any[] = (Array.isArray(page) ? page : []).filter(
+      (r) => r && !r.draft && !r.prerelease && typeof r.tag_name === "string",
+    );
+    if (!published.length) return { hasUpdate: false, error: "No releases found" };
+
+    const newest = published[0];
+    const latest = String(newest.tag_name).replace(/^v/, "");
     const current = app.getVersion();
-    const asset = (data.assets as any[])?.find((a) => a.name?.endsWith(".exe"));
+    const asset = (newest.assets as any[])?.find((a) => a.name?.endsWith(".exe"));
     if (asset?.browser_download_url) {
       lastCheckedAsset = {
         assetUrl: asset.browser_download_url,
         sha256: parseDigest(asset.digest),
       };
     }
+    // A local build can sit ahead of the newest release, so compare versions
+    // rather than just testing them for inequality.
+    const hasUpdate = compareVersions(latest, current) > 0;
+    const missed = hasUpdate
+      ? published.filter((r) => compareVersions(r.tag_name, current) > 0)
+      : [];
+    // Reaching a release at or below the installed version proves the page went
+    // back far enough for the missed list to be complete. A short page means the
+    // repo had nothing older to give, which proves it just as well — otherwise a
+    // version older than the first ever release would claim missing notes.
+    const reachedCurrent =
+      page.length < RELEASE_PAGE_SIZE ||
+      published.some((r) => compareVersions(r.tag_name, current) <= 0);
     return {
-      hasUpdate: latest !== current,
+      hasUpdate,
       latest,
       current,
-      url: data.html_url as string,
+      url: newest.html_url as string,
       assetUrl: asset?.browser_download_url,
       assetSize: asset?.size,
+      releases: missed.map(toReleaseNote),
+      moreVersions: hasUpdate && !reachedCurrent,
     };
   } catch {
     return { hasUpdate: false, error: "Failed to check for updates" };
