@@ -163,12 +163,24 @@ function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: 
   );
 }
 
+// The LCU's league-session token used to be accepted here, but the service now
+// answers it with 403 "RBAC: access denied". The RSO access token is what the
+// entitlement follows, and it lives an hour instead of ten minutes. The old one
+// stays as a fallback in case the requirement differs by region or flips back.
 async function fetchSgpToken(): Promise<string> {
-  const token = await lcuRequest("/lol-league-session/v1/league-session-token");
-  if (typeof token !== "string" || !token) {
+  try {
+    const rso = (await lcuRequest("/lol-rso-auth/v1/authorization/access-token")) as any;
+    const token = typeof rso === "string" ? rso : rso?.token;
+    if (typeof token === "string" && token) return token;
+  } catch {
+    // Fall through to the legacy token
+  }
+
+  const legacy = (await lcuRequest("/lol-league-session/v1/league-session-token")) as any;
+  if (typeof legacy !== "string" || !legacy) {
     throw new Error("League client hasn't finished signing in — try again in a moment");
   }
-  return token;
+  return legacy;
 }
 
 // Carries the status through so a caller can tell a shard that has stopped
