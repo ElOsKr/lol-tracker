@@ -69,13 +69,21 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
 
 const SELECT_CLASS = "select";
 
-// Games on the same local day play as one session, and a run that spills past
-// midnight stays together as long as the next game starts within this gap.
-const SESSION_GAP_MS = 3 * 60 * 60 * 1000;
+// A session is a day of play, but the day doesn't end at midnight: games before
+// this hour belong to the night that started the evening before.
+const DAY_START_HOUR = 5;
+
+// Local midnight of the session day a game belongs to.
+function sessionDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(d.getHours() - DAY_START_HOUR);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 interface Session {
   key: number;
-  start: number; // earliest game in the session — names the session's day
+  day: number; // local midnight of the session's day, from sessionDay
   matches: MatchListItem[];
   wins: number;
   losses: number;
@@ -85,22 +93,12 @@ interface Session {
   avgScore: number | null;
 }
 
-function sameSession(a: MatchListItem, b: MatchListItem): boolean {
-  const [earlier, later] = a.game_creation <= b.game_creation ? [a, b] : [b, a];
-  if (
-    new Date(earlier.game_creation).toDateString() === new Date(later.game_creation).toDateString()
-  ) {
-    return true;
-  }
-  const gap = later.game_creation - (earlier.game_creation + earlier.game_duration * 1000);
-  return gap < SESSION_GAP_MS;
-}
-
 // Expects a date-ordered list (either direction); remakes count toward the
 // session's size but stay out of its record and averages.
 function groupIntoSessions(matches: MatchListItem[]): Session[] {
   const sessions: Session[] = [];
   let current: MatchListItem[] = [];
+  let currentDay = 0;
 
   const flush = () => {
     if (current.length === 0) return;
@@ -111,9 +109,7 @@ function groupIntoSessions(matches: MatchListItem[]): Session[] {
     let assists = 0;
     let scoreSum = 0;
     let scored = 0;
-    let start = Infinity;
     for (const m of current) {
-      start = Math.min(start, m.game_creation);
       if (m.is_remake) continue;
       if (m.win) wins++;
       else losses++;
@@ -127,7 +123,7 @@ function groupIntoSessions(matches: MatchListItem[]): Session[] {
     }
     sessions.push({
       key: current[0].game_id,
-      start,
+      day: currentDay,
       matches: current,
       wins,
       losses,
@@ -140,16 +136,18 @@ function groupIntoSessions(matches: MatchListItem[]): Session[] {
   };
 
   for (const m of matches) {
-    if (current.length > 0 && !sameSession(current[current.length - 1], m)) flush();
+    const day = sessionDay(m.game_creation);
+    if (current.length > 0 && day !== currentDay) flush();
+    currentDay = day;
     current.push(m);
   }
   flush();
   return sessions;
 }
 
-function sessionLabel(start: number): string {
-  const d = new Date(start);
-  const today = new Date();
+function sessionLabel(day: number): string {
+  const d = new Date(day);
+  const today = new Date(sessionDay(Date.now()));
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
   if (d.toDateString() === today.toDateString()) return "Today";
@@ -881,7 +879,7 @@ function SessionHeader({ session }: { session: Session }) {
   return (
     <div className="flex items-baseline gap-3 px-1 pb-1.5">
       <span className="text-sm font-semibold text-lol-text-bright">
-        {sessionLabel(session.start)}
+        {sessionLabel(session.day)}
       </span>
       <span className="text-xs text-lol-text">
         {session.matches.length} {session.matches.length === 1 ? "game" : "games"}

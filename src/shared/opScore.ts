@@ -1,8 +1,11 @@
 // Shared between the main process (insert-time scoring + migration backfill)
 // and the renderer (full-scoreboard scoring). Bump SCORE_FORMULA_VERSION when
-// the formula changes — stored scores are recomputed from match_participants on
-// startup (the backfill key also includes the champion data version, so class
-// changes trigger a recompute too).
+// anything stored on player_stats changes — the score OR the badge, since both
+// are stored — as that's what makes startup recompute them from
+// match_participants (the backfill key also includes the champion data version,
+// so class changes trigger a recompute too). Settings → Repair rescores
+// unconditionally, which is the way out when stored values went stale under a
+// key that never changed.
 export const SCORE_FORMULA_VERSION = 3;
 
 // championId → Data Dragon class tag ("Assassin" | "Fighter" | "Mage" |
