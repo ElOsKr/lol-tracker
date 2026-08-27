@@ -142,9 +142,12 @@ export function registerIpcHandlers() {
     return dragon.getChampionData();
   });
 
-  ipcMain.handle("dragon:augments", async () => {
-    await dragon.waitForAugmentData();
-    return dragon.getAugmentDataCache();
+  ipcMain.handle("dragon:augments", async (_event, patch?: string) => {
+    try {
+      return await dragon.loadAugmentData(patch);
+    } catch {
+      return {};
+    }
   });
 
   ipcMain.handle("dragon:augment-icon", async (_event, id: number, patch?: string) => {

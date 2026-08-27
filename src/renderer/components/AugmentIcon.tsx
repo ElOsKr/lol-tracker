@@ -24,13 +24,24 @@ const rarityTextColor: Record<string, string> = {
 // One lookup per augment for the whole renderer: a retired augment shows up on
 // every row of the stats pages, and they'd otherwise each ask the main process.
 const fallbackLookups = new Map<number, Promise<string | null>>();
+// The settled result of those lookups, so a remount can start on the archived
+// URL instead of waiting a tick for the promise to come back around.
+const fallbackResults = new Map<number, string | null>();
+// Live "latest" URLs already known to 404. Without this, every remount of a
+// retired augment — re-sorting a list, reopening an expanded row — replays the
+// dead paths and shows a broken <img> until the fallback lands, which is what
+// made the icon flicker each time.
+const deadSources = new Set<string>();
 
 function lookupFallbackIcon(augmentId: number, patch?: string | null): Promise<string | null> {
   let promise = fallbackLookups.get(augmentId);
   if (!promise) {
     promise = window.api.resolveAugmentIcon(augmentId, patch ?? undefined);
     fallbackLookups.set(augmentId, promise);
-    promise.catch(() => fallbackLookups.delete(augmentId));
+    promise.then(
+      (url) => fallbackResults.set(augmentId, url),
+      () => fallbackLookups.delete(augmentId),
+    );
   }
   return promise;
 }
@@ -48,43 +59,46 @@ export default function AugmentIcon({
   showName = false,
   patch,
 }: AugmentIconProps) {
-  const augmentData = useAugmentData();
+  const augmentData = useAugmentData(patch);
   const aug = augmentData[augmentId];
   const [attempt, setAttempt] = useState(0);
-  const [fallback, setFallback] = useState<string | null>(null);
-  const [lookedUp, setLookedUp] = useState(false);
+  const [fallback, setFallback] = useState<string | null>(
+    () => fallbackResults.get(augmentId) ?? null,
+  );
 
   const sources = useMemo(() => {
     if (!aug?.iconPath) return [];
-    // CommunityDragon icon paths need to be converted; the data names the small
-    // art, and the large variant sits beside it under the same name.
-    const large = CDRAGON_ASSET_URL("latest", aug.iconPath.replace("small", "large"));
-    const small = CDRAGON_ASSET_URL("latest", aug.iconPath);
-    return large === small ? [small] : [large, small];
-  }, [aug?.iconPath]);
+    // Paths are only valid against the branch they were read from, and the
+    // data names the small art with the large variant beside it under the
+    // same name.
+    const branch = aug.branch || "latest";
+    const large = CDRAGON_ASSET_URL(branch, aug.iconPath.replace("small", "large"));
+    const small = CDRAGON_ASSET_URL(branch, aug.iconPath);
+    return [...new Set([large, small])].filter((url) => !deadSources.has(url));
+  }, [aug?.iconPath, aug?.branch]);
 
+  // Augment data arrives after the first render, so the live paths appear late;
+  // start over on them, keeping whatever fallback is already known.
   useEffect(() => {
     setAttempt(0);
-    setFallback(null);
-    setLookedUp(false);
-  }, [sources]);
+    setFallback(fallbackResults.get(augmentId) ?? null);
+  }, [sources, augmentId]);
 
   // Augments Riot has cut keep their name and rarity on "latest" but lose their
   // art, so once the live paths 404 ask the main process to dig the icon out of
   // an archived patch branch.
-  const exhausted = sources.length === 0 || attempt >= sources.length;
+  const exhausted = attempt >= sources.length;
+  const resolved = fallbackResults.has(augmentId);
   useEffect(() => {
-    if (!exhausted || lookedUp) return;
+    if (!exhausted || resolved) return;
     let active = true;
     lookupFallbackIcon(augmentId, patch).then((url) => {
-      if (!active) return;
-      setFallback(url);
-      setLookedUp(true);
+      if (active) setFallback(url);
     });
     return () => {
       active = false;
     };
-  }, [exhausted, lookedUp, augmentId, patch]);
+  }, [exhausted, resolved, augmentId, patch]);
 
   const name = aug?.name || `Augment ${augmentId}`;
   const borderClass = rarityBorder[aug?.rarity ?? ""] || "";
@@ -102,10 +116,13 @@ export default function AugmentIcon({
           height={size}
           className={`rounded shrink-0 ${borderClass}`}
           onError={() => {
-            // Step down the live paths first; a failed fallback has nothing
-            // left to try, so drop to the placeholder.
-            if (attempt < sources.length) setAttempt((a) => a + 1);
-            else setFallback(null);
+            // Step down the live paths first, remembering the dead one so no
+            // other icon retries it; a failed fallback has nothing left to try,
+            // so drop to the placeholder.
+            if (attempt < sources.length) {
+              deadSources.add(sources[attempt]);
+              setAttempt((a) => a + 1);
+            } else setFallback(null);
           }}
         />
       ) : (

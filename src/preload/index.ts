@@ -80,7 +80,7 @@ const api = {
 
   getChampionData: () => ipcRenderer.invoke("dragon:champions"),
 
-  getAugmentData: () => ipcRenderer.invoke("dragon:augments"),
+  getAugmentData: (patch?: string) => ipcRenderer.invoke("dragon:augments", patch),
 
   resolveAugmentIcon: (id: number, patch?: string) =>
     ipcRenderer.invoke("dragon:augment-icon", id, patch),

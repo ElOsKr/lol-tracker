@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import type { ChampionData, AugmentData, ItemData, SummonerSpellData } from "../lib/types";
 
 let champCache: ChampionData | null = null;
-let augCache: AugmentData | null = null;
 let spellCache: SummonerSpellData | null = null;
+const augCaches = new Map<string, AugmentData>();
+const augPromises = new Map<string, Promise<AugmentData>>();
 const itemCaches = new Map<string, ItemData>();
 const itemPromises = new Map<string, Promise<ItemData>>();
 
@@ -25,16 +26,38 @@ export function useChampionData() {
   return data;
 }
 
-export function useAugmentData() {
-  const [data, setData] = useState<AugmentData>(augCache || {});
+// Augment data is keyed by patch so a historical game reports the name, rarity
+// and art it was played with — Riot reworks augments under the same id, so the
+// live export is only correct for the current patch. Aggregate views that span
+// patches pass nothing and get "latest", which is what they want anyway.
+export function useAugmentData(patch?: string | null): AugmentData {
+  const key = patch || "latest";
+  const [data, setData] = useState<AugmentData>(() => augCaches.get(key) ?? {});
 
   useEffect(() => {
-    if (hasData(augCache)) return;
-    window.api.getAugmentData().then((d) => {
-      if (Object.keys(d).length > 0) augCache = d;
-      setData(d);
+    const cached = augCaches.get(key);
+    if (cached && Object.keys(cached).length > 0) {
+      setData(cached);
+      return;
+    }
+    setData({});
+    let promise = augPromises.get(key);
+    if (!promise) {
+      // Derived from key rather than patch so the effect depends on one value.
+      // "latest" is exactly what the main process substitutes for no patch.
+      promise = window.api.getAugmentData(key === "latest" ? undefined : key);
+      augPromises.set(key, promise);
+    }
+    let active = true;
+    promise.then((d) => {
+      if (Object.keys(d).length > 0) augCaches.set(key, d);
+      else augPromises.delete(key);
+      if (active) setData(d);
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [key]);
 
   return data;
 }

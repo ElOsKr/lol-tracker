@@ -232,6 +232,9 @@ export interface AugmentData {
     desc: string;
     iconPath: string;
     rarity: string;
+    // CommunityDragon branch this entry came from. iconPath is only valid
+    // against that branch, since paths move between patches.
+    branch: string;
   };
 }
 
@@ -542,7 +545,7 @@ export interface ElectronAPI {
   onBackfillDone: (result: (result: BackfillResult | { error: string }) => void) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
   getChampionData: () => Promise<ChampionData>;
-  getAugmentData: () => Promise<AugmentData>;
+  getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;

@@ -654,6 +654,50 @@ function handleFrame(win: BrowserWindow, payload: any): void {
   }
 }
 
+// The connection has no timeout of its own, and one that never opens and never
+// errors would leave the attach guard below set for the rest of the session —
+// which would then refuse every later attempt, taking the post-game capture and
+// the in-game status down with it.
+const EOG_ATTACH_TIMEOUT_MS = 15_000;
+
+function connectEogSocket(): Promise<LeagueWebSocket> {
+  const pending = createWebSocketConnection({
+    authenticationOptions: { windowsShell: "powershell" },
+    // The connect loop in startPolling is already the retry policy; a second
+    // one inside the socket would stack reconnect attempts on top of it.
+    maxRetries: 0,
+  });
+
+  return new Promise<LeagueWebSocket>((resolve, reject) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      settled = true;
+      // Abandoned rather than cancelled — a connection in flight can't be
+      // called off — so a socket that does open later still has to be closed,
+      // or it would sit there holding a subscription nothing reads.
+      pending.then((socket) => socket.close()).catch(() => {});
+      reject(new Error("Timed out connecting to the League client event socket"));
+    }, EOG_ATTACH_TIMEOUT_MS);
+    timer.unref?.();
+
+    pending.then(
+      (socket) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(socket);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function attachEogListener(win: BrowserWindow): Promise<void> {
   // The guard has to survive the await below, or a poll tick landing mid-attach
   // would open a second socket
@@ -667,12 +711,7 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
   eogAttaching = true;
 
   try {
-    const socket = await createWebSocketConnection({
-      authenticationOptions: { windowsShell: "powershell" },
-      // The connect loop in startPolling is already the retry policy; a second
-      // one inside the socket would stack reconnect attempts on top of it.
-      maxRetries: 0,
-    });
+    const socket = await connectEogSocket();
 
     // league-connect drops its own error handler once the socket is open, and
     // an emitter with no 'error' listener throws — which here would crash the
@@ -815,59 +854,89 @@ function restartConnectLoop(win: BrowserWindow) {
   startPolling(win, false);
 }
 
+const CONNECT_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 60_000;
+
+// A sync can outlast the tick that scheduled the next one — the first one after
+// a connect walks a whole history — and two of them racing would fetch and
+// insert the same games twice over.
+let syncing = false;
+
+// Everything the poll does on a tick, also used for the first pass right after
+// connecting. Errors are handled here rather than by the caller, so a failure
+// costs a reconnect instead of the timers that drive the app.
+async function pollTick(win: BrowserWindow) {
+  // A socket that dropped on its own doesn't fail the poll, so without this the
+  // instant capture would stay down for the rest of the session
+  if (!eogSocket) {
+    attachEogListener(win).catch(() => {
+      // Next tick tries again
+    });
+  }
+
+  // A manual backfill is already covering everything this would fetch
+  if (backfillRunning || syncing) return;
+
+  syncing = true;
+  try {
+    await syncGames(win);
+  } catch (err) {
+    console.log("Poll fetch error:", err);
+    // Lost connection, restart connect loop
+    restartConnectLoop(win);
+  } finally {
+    syncing = false;
+  }
+}
+
 export function startPolling(win: BrowserWindow, firstAttempt = true) {
   pollingStopped = false;
 
   // Show "connecting" only on the very first attempt after app launch
   setStatus(firstAttempt ? "connecting" : "disconnected", win);
 
+  // authenticate() shells out to PowerShell, which can take longer than a tick
+  // on a busy machine. Without this, the slow tick and the one behind it both
+  // go on to install a poll timer, and whichever loses the race runs on with
+  // nothing left holding a handle to cancel it.
+  let connecting = false;
+
   connectTimer = setInterval(async () => {
+    if (connecting) return;
+    connecting = true;
     try {
       await connect();
-      setStatus("connected", win);
-      if (connectTimer) {
-        clearInterval(connectTimer);
-        connectTimer = null;
-      }
-
-      // What actually makes a finished match show up right away. Not awaited:
-      // the sync below shouldn't wait on it, and a client that refuses the
-      // subscription should still get the polled path.
-      attachEogListener(win).catch((err) => {
-        console.log("Could not subscribe to post-game results:", err);
-      });
-
-      // Do initial fetch
-      await syncGames(win);
-
-      // Start polling for new games every 60s
-      pollTimer = setInterval(async () => {
-        // A socket that dropped on its own doesn't fail the poll, so without
-        // this the instant capture would stay down for the rest of the session
-        if (!eogSocket) {
-          attachEogListener(win).catch(() => {
-            // Next tick tries again
-          });
-        }
-
-        // A manual backfill is already covering everything this would fetch
-        if (backfillRunning) return;
-        try {
-          await syncGames(win);
-        } catch (err) {
-          console.log("Poll fetch error:", err);
-          // Lost connection, restart connect loop
-          restartConnectLoop(win);
-        }
-      }, 60000);
     } catch {
       // Client not found yet — after first attempt, show disconnected
       if (firstAttempt) {
         firstAttempt = false;
         setStatus("disconnected", win);
       }
+      return;
+    } finally {
+      connecting = false;
     }
-  }, 5000);
+
+    setStatus("connected", win);
+    if (connectTimer) {
+      clearInterval(connectTimer);
+      connectTimer = null;
+    }
+
+    // Installed before the first sync runs, never after. The client answers
+    // authenticate() from its command line the moment it starts, seconds before
+    // its HTTP server is listening, so the first sync of a session is the one
+    // most likely to fail — and a failure that happened before this line left
+    // the app with no connect timer and no poll timer at all: still showing
+    // "connected", never noticing another game, and never retrying the
+    // post-game socket, until it was restarted by hand.
+    pollTimer = setInterval(() => {
+      void pollTick(win);
+    }, POLL_INTERVAL_MS);
+
+    // Subscribes to the post-game results and does the initial fetch
+    void pollTick(win);
+  }, CONNECT_INTERVAL_MS);
 }
 
 export function stopPolling() {
