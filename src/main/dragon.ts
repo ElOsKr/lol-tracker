@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getDataDir } from "./paths";
+import augmentDescriptions from "./augment-descriptions.json";
 
 // Every one of these requests gates something the UI waits on: champion data
 // blocks dragon:champions, db:teammate-detail and data:repair-puuids, and a
@@ -89,6 +90,15 @@ const augmentPromises = new Map<string, Promise<Record<number, AugmentInfo>>>();
 const cherryAugmentsUrl = (branch: string) =>
   `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`;
 
+// Tooltip text, bundled rather than fetched: cherry-augments.json carries an
+// augment's name, rarity and art but no description at all, and the game data
+// that does is 44MB per patch. See scripts/generate-augment-descriptions.mjs.
+//
+// Unlike the rest of AugmentInfo, this is not patch-accurate — it's whatever
+// the text was when the generator last ran. That's the right trade for prose,
+// and the wrong one for a rarity ring, which is why only this field takes it.
+const descriptions: Record<string, string> = augmentDescriptions.descriptions;
+
 // cherry-augments.json is normally an array of augment objects, but has also
 // been served keyed by id.
 function parseAugments(data: any, branch: string): Record<number, AugmentInfo> {
@@ -99,7 +109,7 @@ function parseAugments(data: any, branch: string): Record<number, AugmentInfo> {
     if (!Number.isFinite(id)) continue;
     augments[id] = {
       name: aug.name || aug.nameTRA || `Augment ${id}`,
-      desc: aug.desc || aug.descriptionTRA || "",
+      desc: descriptions[String(id)] ?? "",
       iconPath: aug.augmentSmallIconPath || aug.iconSmall || aug.iconLarge || "",
       rarity: aug.rarity || "",
       branch,
@@ -153,7 +163,7 @@ export function loadAugmentData(patch?: string): Promise<Record<number, AugmentI
   return promise;
 }
 
-export type ItemInfo = { name: string; iconPath: string; branch: string };
+export type ItemInfo = { name: string; description: string; iconPath: string; branch: string };
 
 const itemCache = new Map<string, Record<number, ItemInfo>>();
 const itemPromises = new Map<string, Promise<Record<number, ItemInfo>>>();
@@ -204,7 +214,14 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
       const items: Record<number, ItemInfo> = {};
       if (Array.isArray(data)) {
         for (const item of data) {
-          items[item.id] = { name: item.name || "", iconPath: item.iconPath || "", branch };
+          items[item.id] = {
+            name: item.name || "",
+            // Riot ships this already resolved — no @Var@ placeholders to substitute,
+            // unlike the augment tooltips, which name their values indirectly.
+            description: item.description || "",
+            iconPath: item.iconPath || "",
+            branch,
+          };
         }
       }
       itemCache.set(key, items);

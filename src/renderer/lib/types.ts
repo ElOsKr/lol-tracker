@@ -241,6 +241,9 @@ export interface AugmentData {
 export interface ItemData {
   [id: number]: {
     name: string;
+    // Riot tooltip markup (<mainText>, <passive>, <magicDamage>…), already
+    // resolved — render it with RiotText, never as HTML.
+    description: string;
     iconPath: string;
     branch: string;
   };

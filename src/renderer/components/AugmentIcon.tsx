@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAugmentData } from "../hooks/useChampions";
 import { CDRAGON_ASSET_URL } from "../lib/constants";
+import HoverCard from "./HoverCard";
+import RiotText from "./RiotText";
 
 interface AugmentIconProps {
   augmentId: number;
@@ -105,35 +107,62 @@ export default function AugmentIcon({
   const nameColor = rarityTextColor[aug?.rarity ?? ""] || "text-lol-text-bright";
   const src = sources[attempt] ?? fallback;
 
+  const rarityLabel = getAugmentRarityLabel(aug?.rarity ?? "");
+
   return (
-    <div className="flex items-center gap-1.5 min-w-0" title={name}>
-      {src ? (
-        <img
-          key={src}
-          src={src}
-          alt={name}
-          width={size}
-          height={size}
-          className={`rounded shrink-0 ${borderClass}`}
-          onError={() => {
-            // Step down the live paths first, remembering the dead one so no
-            // other icon retries it; a failed fallback has nothing left to try,
-            // so drop to the placeholder.
-            if (attempt < sources.length) {
-              deadSources.add(sources[attempt]);
-              setAttempt((a) => a + 1);
-            } else setFallback(null);
-          }}
-        />
-      ) : (
-        // Keeps the rarity ring and the hover tooltip so an augment with no art
-        // anywhere still reads as an augment rather than a gap in the row.
-        <div
-          className={`rounded shrink-0 bg-white/5 border border-white/10 ${borderClass}`}
-          style={{ width: size, height: size }}
-        />
-      )}
-      {showName && <span className={`text-xs truncate ${nameColor}`}>{name}</span>}
-    </div>
+    <HoverCard
+      content={
+        aug ? (
+          <>
+            <div className="mb-1 flex items-baseline justify-between gap-2">
+              <span className={`font-semibold ${nameColor}`}>{name}</span>
+              {rarityLabel && (
+                <span className={`shrink-0 text-[10px] uppercase tracking-wide ${nameColor}`}>
+                  {rarityLabel}
+                </span>
+              )}
+            </div>
+            {aug.desc ? (
+              <RiotText markup={aug.desc} />
+            ) : (
+              // Two Mayhem augments have no entry in the game data the
+              // generator reads, and retired ones can outlive it.
+              <span className="italic text-lol-text/50">No description available.</span>
+            )}
+          </>
+        ) : null
+      }
+    >
+      {/* The native tooltip stays for the moment before augment data lands. */}
+      <div className="flex items-center gap-1.5 min-w-0" title={aug ? undefined : name}>
+        {src ? (
+          <img
+            key={src}
+            src={src}
+            alt={name}
+            width={size}
+            height={size}
+            className={`rounded shrink-0 ${borderClass}`}
+            onError={() => {
+              // Step down the live paths first, remembering the dead one so no
+              // other icon retries it; a failed fallback has nothing left to try,
+              // so drop to the placeholder.
+              if (attempt < sources.length) {
+                deadSources.add(sources[attempt]);
+                setAttempt((a) => a + 1);
+              } else setFallback(null);
+            }}
+          />
+        ) : (
+          // Keeps the rarity ring and the hover tooltip so an augment with no art
+          // anywhere still reads as an augment rather than a gap in the row.
+          <div
+            className={`rounded shrink-0 bg-white/5 border border-white/10 ${borderClass}`}
+            style={{ width: size, height: size }}
+          />
+        )}
+        {showName && <span className={`text-xs truncate ${nameColor}`}>{name}</span>}
+      </div>
+    </HoverCard>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useItemData } from "../hooks/useChampions";
 import { CDRAGON_ASSET_URL } from "../lib/constants";
+import HoverCard from "./HoverCard";
+import RiotText from "./RiotText";
 
 interface ItemIconProps {
   itemId: number;
@@ -49,15 +51,27 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
     );
   }
   return (
-    <img
-      key={src}
-      src={src}
-      alt=""
-      title={item?.name}
-      width={size}
-      height={size}
-      className="rounded"
-      onError={() => setAttempt((a) => a + 1)}
-    />
+    <HoverCard
+      content={
+        item?.name ? (
+          <>
+            <div className="mb-1 font-semibold text-lol-gold-light">{item.name}</div>
+            <RiotText markup={item.description} />
+          </>
+        ) : null
+      }
+    >
+      <img
+        key={src}
+        src={src}
+        alt=""
+        // No title= — the browser's own tooltip would surface a second later
+        // and sit on top of the card showing the same name.
+        width={size}
+        height={size}
+        className="rounded"
+        onError={() => setAttempt((a) => a + 1)}
+      />
+    </HoverCard>
   );
 }

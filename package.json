@@ -14,7 +14,8 @@
     "lint": "oxlint",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "gen:augments": "node scripts/generate-augment-descriptions.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
