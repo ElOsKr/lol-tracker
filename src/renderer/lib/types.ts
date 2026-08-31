@@ -193,6 +193,8 @@ export interface AugmentStatsDetailed {
 
 export interface DashboardData {
   totalGames: number;
+  // Seconds of game time across every counted game
+  totalDuration: number;
   wins: number;
   totalKills: number;
   totalDeaths: number;

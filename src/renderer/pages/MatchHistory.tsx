@@ -29,6 +29,7 @@ import WinRateBar from "../components/WinRateBar";
 import { ArrowDownIcon, StarIcon, SwordsIcon, ZapIcon } from "../components/icons";
 import {
   formatDuration,
+  formatPlaytime,
   formatTimeAgo,
   formatKDA,
   kdaRatio,
@@ -738,6 +739,7 @@ function ProfileCard({
               above only accounts for part of them */}
           <div className="text-[11px] text-lol-text truncate">
             {dashboard.totalGames} {dashboard.totalGames === 1 ? "game" : "games"}
+            {dashboard.totalDuration > 0 && ` · ${formatPlaytime(dashboard.totalDuration)} played`}
             {dashboard.accounts > 1 && ` · ${dashboard.accounts} accounts`}
           </div>
         </div>

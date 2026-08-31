@@ -20,6 +20,16 @@ export function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+// Long spans of accumulated game time, where minute precision only matters
+// until the hours pile up
+export function formatPlaytime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (hours === 0) return `${mins}m`;
+  if (hours >= 100) return `${hours.toLocaleString()}h`;
+  return `${hours}h ${mins}m`;
+}
+
 export function formatTimeAgo(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60000);

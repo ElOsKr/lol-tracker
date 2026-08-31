@@ -1513,6 +1513,7 @@ export function getDashboardData(filters?: {
   const totals = db
     .prepare(`
     SELECT COUNT(*) as totalGames,
+           SUM(g.game_duration) as totalDuration,
            SUM(ps.win) as wins,
            SUM(ps.kills) as totalKills,
            SUM(ps.deaths) as totalDeaths,
@@ -1579,6 +1580,7 @@ export function getDashboardData(filters?: {
 
   return {
     totalGames: totals.totalGames ?? 0,
+    totalDuration: totals.totalDuration ?? 0,
     wins: totals.wins ?? 0,
     totalKills: totals.totalKills ?? 0,
     totalDeaths: totals.totalDeaths ?? 0,
