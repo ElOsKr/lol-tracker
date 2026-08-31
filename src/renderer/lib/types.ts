@@ -191,6 +191,12 @@ export interface AugmentStatsDetailed {
   champions: { champion_id: number; picks: number; wins: number }[];
 }
 
+export interface AugmentStatsDetailedResult {
+  // Games matching the same filters, so pick rate has a real denominator
+  totalGames: number;
+  augments: AugmentStatsDetailed[];
+}
+
 export interface DashboardData {
   totalGames: number;
   // Seconds of game time across every counted game
@@ -513,7 +519,7 @@ export interface ElectronAPI {
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
   getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
-  getAugmentStatsDetailed: (patch?: string, queue?: number) => Promise<AugmentStatsDetailed[]>;
+  getAugmentStatsDetailed: (patch?: string, queue?: number) => Promise<AugmentStatsDetailedResult>;
   getDashboard: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<DashboardData>;

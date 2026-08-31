@@ -7,7 +7,7 @@ import {
   useAugmentData,
   getAugmentName,
 } from "../hooks/useChampions";
-import type { AugmentStatsDetailed } from "../lib/types";
+import type { AugmentStatsDetailedResult } from "../lib/types";
 import AugmentIcon from "../components/AugmentIcon";
 import ChampionIcon from "../components/ChampionIcon";
 import WinRateBar from "../components/WinRateBar";
@@ -50,7 +50,7 @@ export default function Augments() {
   const augmentData = useAugmentData();
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
   const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);
-  const { data, refetch } = useIpc<AugmentStatsDetailed[]>(
+  const { data, refetch } = useIpc<AugmentStatsDetailedResult>(
     () => window.api.getAugmentStatsDetailed(patch, queue),
     [patch, queue],
   );
@@ -65,11 +65,7 @@ export default function Augments() {
     return unsub;
   }, [refetch]);
 
-  const totalGames = useMemo(() => {
-    if (!data || data.length === 0) return 0;
-    const totalPicks = data.reduce((sum, a) => sum + a.picks, 0);
-    return Math.round(totalPicks / 4);
-  }, [data]);
+  const totalGames = data?.totalGames ?? 0;
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -91,7 +87,7 @@ export default function Augments() {
 
   const sorted = useMemo(() => {
     if (!data) return [];
-    let filtered = data.filter((a) => {
+    let filtered = data.augments.filter((a) => {
       const aug = augmentData[a.augment_id];
       const name = getAugmentName(augmentData, a.augment_id).toLowerCase();
       if (!name.includes(search.toLowerCase())) return false;

@@ -1607,11 +1607,14 @@ export function getAugmentStatsWithChampions(
   patch?: string,
   queue?: number,
 ): {
-  augment_id: number;
-  picks: number;
-  wins: number;
-  champions: { champion_id: number; picks: number; wins: number }[];
-}[] {
+  totalGames: number;
+  augments: {
+    augment_id: number;
+    picks: number;
+    wins: number;
+    champions: { champion_id: number; picks: number; wins: number }[];
+  }[];
+} {
   const where = ["g.is_remake = 0"];
   const params: any[] = [];
   if (patch) {
@@ -1651,10 +1654,26 @@ export function getAugmentStatsWithChampions(
       .push({ champion_id: row.champion_id, picks: row.picks, wins: row.wins });
   }
 
-  return augments.map((a) => ({
-    ...a,
-    champions: champMap.get(a.augment_id) ?? [],
-  }));
+  // Counted here rather than derived from the augment rows. Picks are slots,
+  // not games: a game carries up to AUGMENT_SLOTS of them and often fewer, so
+  // dividing picks by the slot count lands on neither number and disagrees
+  // with what the Champions tab sums for the same filters.
+  const { totalGames } = db
+    .prepare(`
+    SELECT COUNT(*) as totalGames
+    FROM player_stats ps
+    JOIN games g ON ps.game_id = g.game_id
+    WHERE ${where.join(" AND ")}
+  `)
+    .get(...params) as { totalGames: number };
+
+  return {
+    totalGames,
+    augments: augments.map((a) => ({
+      ...a,
+      champions: champMap.get(a.augment_id) ?? [],
+    })),
+  };
 }
 
 export function getChampionMatchHistory(
