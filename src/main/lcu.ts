@@ -11,9 +11,10 @@ import {
 import { BrowserWindow } from "electron";
 import * as db from "./db";
 import { MAYHEM_QUEUE_IDS } from "../shared/queues";
+import type { LcuStatus } from "../shared/api";
 
 let credentials: Credentials | null = null;
-let status: "disconnected" | "connecting" | "connected" | "ingame" = "disconnected";
+let status: LcuStatus = "disconnected";
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let connectTimer: ReturnType<typeof setInterval> | null = null;
 let pollingStopped = false;

@@ -1,27 +1,26 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type {
+  BackfillProgress,
+  BackfillResult,
+  ElectronAPI,
+  LcuStatus,
+  MatchFilters,
+} from "../shared/api";
 
-const api = {
-  getMatchHistory: (
-    limit: number,
-    offset: number,
-    filters?: {
-      championId?: number;
-      patch?: string;
-      queue?: number;
-      account?: string;
-      sort?: string;
-      sortDir?: string;
-      multikills?: string[];
-      favorites?: boolean;
-    },
-  ) => ipcRenderer.invoke("db:match-history", limit, offset, filters),
+// Annotated rather than inferred, so the compiler checks this object against
+// the contract the renderer calls through. Written freehand the two could
+// disagree silently, and the disagreement surfaces as a call failing at
+// runtime instead of as a build error.
+//
+// The annotation is also what gives call sites their return types: every
+// method here returns ipcRenderer.invoke(...), which is Promise<any>.
+const api: ElectronAPI = {
+  getMatchHistory: (limit: number, offset: number, filters?: MatchFilters) =>
+    ipcRenderer.invoke("db:match-history", limit, offset, filters),
 
-  getMatchFilterOptions: (filters?: {
-    championId?: number;
-    patch?: string;
-    queue?: number;
-    account?: string;
-  }) => ipcRenderer.invoke("db:match-filters", filters),
+  getMatchFilterOptions: (
+    filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
+  ) => ipcRenderer.invoke("db:match-filters", filters),
 
   getStoredQueues: () => ipcRenderer.invoke("db:stored-queues"),
 
@@ -38,12 +37,8 @@ const api = {
   getAugmentStatsDetailed: (patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:augment-stats-detailed", patch, queue),
 
-  getDashboard: (filters?: {
-    championId?: number;
-    patch?: string;
-    queue?: number;
-    account?: string;
-  }) => ipcRenderer.invoke("db:dashboard", filters),
+  getDashboard: (filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">) =>
+    ipcRenderer.invoke("db:dashboard", filters),
 
   getChampionMatchHistory: (
     championId: number,
@@ -61,17 +56,15 @@ const api = {
 
   isBackfillRunning: () => ipcRenderer.invoke("lcu:backfill-running"),
 
-  onBackfillDone: (callback: (result: any) => void) => {
-    const handler = (_event: any, result: any) => callback(result);
+  onBackfillDone: (callback: (result: BackfillResult | { error: string }) => void) => {
+    const handler = (_event: unknown, result: BackfillResult | { error: string }) =>
+      callback(result);
     ipcRenderer.on("lcu:backfill-done", handler);
     return () => ipcRenderer.removeListener("lcu:backfill-done", handler);
   },
 
-  onBackfillProgress: (
-    callback: (progress: { current: number; total: number; added: number }) => void,
-  ) => {
-    const handler = (_event: any, progress: { current: number; total: number; added: number }) =>
-      callback(progress);
+  onBackfillProgress: (callback: (progress: BackfillProgress) => void) => {
+    const handler = (_event: unknown, progress: BackfillProgress) => callback(progress);
     ipcRenderer.on("lcu:backfill-progress", handler);
     return () => ipcRenderer.removeListener("lcu:backfill-progress", handler);
   },
@@ -111,8 +104,8 @@ const api = {
 
   getProfile: () => ipcRenderer.invoke("db:profile"),
 
-  onStatusChanged: (callback: (status: string) => void) => {
-    const handler = (_event: any, status: string) => callback(status);
+  onStatusChanged: (callback: (status: LcuStatus) => void) => {
+    const handler = (_event: unknown, status: LcuStatus) => callback(status);
     ipcRenderer.on("lcu:status-changed", handler);
     return () => ipcRenderer.removeListener("lcu:status-changed", handler);
   },
@@ -152,7 +145,7 @@ const api = {
   downloadUpdate: (assetUrl: string) => ipcRenderer.invoke("app:download-update", assetUrl),
 
   onUpdateProgress: (callback: (percent: number) => void) => {
-    const handler = (_event: any, percent: number) => callback(percent);
+    const handler = (_event: unknown, percent: number) => callback(percent);
     ipcRenderer.on("update:progress", handler);
     return () => ipcRenderer.removeListener("update:progress", handler);
   },
@@ -168,7 +161,7 @@ const api = {
   isWindowMaximized: () => ipcRenderer.invoke("window:is-maximized"),
 
   onMaximizedChanged: (callback: (maximized: boolean) => void) => {
-    const handler = (_event: any, maximized: boolean) => callback(maximized);
+    const handler = (_event: unknown, maximized: boolean) => callback(maximized);
     ipcRenderer.on("window:maximized-changed", handler);
     return () => ipcRenderer.removeListener("window:maximized-changed", handler);
   },
