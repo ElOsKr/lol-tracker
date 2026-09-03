@@ -64,6 +64,7 @@ export default function Settings() {
   // Every queue with games stored, and the subset the user has switched off
   const [queues, setQueues] = useState<number[]>([]);
   const [hiddenQueues, setHiddenQueues] = useState<Set<number>>(new Set());
+  const [hideRemakes, setHideRemakes] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
   const [rememberFilters, setRememberFilters] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -83,13 +84,15 @@ export default function Settings() {
       window.api.isAutoStartSupported(),
       window.api.getSetting("minimize_to_tray"),
       window.api.getSetting("hidden_queues"),
+      window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-    ]).then(([startup, startupSupported, tray, hidden, backup, remember]) => {
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember]) => {
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
       setMinimizeToTray(tray !== "false");
       setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
+      setHideRemakes(remakes === "true");
       setAutoBackup(backup !== "false");
       setRememberFilters(remember === "true");
       setLoading(false);
@@ -132,6 +135,12 @@ export default function Settings() {
     },
     [hiddenQueues],
   );
+
+  const handleHideRemakesToggle = useCallback(async () => {
+    const next = !hideRemakes;
+    setHideRemakes(next);
+    await window.api.setSetting("hide_remakes", String(next));
+  }, [hideRemakes]);
 
   const handleAutoBackupToggle = useCallback(async () => {
     const next = !autoBackup;
@@ -316,6 +325,19 @@ export default function Settings() {
               </p>
             </div>
             <Switch checked={rememberFilters} onChange={handleRememberFiltersToggle} />
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-lol-text-bright">Hide remakes</p>
+              <p className="text-xs text-lol-text mt-0.5">
+                Leave remade games out of the match history. They are still recorded, and were never
+                counted toward your stats either way.
+              </p>
+            </div>
+            <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
           </div>
 
           {/* A single queue has nothing to choose between, so the whole block

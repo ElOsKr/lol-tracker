@@ -922,6 +922,12 @@ function applyQueueFilter(where: string[], params: any[], queue?: number, alias 
   }
 }
 
+// Remakes are already left out of every stat; this setting takes them out of
+// the match list as well. An absent key means they stay visible.
+function hideRemakes(): boolean {
+  return getSetting("hide_remakes") === "true";
+}
+
 // Score backfills are keyed on formula version + champion data version, so
 // stored scores recompute when either changes (new formula, new patch,
 // re-tagged champion).
@@ -1141,6 +1147,9 @@ export function getMatchHistory(
 ): { matches: any[]; total: number } {
   const where: string[] = [];
   const params: any[] = [];
+  if (hideRemakes()) {
+    where.push("g.is_remake = 0");
+  }
   if (filters?.favorites) {
     where.push("g.favorite = 1");
   }
