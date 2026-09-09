@@ -11,7 +11,8 @@ import {
 import { BrowserWindow } from "electron";
 import * as db from "./db";
 import { MAYHEM_QUEUE_IDS } from "../shared/queues";
-import type { LcuStatus } from "../shared/api";
+import { SGP_HISTORY_CAP } from "../shared/api";
+import type { BackfillLimit, LcuStatus } from "../shared/api";
 
 let credentials: Credentials | null = null;
 let status: LcuStatus = "disconnected";
@@ -125,11 +126,31 @@ const SGP_HOST_BY_REGION: Record<string, string> = {
   VN: SGP_HOSTS[3],
 };
 
-const SGP_PAGE_SIZE = 100;
+// The service clamps `count` to 200 rather than rejecting a larger one, so this
+// is the biggest page it will actually serve — asking for 1000 still gets 200.
+const SGP_PAGE_SIZE = 200;
+
+// Whether an account has more history than Riot's window holds. Asking just
+// inside the window costs one request and, unlike the walk itself, gives an
+// unambiguous answer: anything at all coming back means the account fills the
+// window. An account whose real history ends within a few games of the cap is
+// indistinguishable from a capped one, which is a harmless way to be wrong —
+// the message only says older games may not be available.
+const SGP_CAP_PROBE_INDEX = SGP_HISTORY_CAP - 10;
+
 // Safety bound only. Paging normally ends when the service returns a short
-// page; this just stops a runaway loop, and hitting it is reported rather than
-// silently trimming someone's history.
-const SGP_MAX_PAGES = 200;
+// page, and the window above puts that at five pages; this just stops a runaway
+// loop, with enough headroom that a raised cap would still be walked in full.
+// Hitting it is reported rather than silently trimming someone's history.
+const SGP_MAX_PAGES = 25;
+
+// Every match carries its queue in the service's own tag vocabulary, so the
+// filtering can happen there instead of here. Worth doing even though it
+// reaches no further back: without it the hydration loop below pays one LCU
+// request per game the account played in some other queue, only to throw it
+// away. OR because a game is in exactly one queue.
+const SGP_MAYHEM_TAGS = `${MAYHEM_QUEUE_IDS.map((id) => `tag=q_${id}`).join("&")}&tagsQueryType=OR`;
+const SGP_ALL_TAGS = "tagsQueryType=AND";
 
 // How many new games to accumulate before nudging the UI to re-query, so a long
 // import fills the app in as it runs instead of landing all at once.
@@ -157,10 +178,16 @@ function notifyGamesUpdated(win?: BrowserWindow | null) {
   }
 }
 
-function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: number) {
+function sgpMatchIdsUrl(
+  host: string,
+  puuid: string,
+  startIndex: number,
+  count: number,
+  tags: string = SGP_ALL_TAGS,
+) {
   return (
     `${host}/match-history-query/v1/products/lol/player/${puuid}` +
-    `?startIndex=${startIndex}&count=${count}&tagsQueryType=AND`
+    `?startIndex=${startIndex}&count=${count}&${tags}`
   );
 }
 
@@ -260,25 +287,35 @@ async function rehomeSgpHost(puuid: string, token: string, failed: string): Prom
   return host;
 }
 
+// Why a walk stopped. "exhausted" is the ambiguous one: the service ran out of
+// results, which is either the end of the account's history or the edge of
+// Riot's window, and the responses are identical. Only that case needs the
+// probe below to tell which.
+type WalkStop = "exhausted" | "known" | "page-limit";
+
 async function fetchAllMatchIds(
   host: string,
   puuid: string,
   token: string,
+  tags: string,
   stopAfterPage: (pageIds: number[]) => boolean,
-): Promise<{ ids: number[]; truncated: boolean }> {
+): Promise<{ ids: number[]; stoppedBy: WalkStop }> {
   const ids: number[] = [];
 
   for (let page = 0; page < SGP_MAX_PAGES; page++) {
-    const response = await fetch(sgpMatchIdsUrl(host, puuid, page * SGP_PAGE_SIZE, SGP_PAGE_SIZE), {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
-    });
+    const response = await fetch(
+      sgpMatchIdsUrl(host, puuid, page * SGP_PAGE_SIZE, SGP_PAGE_SIZE, tags),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
+      },
+    );
     if (!response.ok) {
       throw new SgpHttpError(response.status);
     }
 
     const body = await response.json();
-    if (!Array.isArray(body) || body.length === 0) return { ids, truncated: false };
+    if (!Array.isArray(body) || body.length === 0) return { ids, stoppedBy: "exhausted" };
 
     // Ids arrive platform-prefixed, e.g. "NA1_5616465966"
     const pageIds: number[] = [];
@@ -288,12 +325,50 @@ async function fetchAllMatchIds(
     }
     ids.push(...pageIds);
 
-    // A short page means we've reached the end of the account's history
-    if (body.length < SGP_PAGE_SIZE) return { ids, truncated: false };
-    if (stopAfterPage(pageIds)) return { ids, truncated: false };
+    // A short page means the service has no more to give
+    if (body.length < SGP_PAGE_SIZE) return { ids, stoppedBy: "exhausted" };
+    if (stopAfterPage(pageIds)) return { ids, stoppedBy: "known" };
   }
 
-  return { ids, truncated: true };
+  return { ids, stoppedBy: "page-limit" };
+}
+
+async function sgpPageLength(
+  host: string,
+  puuid: string,
+  token: string,
+  startIndex: number,
+): Promise<number | null> {
+  try {
+    const response = await fetch(sgpMatchIdsUrl(host, puuid, startIndex, SGP_PAGE_SIZE), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return Array.isArray(body) ? body.length : null;
+  } catch {
+    return null;
+  }
+}
+
+// Both probes are deliberately unfiltered: the window is applied to games of
+// every queue before any tag filter narrows the result, so a filtered walk's
+// own length says nothing about whether it was cut short.
+//
+// Rather than assume the wall is where it was last measured, this confirms it:
+// history right up to the cap and nothing at all past it is the shape only a
+// hard stop produces. Checking both sides matters if Riot ever moves the cap —
+// finding games beyond it means the account was not truncated at 1000, and
+// claiming otherwise would tell someone their history was lost when it wasn't.
+// Either probe failing answers no, since a cap that could not be confirmed is
+// not one worth reporting.
+async function isHistoryWindowFull(host: string, puuid: string, token: string): Promise<boolean> {
+  const insideWindow = await sgpPageLength(host, puuid, token, SGP_CAP_PROBE_INDEX);
+  if (!insideWindow) return false;
+
+  const pastWindow = await sgpPageLength(host, puuid, token, SGP_HISTORY_CAP);
+  return pastWindow === 0;
 }
 
 export function cancelBackfill(): void {
@@ -309,7 +384,7 @@ export type BackfillResult = {
   scanned: number;
   checked: number;
   totalGames: number;
-  truncated: boolean;
+  limit: BackfillLimit;
   cancelled: boolean;
 };
 
@@ -338,31 +413,59 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
     const completedKey = `backfill_complete_${summoner.puuid}`;
     const walkedBefore = db.getSetting(completedKey) === "1";
 
-    const walk = (from: string) =>
+    const walk = (from: string, tags: string) =>
       fetchAllMatchIds(
         from,
         summoner.puuid,
         token,
+        tags,
         (pageIds) => walkedBefore && pageIds.every((id) => known.has(id)),
       );
 
-    let walked: { ids: number[]; truncated: boolean };
+    let activeHost = host;
+    let walked: { ids: number[]; stoppedBy: WalkStop };
     try {
-      walked = await walk(host);
+      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
     } catch (err) {
       // The remembered shard may simply be the wrong one now. Find the right
       // one and restart the walk there; if none answers, the original failure
       // is the honest one to report.
       if (!(err instanceof SgpHttpError) || !SGP_REHOME_STATUSES.has(err.status)) throw err;
-      const rehomed = await rehomeSgpHost(summoner.puuid, token, host);
+      const rehomed = await rehomeSgpHost(summoner.puuid, token, activeHost);
       if (!rehomed) throw err;
-      walked = await walk(rehomed);
+      activeHost = rehomed;
+      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
     }
-    const { ids, truncated } = walked;
 
-    if (truncated) {
+    // The queue filter is Riot's vocabulary, not ours, and a filtered walk that
+    // came back with nothing looks identical whether the account has no Mayhem
+    // games or the tag names changed under us. Only one of those is worth
+    // being wrong about, so confirm it the slow way before believing it.
+    if (walked.ids.length === 0) {
+      walked = await walk(activeHost, SGP_ALL_TAGS);
+    }
+
+    const { ids, stoppedBy } = walked;
+
+    // A walk that stopped on known games or on our own page bound says nothing
+    // about Riot's window, and probing for it would be a wasted request.
+    let limit: BackfillLimit = null;
+    if (stoppedBy === "page-limit") {
+      limit = "paging";
+    } else if (
+      stoppedBy === "exhausted" &&
+      (await isHistoryWindowFull(activeHost, summoner.puuid, token))
+    ) {
+      limit = "service";
+    }
+
+    if (limit === "paging") {
       console.warn(
         `Backfill stopped at the ${SGP_MAX_PAGES}-page limit (${ids.length} games); older games were not checked`,
+      );
+    } else if (limit === "service") {
+      console.log(
+        `Riot's ${SGP_HISTORY_CAP}-match window is full for this account; nothing older than the ${ids.length} games found can be fetched`,
       );
     }
 
@@ -410,7 +513,11 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
     // Only claim the account is fully walked once every id has actually been
     // resolved. Marking it earlier would let a later run early-exit on the first
     // fully-known page and never reach the older games we skipped.
-    if (!truncated && !cancelled) {
+    //
+    // Running into Riot's window still counts as walked: it is as deep as the
+    // account will ever go, so there is nothing to come back for, and refusing
+    // to mark it would re-walk the same window on every launch forever.
+    if (limit !== "paging" && !cancelled) {
       db.setSetting(completedKey, "1");
     } else {
       // Neither outcome sets the completion flag, so without this the poll would
@@ -427,7 +534,7 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
       scanned: ids.length,
       checked: pending.length,
       totalGames: dashboard.totalGames,
-      truncated,
+      limit,
       cancelled,
     };
 
