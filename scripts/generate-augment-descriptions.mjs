@@ -1,5 +1,6 @@
 // Regenerates src/main/augment-descriptions.json, the Mayhem augment tooltip
-// text bundled into the main process.
+// text bundled into the main process, and src/renderer/texticons.json, the
+// inline stat glyphs that text refers to.
 //
 // Run it when augments change:  npm run gen:augments
 //
@@ -28,6 +29,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "src", "main", "augment-descriptions.json");
+const ICONS_OUT = path.join(ROOT, "src", "renderer", "texticons.json");
 const CDRAGON = "https://raw.communitydragon.org";
 
 // A branch only ships the augments in its own rotation, so "latest" alone
@@ -90,27 +92,43 @@ function constantCalculation(calc) {
 // Everything an augment's description can refer to, in the order the game
 // resolves it: the spell's own data values first, then its calculations, then
 // the handful of scalar spell fields that get named directly.
+//
+// Entries are { value, percent }: a GameCalculation can be flagged
+// mDisplayAsPercent, meaning the game prints 0.3 as "30%" and the loc string
+// says plain "@SpinDamageAmp@" rather than the usual "@SpinDamageAmp*100@%".
 function valuesFor(augment, bin) {
   const values = new Map();
   const spells = [augment.RootSpell, ...(augment.AdditionalSpells ?? [])].filter(Boolean);
+  const put = (name, value, percent) => {
+    const key = String(name).toLowerCase();
+    if (!values.has(key)) values.set(key, { value, percent });
+  };
   for (const spellPath of spells) {
     const spell = bin[spellPath]?.mSpell;
     if (!spell) continue;
     for (const value of spell.DataValues ?? []) {
-      if (!values.has(String(value.name).toLowerCase())) {
-        values.set(String(value.name).toLowerCase(), value.values?.[0]);
-      }
+      put(value.name, value.values?.[0], false);
     }
     for (const [name, calc] of Object.entries(spell.mSpellCalculations ?? {})) {
       const constant = constantCalculation(calc);
-      if (constant !== undefined && !values.has(name.toLowerCase())) {
-        values.set(name.toLowerCase(), constant);
-      }
+      if (constant !== undefined) put(name, constant, calc?.mDisplayAsPercent === true);
     }
     const cooldown = spell.Cooldown ?? spell.cooldownTime;
-    if (typeof cooldown === "number" && !values.has("cooldown")) values.set("cooldown", cooldown);
+    if (typeof cooldown === "number") put("cooldown", cooldown, false);
   }
   return values;
+}
+
+// The bin export only keeps a field name when it is in Riot's known-hashes
+// list; everything else survives as "{90a024ae}", the FNV-1a 32 of the
+// lowercased name. Hashing the name a placeholder asks for recovers the match —
+// SpinDamageAmp_Ult on 16.18 is one such calculation.
+function binHash(name) {
+  let hash = 0x811c9dc5;
+  for (const char of name.toLowerCase()) {
+    hash = (Math.imul(hash ^ char.charCodeAt(0), 0x01000193) >>> 0) >>> 0;
+  }
+  return `{${hash.toString(16).padStart(8, "0")}}`;
 }
 
 function formatNumber(value) {
@@ -142,7 +160,8 @@ const PLACEHOLDER = /@([A-Za-z_][\w.]*)\s*(?:([*/])\s*([\d.]+))?@/g;
 function substitute(text, values) {
   let unresolved = 0;
   const filled = text.replace(PLACEHOLDER, (whole, name, operator, operand) => {
-    const base = values.get(name.toLowerCase());
+    const entry = values.get(name.toLowerCase()) ?? values.get(binHash(name));
+    const base = entry?.value;
     if (typeof base !== "number") {
       unresolved++;
       // Riot's own item descriptions ship with the number simply missing when
@@ -150,12 +169,99 @@ function substitute(text, values) {
       // rather than leaving @Placeholder@ on screen.
       return "";
     }
+    // An explicit operator means the string is doing the scaling itself and
+    // supplying its own "%", so it wins over the calculation's percent flag.
     if (operator === "*") return formatNumber(base * Number(operand));
     if (operator === "/") return formatNumber(base / Number(operand));
-    return formatNumber(base);
+    return entry.percent ? `${formatNumber(base * 100)}%` : formatNumber(base);
   });
-  // A dropped placeholder leaves the spaces that surrounded it behind.
-  return { text: filled.replace(/ {2,}/g, " ").replace(/ ([.,%])/g, "$1"), unresolved };
+  // A dropped placeholder leaves the spaces that surrounded it behind, and the
+  // punctuation that followed it stranded after one of them. "%i:scaleAH%" is
+  // an icon marker rather than a percent sign trailing a number, so the space
+  // in front of that one is Riot's own and has to survive.
+  const tidied = filled
+    .replace(/ {2,}/g, " ")
+    .replace(/ ([.,])/g, "$1")
+    .replace(/ %(?!i:)/g, "%");
+  return { text: tidied, unresolved };
+}
+
+// Several strings end with the <br><br> that separated them from a section the
+// export doesn't carry, which would render as empty space under the tooltip.
+const EDGE_BREAKS = /^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi;
+
+function trimBreaks(text) {
+  return text.replace(EDGE_BREAKS, "");
+}
+
+// Inline icons
+//
+// "%i:scaleAH%" asks the game's text renderer to draw a stat glyph mid-sentence.
+// Riot keeps them as one 20x20 PNG per name under texticons/, addressed by the
+// marker name lowercased, so the marker resolves to a file without a mapping
+// table — only the category folder has to be searched for.
+//
+// They are a few hundred bytes each and the whole set the augments use is about
+// 6KB, so they are inlined as data URIs and bundled rather than fetched: an
+// icon sitting inside a sentence has nothing sensible to show while a request
+// is in flight. Only the markers the descriptions actually use are downloaded;
+// a marker Riot introduces next patch renders as nothing until this runs again,
+// the same way RiotText already drops tags it doesn't know.
+const TEXTICONS = `${CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/default/assets/ux/fonts/texticons/lol`;
+const ICON_CATEGORIES = ["statsicon", "gameplay", "champion", "challenges", "ranks"];
+const ICON_MARKER = /%i:([A-Za-z0-9_]+)%/g;
+
+async function listIconCategory(category) {
+  try {
+    const listing = await fetchJson(
+      `${CDRAGON}/json/latest/plugins/rcp-be-lol-game-data/global/default/assets/ux/fonts/texticons/lol/${category}/`,
+      `texticons/${category}`,
+    );
+    return (Array.isArray(listing) ? listing : [])
+      .map((entry) => String(entry?.name ?? ""))
+      .filter((name) => name.endsWith(".png"));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchIcons(descriptions) {
+  const wanted = new Set();
+  for (const text of Object.values(descriptions)) {
+    for (const [, name] of text.matchAll(ICON_MARKER)) wanted.add(name.toLowerCase());
+  }
+  if (wanted.size === 0) return {};
+
+  // One listing per category beats probing every name against every folder.
+  const where = new Map();
+  for (const category of ICON_CATEGORIES) {
+    for (const file of await listIconCategory(category)) {
+      const name = file.slice(0, -4).toLowerCase();
+      if (!where.has(name)) where.set(name, `${category}/${file}`);
+    }
+  }
+
+  const icons = {};
+  const missing = [];
+  for (const name of [...wanted].sort()) {
+    const at = where.get(name);
+    if (!at) {
+      missing.push(name);
+      continue;
+    }
+    const res = await fetch(`${TEXTICONS}/${at}`, {
+      headers: { "User-Agent": "MayhemTracker-build/1.0" },
+    });
+    if (!res.ok) {
+      missing.push(name);
+      continue;
+    }
+    const bytes = Buffer.from(await res.arrayBuffer());
+    icons[name] = `data:image/png;base64,${bytes.toString("base64")}`;
+  }
+  console.log(`\n  inline icons:          ${Object.keys(icons).length}/${wanted.size} resolved`);
+  if (missing.length) console.log(`  no texticon for:       ${missing.join(", ")}`);
+  return icons;
 }
 
 // Any @Placeholder@ the regex above didn't recognise at all — a name with an
@@ -213,7 +319,7 @@ async function main() {
         expandReferences(raw, strings),
         valuesFor(augment, bin),
       );
-      const cleaned = text.replace(ANY_PLACEHOLDER, "").trim();
+      const cleaned = trimBreaks(text.replace(ANY_PLACEHOLDER, ""));
       if (!cleaned) continue;
       if (unresolved || ANY_PLACEHOLDER.test(text)) partial++;
       descriptions[id] = cleaned;
@@ -255,9 +361,15 @@ async function main() {
   console.log(`  Mayhem augments:       ${covered}/${wanted.size} covered`);
   console.log(`  missing a value:       ${partial}`);
   if (unresolvedKeys.size) console.log(`  loc keys with no text: ${unresolvedKeys.size}`);
-  console.log(
-    `\nWrote ${path.relative(ROOT, OUT)} (${(fs.statSync(OUT).size / 1024).toFixed(0)}KB)`,
-  );
+
+  const icons = await fetchIcons(descriptions);
+  fs.writeFileSync(ICONS_OUT, JSON.stringify(icons, null, 2) + "\n");
+
+  for (const out of [OUT, ICONS_OUT]) {
+    console.log(
+      `\nWrote ${path.relative(ROOT, out)} (${(fs.statSync(out).size / 1024).toFixed(0)}KB)`,
+    );
+  }
 }
 
 async function resolveLivePatch() {
