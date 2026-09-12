@@ -1,3 +1,4 @@
+import type { WidgetPreferences, WidgetState } from "./widget";
 // The IPC contract: every shape that crosses the preload bridge, and the
 // ElectronAPI interface the bridge is checked against. It lives in shared/ so
 // src/preload can import it without the bridge depending on the display layer.
@@ -512,6 +513,10 @@ export interface RecoveryReport {
 }
 
 export interface ElectronAPI {
+  getWidgetState(): Promise<WidgetState>;
+  openWidget(): Promise<WidgetState>;
+  setWidgetPreferences(value: WidgetPreferences): Promise<WidgetState>;
+  setObsEnabled(enabled: boolean): Promise<WidgetState>;
   getMatchHistory: (
     limit: number,
     offset: number,

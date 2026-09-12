@@ -15,6 +15,10 @@ import type {
 // The annotation is also what gives call sites their return types: every
 // method here returns ipcRenderer.invoke(...), which is Promise<any>.
 const api: ElectronAPI = {
+  getWidgetState: () => ipcRenderer.invoke("widget:state"),
+  openWidget: () => ipcRenderer.invoke("widget:open"),
+  setWidgetPreferences: (value) => ipcRenderer.invoke("widget:preferences", value),
+  setObsEnabled: (enabled) => ipcRenderer.invoke("widget:obs", enabled),
   getMatchHistory: (limit: number, offset: number, filters?: MatchFilters) =>
     ipcRenderer.invoke("db:match-history", limit, offset, filters),
 

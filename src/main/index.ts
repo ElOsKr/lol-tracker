@@ -9,6 +9,8 @@ import { applySecurityPolicy } from "./security";
 import { ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 
+import { openWidget, registerWidgetHandlers, stopWidget } from "./widget";
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
@@ -121,6 +123,7 @@ function createTray() {
         mainWindow?.focus();
       },
     },
+    { label: "Abrir widget", click: openWidget },
     { type: "separator" },
     {
       label: "Quit",
@@ -175,6 +178,7 @@ app.whenReady().then(async () => {
   // Registered once, outside createWindow: ipcMain.handle throws if the same
   // channel is claimed twice, which a second createWindow would have done.
   registerIpcHandlers();
+  registerWidgetHandlers(() => mainWindow);
 
   const win = createWindow();
   createTray();
@@ -215,6 +219,7 @@ app.on("before-quit", async (event) => {
 // whatever it found by the time the database closes.
 app.on("will-quit", () => {
   stopBackupSchedule();
+  stopWidget();
   closeDatabase();
 });
 

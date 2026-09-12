@@ -12,10 +12,15 @@
     "dist": "electron-vite build && electron-builder --win",
     "preversion": "npm run typecheck && npm run lint && npm run format:check && npm run build",
     "lint": "oxlint",
-    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit && tsc -p tsconfig.widget.json --noEmit",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "gen:augments": "node scripts/generate-augment-descriptions.mjs"
+    "gen:augments": "node scripts/generate-augment-descriptions.mjs",
+    "build:widget": "tsc -p tsconfig.widget.json",
+    "predev": "npm run build:widget",
+    "prebuild": "npm run build:widget",
+    "predist": "npm run build:widget",
+    "test:widget": "npm run build:widget && node --test tests/widget.test.cjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
@@ -51,7 +56,8 @@
     "files": [
       "out/**/*",
       "assets/icon.png",
-      "node_modules/better-sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*",
+      "public-widget/**/*"
     ],
     "win": {
       "target": "portable",

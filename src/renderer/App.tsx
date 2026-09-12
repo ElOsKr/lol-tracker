@@ -1,3 +1,4 @@
+import WidgetSettings from "./pages/WidgetSettings";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import MatchHistory from "./pages/MatchHistory";
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/records" element={<Records />} />
           <Route path="/global" element={<GlobalStats />} />
           <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
+          <Route path="/widget" element={<WidgetSettings />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

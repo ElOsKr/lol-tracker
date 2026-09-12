@@ -26,6 +26,7 @@ const links: { to: string; label: string; icon: IconComponent }[] = [
   { to: "/friends", label: "Friends", icon: UsersIcon },
   { to: "/trends", label: "Trends", icon: TrendingUpIcon },
   { to: "/records", label: "Records", icon: MedalIcon },
+  { to: "/widget", label: "Widget / OBS", icon: HourglassIcon },
   { to: "/global", label: "Total Stats", icon: GlobeIcon },
 ];
 

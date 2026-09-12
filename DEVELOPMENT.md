@@ -56,3 +56,17 @@ En desarrollo, los datos se guardan en `data/` y las copias en `backups/`, ambos
 - No existe un script test en package.json.
 
 Los scripts existentes se conservan sin cambios. Para futuros cambios de código, ejecutar typecheck, lint, format:check y build; añadir validación funcional específica cuando se implemente el alcance.
+
+## Widget integrado
+
+En la aplicación, abre **Widget / OBS**. Elige una cuenta y una cola del historial almacenado. **Abrir widget** crea una ventana transparente de 360 × 560, siempre encima; arrastra su cabecera para moverla. Cerrar esa ventana no cierra la aplicación. También se abre desde el menú de la bandeja.
+
+La ventana usa IPC de Electron y la misma base SQLite y capturador que la aplicación. No inicia el servidor del widget antiguo ni importa automáticamente su JSON: ese proyecto y sus datos se conservan por separado. El alcance de captura actual sigue siendo ARAM Caos.
+
+**Activar fuente OBS** inicia un servidor exclusivamente en 127.0.0.1:4123. Pega la URL mostrada en una fuente Navegador de OBS (360 × 560). No hace falta configurar el router. Si el puerto está ocupado, cierra el widget antiguo antes de reintentar. **Detener fuente OBS** o salir de la aplicación cierra el servidor. Ocultar la ventana principal en la bandeja mantiene el widget y OBS funcionando. La fuente OBS se activa manualmente en cada arranque.
+
+El porcentaje refleja las partidas almacenadas de la selección, sin remakes. La racha se calcula sobre hasta 100 partidas recientes; si puede continuar más atrás se indica con puntos suspensivos. El widget muestra 15 partidas y refresca la instantánea cada cinco segundos. Al desconectar LoL conserva los datos disponibles. Los iconos se cargan en segundo plano por parche.
+
+Validación automatizada: npm run test:widget. Incluye servidor local, rutas permitidas, Host/Origin, puerto ocupado, cierre, filtros y estadísticas. Los scripts predev/prebuild/predist compilan la interfaz del widget; los archivos generados public-widget/build están excluidos de Git.
+
+Validación de integración (2026-09-11): typecheck, lint, format:check, build y tres pruebas del widget correctos. Rebuild nativo y arranque Electron comprobados; conexión LCU e historial real disponibles. Probados apertura, cierre y reapertura del widget y activación/desactivación HTTP de OBS. El cierre oculta y reutiliza la ventana: destruirla durante las pruebas de interfaz provocó un fallo nativo de Electron en Windows. La prueba dentro de OBS y el empaquetado portable quedan pendientes. La integración se desarrolla en feat/widget-integration. La altura (280–560 px) y la opacidad (30–100 %) del escritorio se guardan automáticamente; ancho fijo de 360 px. Estos últimos controles tienen validación automatizada, con comprobación visual pendiente. Para cargar cambios del proceso principal, usar Quit en la bandeja y volver a abrir la app; la X solo la oculta.

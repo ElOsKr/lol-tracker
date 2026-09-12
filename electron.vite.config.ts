@@ -60,6 +60,11 @@ export default defineConfig({
     },
   },
   preload: {
+    build: {
+      rollupOptions: {
+        input: { index: resolve("src/preload/index.ts"), widget: resolve("src/preload/widget.ts") },
+      },
+    },
     plugins: [externalizeDepsPlugin()],
   },
   renderer: {

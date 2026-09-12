@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self'; object-src 'none'"
+    />
+    <title>League Companion Widget</title>
+    <link rel="stylesheet" href="./widget.css" />
+  </head>
+  <body>
+    <div id="widget">
+      <!-- Contenedor superior con el nombre adentro -->
+      <div id="streak-container">
+        <div id="window-controls">
+          <button id="minimize-btn" title="Minimizar">-</button>
+          <button id="close-btn" title="Cerrar">×</button>
+        </div>
+        <div id="summoner-name">Invocador</div>
+        <div class="streak-content">
+          <div>Racha: <span id="streak-count" class="streak-val streak-neutral">0</span></div>
+          <div id="winrate-box">
+            Winrate · <span id="winrate-count">0%</span>
+            <span class="record"
+              ><span id="record-wins">0W</span> · <span id="record-losses">0L</span> ·
+              <span id="total-matches-count">0 part.</span></span
+            >
+          </div>
+        </div>
+      </div>
+
+      <div id="connection-status" role="status"></div>
+      <div id="matches-container">
+        <div class="no-matches">Cargando historial...</div>
+      </div>
+    </div>
+
+    <script type="module" src="./build/widget/widget.js"></script>
+  </body>
+</html>

@@ -4,7 +4,7 @@
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-08): organización y preparación. No implementar funcionalidades hasta una nueva petición del usuario.
+- Fase actual (2026-09-10): integración del widget autorizada por el usuario. El soporte de nuevas colas LoL y TFT sigue pendiente.
 - League Companion es el nombre de trabajo. La identidad técnica del paquete, ejecutable y actualizador sigue siendo la de Mayhem Tracker; su adaptación queda pendiente.
 - Conservar la licencia MIT y la atribución originales.
 
@@ -44,6 +44,6 @@
 - Usar npm y `package-lock.json`. Entorno de referencia: Node 24, como en CI.
 - Consultar `DEVELOPMENT.md` para instalación, arranque, compilación y límites de la validación.
 - Controles existentes: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`.
-- No hay script `test`; no inventar resultados de pruebas. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
+- `npm run test:widget` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
 - Evitar `npm run format` sobre todo el proyecto para un cambio localizado. No actualizar dependencias ni regenerar recursos por rutina.
 - Revisar identidad y destino del actualizador antes de una futura distribución de League Companion.
