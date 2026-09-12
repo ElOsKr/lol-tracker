@@ -31,6 +31,9 @@ const root = path.resolve(__dirname, "../public-widget");
 
 test("closing the desktop widget hides it, reopening reuses it, shutdown destroys it", async () => {
   const events = new Map();
+  const handlers = new Map();
+  const settings = new Map();
+  const main = { webContents: { mainFrame: {} } };
   const windows = [];
   class Window extends EventEmitter {
     constructor() {
@@ -81,10 +84,11 @@ test("closing the desktop widget hides it, reopening reuses it, shutdown destroy
     electron: {
       app: { getAppPath: () => root },
       BrowserWindow: Window,
-      ipcMain: { handle: () => {}, on: (key, fn) => events.set(key, fn) },
+      ipcMain: { handle: (key, fn) => handlers.set(key, fn), on: (key, fn) => events.set(key, fn) },
     },
     "./db": {
-      getSetting: () => null,
+      getSetting: (key) => settings.get(key) ?? null,
+      setSetting: (key, value) => settings.set(key, value),
       getSummoner: () => null,
       getMatchFilterOptions: () => ({ accounts: [] }),
     },
@@ -92,12 +96,20 @@ test("closing the desktop widget hides it, reopening reuses it, shutdown destroy
     "./dragon": {},
     "./widget-server": { startWidgetServer },
   });
-  widget.registerWidgetHandlers(() => null);
+  widget.registerWidgetHandlers(() => main);
   widget.openWidget();
   await Promise.resolve();
   const win = windows[0];
+  assert.equal(win.opacity, 1);
+  const event = { sender: main.webContents, senderFrame: main.webContents.mainFrame };
+  handlers.get("widget:preferences")(event, { account: "", queue: null, height: 280, opacity: 30 });
+  assert.deepEqual(win.size, [360, 280]);
+  assert.equal(win.opacity, 0.3);
+  assert.equal(handlers.get("widget:state")(event).preferences.height, 280);
   events.get("widget:close")({ sender: {}, senderFrame: {} });
   assert.equal(win.visible, true);
+  assert.deepEqual(win.size, [360, 280]);
+  assert.equal(win.opacity, 0.3);
   events.get("widget:close")({ sender: win.webContents, senderFrame: win.webContents.mainFrame });
   await new Promise(setImmediate);
   assert.equal(win.visible, false);
