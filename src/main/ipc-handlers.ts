@@ -130,7 +130,7 @@ export function registerIpcHandlers() {
     // Return errors as data instead of throwing, so the renderer gets a clean
     // message rather than Electron's "Error invoking remote method" wrapper
     try {
-      return await lcu.fetchNewGames(senderWindow(event));
+      return await lcu.syncRecentGames(senderWindow(event));
     } catch (err) {
       return { error: lcu.friendlyErrorMessage(err) };
     }
@@ -138,7 +138,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("lcu:backfill", async (event) => {
     try {
-      return await lcu.backfillHistory(senderWindow(event));
+      // Asked for by hand, so it checks everything Riot still has rather than
+      // stopping at the newest page it recognises. Someone reaching for this
+      // button is looking for games the ordinary sync didn't find.
+      return await lcu.backfillHistory(senderWindow(event), { full: true });
     } catch (err) {
       return { error: lcu.friendlyErrorMessage(err) };
     }

@@ -1817,6 +1817,17 @@ export function getKnownGameIds(): Set<number> {
   return new Set(rows.map((r) => r.game_id));
 }
 
+// The single-id form of the above, for the recent-games sync: it looks at
+// twenty ids a minute, so the per-id query is the cheaper of the two.
+export function isGameKnown(gameId: number): boolean {
+  const row = db
+    .prepare(
+      "SELECT 1 FROM games WHERE game_id = ? UNION ALL SELECT 1 FROM ignored_games WHERE game_id = ? LIMIT 1",
+    )
+    .get(gameId, gameId);
+  return !!row;
+}
+
 export function markIgnoredGame(gameId: number): void {
   db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)").run(gameId);
 }
