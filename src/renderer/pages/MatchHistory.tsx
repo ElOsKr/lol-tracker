@@ -38,6 +38,7 @@ import {
 } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
+import { sessionDay } from "../../shared/session";
 
 // An empty list means something different depending on whether we're still
 // waiting on the client, mid-import, or genuinely out of games.
@@ -69,18 +70,6 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
 ];
 
 const SELECT_CLASS = "select";
-
-// A session is a day of play, but the day doesn't end at midnight: games before
-// this hour belong to the night that started the evening before.
-const DAY_START_HOUR = 5;
-
-// Local midnight of the session day a game belongs to.
-function sessionDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(d.getHours() - DAY_START_HOUR);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
 
 interface Session {
   key: number;

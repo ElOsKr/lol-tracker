@@ -4,6 +4,7 @@ import type {
   BackfillResult,
   ElectronAPI,
   LcuStatus,
+  LiveGameSnapshot,
   MatchFilters,
 } from "../shared/api";
 
@@ -94,6 +95,16 @@ const api: ElectronAPI = {
   getTrends: (queue?: number) => ipcRenderer.invoke("db:trends", queue),
 
   getRecords: (queue?: number) => ipcRenderer.invoke("db:records", queue),
+
+  getLiveGame: () => ipcRenderer.invoke("live:snapshot"),
+
+  onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => {
+    const handler = (_event: unknown, snapshot: LiveGameSnapshot) => callback(snapshot);
+    ipcRenderer.on("live:changed", handler);
+    return () => ipcRenderer.removeListener("live:changed", handler);
+  },
+
+  getGameRecap: (gameId?: number) => ipcRenderer.invoke("db:game-recap", gameId),
 
   getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),

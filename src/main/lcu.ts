@@ -20,10 +20,29 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 let connectTimer: ReturnType<typeof setInterval> | null = null;
 let pollingStopped = false;
 
+// Anything in the main process that has to react to the client entering or
+// leaving a match subscribes here. Registered once at startup and never
+// removed, so there is nothing to unsubscribe.
+type StatusListener = (status: LcuStatus) => void;
+const statusListeners = new Set<StatusListener>();
+
+export function onLcuStatusChange(listener: StatusListener) {
+  statusListeners.add(listener);
+}
+
 function setStatus(newStatus: typeof status, win?: BrowserWindow | null) {
+  const changed = status !== newStatus;
   status = newStatus;
   if (win && !win.isDestroyed()) {
     win.webContents.send("lcu:status-changed", status);
+  }
+  if (!changed) return;
+  for (const listener of statusListeners) {
+    try {
+      listener(status);
+    } catch (err) {
+      console.log("Status listener failed:", err);
+    }
   }
 }
 
@@ -64,6 +83,16 @@ async function lcuRequest(url: string, method: HttpRequestOptions["method"] = "G
     throw new Error(`LCU request failed: ${response.status} ${url}`);
   }
   return response.json();
+}
+
+// Same request, for callers that treat an unreachable client as "no answer"
+// rather than as a failure worth reporting.
+export async function lcuJson(url: string): Promise<any | null> {
+  try {
+    return await lcuRequest(url);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchCurrentSummoner(): Promise<any> {
@@ -638,6 +667,13 @@ const GAMEFLOW_PHASE_PATH = "lol-gameflow/v1/gameflow-phase";
 // Game id and queue of the match currently being played, remembered from the
 // gameflow session so the phase change has something to act on.
 let liveGame: { gameId: number; queueId: number } | null = null;
+
+// The match being played, or the last one played this client session. Never
+// cleared, which is what lets the Live Game tab keep showing a game after it
+// has ended.
+export function getLiveGameRef(): { gameId: number; queueId: number } | null {
+  return liveGame;
+}
 
 // Reconnect is the phase for rejoining a match already underway, so it counts
 // as being in a game just as much as InProgress does.
