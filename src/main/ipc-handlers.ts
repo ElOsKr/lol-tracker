@@ -63,6 +63,23 @@ export function registerIpcHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "db:match-sessions",
+    (
+      _event,
+      filters?: {
+        championId?: number;
+        patch?: string;
+        queue?: number;
+        account?: string;
+        multikills?: string[];
+        favorites?: boolean;
+      },
+    ) => {
+      return db.getMatchSessions(filters);
+    },
+  );
+
   // Unlike the queue list in db:match-filters, this one ignores the hidden
   // queues — it backs the switches that decide which queues are hidden.
   ipcMain.handle("db:stored-queues", () => {
@@ -214,7 +231,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle("db:game-recap", async (_event, gameId?: number) => {
-    // Squad records and the scoreboard both read champion classes for scoring
+    // The scoreboard scores every player, which reads champion classes
     await dragon.waitForChampionData();
     return db.getGameRecap(gameId);
   });

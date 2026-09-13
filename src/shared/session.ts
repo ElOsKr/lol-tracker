@@ -11,3 +11,14 @@ export function sessionDay(ms: number): number {
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
+
+// The same day as a calendar date, taking what sessionDay returned rather than
+// a game's own timestamp: SQLite has no local-midnight epoch to hand back, so
+// its session totals are keyed by date string, and this is what matches a
+// session grouped in the renderer up with them.
+export function sessionDayKey(day: number): string {
+  const d = new Date(day);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const date = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${date}`;
+}

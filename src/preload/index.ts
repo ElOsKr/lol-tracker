@@ -19,6 +19,8 @@ const api: ElectronAPI = {
   getMatchHistory: (limit: number, offset: number, filters?: MatchFilters) =>
     ipcRenderer.invoke("db:match-history", limit, offset, filters),
 
+  getMatchSessions: (filters?: MatchFilters) => ipcRenderer.invoke("db:match-sessions", filters),
+
   getMatchFilterOptions: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => ipcRenderer.invoke("db:match-filters", filters),

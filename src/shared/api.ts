@@ -111,6 +111,26 @@ export interface MatchFilters {
   favorites?: boolean;
 }
 
+// One day of play under the current match-list filters. The list is paged, so
+// the rows on screen only ever describe part of a session; these totals cover
+// all of it.
+export interface MatchSession {
+  // Local calendar date of the session day, YYYY-MM-DD
+  day: string;
+  // Every game, remakes included
+  games: number;
+  // Everything below counts only games that are not remakes
+  wins: number;
+  losses: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  // Null when no game that day has a stored score; scored_games is the
+  // denominator, so the average stays honest when only some of them do
+  score_sum: number | null;
+  scored_games: number;
+}
+
 export interface TrackedAccount {
   puuid: string;
   name: string | null;
@@ -712,6 +732,7 @@ export interface ElectronAPI {
     offset: number,
     filters?: MatchFilters,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
+  getMatchSessions: (filters?: MatchFilters) => Promise<MatchSession[]>;
   getMatchFilterOptions: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<MatchFilterOptions>;

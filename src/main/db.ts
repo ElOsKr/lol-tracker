@@ -10,7 +10,7 @@ import {
 } from "../shared/opScore";
 import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
 import { mapNameForSkin } from "../shared/maps";
-import { sessionDay } from "../shared/session";
+import { DAY_START_HOUR, sessionDay } from "../shared/session";
 import { ordinal } from "../shared/text";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
@@ -1152,20 +1152,22 @@ const MULTIKILL_COLUMNS: Record<string, string> = {
   pentas: "ps.penta_kills",
 };
 
-export function getMatchHistory(
-  limit: number,
-  offset: number,
-  filters?: {
-    championId?: number;
-    patch?: string;
-    queue?: number;
-    account?: string;
-    sort?: string;
-    sortDir?: string;
-    multikills?: string[];
-    favorites?: boolean;
-  },
-): { matches: any[]; total: number } {
+interface MatchListFilters {
+  championId?: number;
+  patch?: string;
+  queue?: number;
+  account?: string;
+  sort?: string;
+  sortDir?: string;
+  multikills?: string[];
+  favorites?: boolean;
+}
+
+// The WHERE the match list is built on, shared with anything that has to
+// describe the same set of games. Sorting and paging are the caller's business;
+// everything that decides *which* games are in the list is here, so a summary
+// over the list can't drift from the list itself.
+function matchListWhere(filters?: MatchListFilters): { whereSql: string; params: any[] } {
   const where: string[] = [];
   const params: any[] = [];
   if (hideRemakes()) {
@@ -1195,7 +1197,51 @@ export function getMatchHistory(
       where.push(`(${cols.map((col) => `${col} > 0`).join(" OR ")})`);
     }
   }
-  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  return { whereSql: where.length > 0 ? `WHERE ${where.join(" AND ")}` : "", params };
+}
+
+/**
+ * One row per day of play, over every game the current filters match.
+ *
+ * The list itself arrives a page at a time, so counting the rows on screen
+ * describes the page rather than the day: a twenty-five game session read as
+ * twenty until it was scrolled. These totals don't depend on how far anyone has
+ * scrolled.
+ *
+ * Remakes are in the game count and out of everything else, matching how the
+ * rest of the app treats them.
+ */
+export function getMatchSessions(filters?: MatchListFilters): any[] {
+  const { whereSql, params } = matchListWhere(filters);
+
+  // The same "a day starts at 5am" rule the renderer groups rows by, applied
+  // after the timestamp is in local time so both sides land on the same date.
+  return db
+    .prepare(`
+      SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime', '-${DAY_START_HOUR} hours') AS day,
+             COUNT(*) AS games,
+             SUM(CASE WHEN g.is_remake = 0 AND ps.win = 1 THEN 1 ELSE 0 END) AS wins,
+             SUM(CASE WHEN g.is_remake = 0 AND ps.win = 0 THEN 1 ELSE 0 END) AS losses,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.kills ELSE 0 END) AS kills,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.deaths ELSE 0 END) AS deaths,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.assists ELSE 0 END) AS assists,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.score END) AS score_sum,
+             COUNT(CASE WHEN g.is_remake = 0 THEN ps.score END) AS scored_games
+      FROM games g
+      JOIN player_stats ps ON g.game_id = ps.game_id
+      ${whereSql}
+      GROUP BY day
+      ORDER BY day DESC
+    `)
+    .all(...params);
+}
+
+export function getMatchHistory(
+  limit: number,
+  offset: number,
+  filters?: MatchListFilters,
+): { matches: any[]; total: number } {
+  const { whereSql, params } = matchListWhere(filters);
   const orderBy = matchOrderBy(filters?.sort, filters?.sortDir);
 
   const total = db
