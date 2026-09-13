@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
+import { SGP_HISTORY_CAP } from "../lib/types";
 import type { BackupInfo } from "../lib/types";
 
 const BACKUP_REASONS: Record<string, string> = {
@@ -251,9 +252,11 @@ export default function Settings() {
         setBackfillStatus(
           result.cancelled
             ? `Stopped after adding ${result.added} game(s). Run it again to finish.`
-            : result.truncated
-              ? `${summary}. Stopped at the ${result.scanned}-game paging limit, so anything older was not checked.`
-              : summary,
+            : result.limit === "service"
+              ? `${summary}. Riot only serves your most recent ${SGP_HISTORY_CAP} games of any queue, so nothing older can be imported — but every new game from here on is kept.`
+              : result.limit === "paging"
+                ? `${summary}. Stopped at the ${result.scanned}-game paging limit, so anything older was not checked.`
+                : summary,
         );
       }
     } catch (err: any) {

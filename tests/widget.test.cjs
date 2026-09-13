@@ -29,6 +29,34 @@ function load(file, mocks = {}) {
 const { startWidgetServer } = load("src/main/widget-server.ts");
 const root = path.resolve(__dirname, "../public-widget");
 
+test("official updates cannot replace the custom app, including portable builds", async () => {
+  const previous = process.env.PORTABLE_EXECUTABLE_FILE;
+  process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\MayhemTracker.exe";
+  const originalFetch = global.fetch;
+  global.fetch = async () => {
+    assert.fail("Disabled updates must not access the network");
+  };
+  try {
+    const updater = load("src/main/updater.ts", {
+      electron: { app: { quit: () => assert.fail("Must not quit") } },
+      child_process: { spawn: () => assert.fail("Must not launch an installer") },
+    });
+    const check = await updater.checkForUpdate();
+    assert.equal(check.hasUpdate, false);
+    assert.match(check.error, /disabled/);
+    const install = await updater.downloadAndInstall(
+      {},
+      "https://github.com/Yhprum/mayhem-tracker/releases/download/v1.11.0/MayhemTracker.exe",
+    );
+    assert.equal(install.success, false);
+    assert.match(install.error, /disabled/);
+  } finally {
+    global.fetch = originalFetch;
+    if (previous === undefined) delete process.env.PORTABLE_EXECUTABLE_FILE;
+    else process.env.PORTABLE_EXECUTABLE_FILE = previous;
+  }
+});
+
 test("closing the desktop widget hides it, reopening reuses it, shutdown destroys it", async () => {
   const events = new Map();
   const handlers = new Map();

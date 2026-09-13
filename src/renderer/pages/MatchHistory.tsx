@@ -10,6 +10,7 @@ import type {
   MatchDetail,
   DashboardData,
   MatchFilterOptions,
+  MatchSession,
   MatchSort,
   MatchSortDir,
   MultikillType,
@@ -38,6 +39,7 @@ import {
 } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
+import { sessionDay, sessionDayKey } from "../../shared/session";
 
 // An empty list means something different depending on whether we're still
 // waiting on the client, mid-import, or genuinely out of games.
@@ -70,22 +72,13 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
 
 const SELECT_CLASS = "select";
 
-// A session is a day of play, but the day doesn't end at midnight: games before
-// this hour belong to the night that started the evening before.
-const DAY_START_HOUR = 5;
-
-// Local midnight of the session day a game belongs to.
-function sessionDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(d.getHours() - DAY_START_HOUR);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 interface Session {
   key: number;
   day: number; // local midnight of the session's day, from sessionDay
   matches: MatchListItem[];
+  // Games in the whole session, which is more than `matches` holds until the
+  // list has been scrolled to the end of the day
+  games: number;
   wins: number;
   losses: number;
   kills: number;
@@ -126,6 +119,7 @@ function groupIntoSessions(matches: MatchListItem[]): Session[] {
       key: current[0].game_id,
       day: currentDay,
       matches: current,
+      games: current.length,
       wins,
       losses,
       kills,
@@ -215,6 +209,21 @@ export default function MatchHistory() {
       }),
     [championFilter, patchFilter, queueFilter, accountFilter],
   );
+  // The list arrives a page at a time, so the rows on screen describe the page
+  // rather than the day. These cover every game the filters match.
+  const { data: sessionTotals, refetch: refetchSessions } = useIpc<MatchSession[]>(
+    () =>
+      window.api.getMatchSessions({
+        championId: championFilter,
+        patch: patchFilter,
+        queue: queueFilter,
+        account: accountFilter,
+        multikills: multikillFilter,
+        favorites: favoritesOnly,
+      }),
+    [championFilter, patchFilter, queueFilter, accountFilter, multikillFilter, favoritesOnly],
+  );
+
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
     patches: [],
     champions: [],
@@ -281,10 +290,11 @@ export default function MatchHistory() {
 
     const unsub = window.api.onGamesUpdated(() => {
       refetchDashboard();
+      refetchSessions();
       fetchOptions();
     });
     return unsub;
-  }, [fetchOptions, refetchDashboard]);
+  }, [fetchOptions, refetchDashboard, refetchSessions]);
 
   // Clear a selection if new data leaves it without any matching games
   useEffect(() => {
@@ -356,10 +366,12 @@ export default function MatchHistory() {
       setContextMenu(null);
       await window.api.toggleFavorite(match.game_id);
       reload();
+      // With the favorites filter on, this changed which games are in the list
+      refetchSessions();
       // The first favorite reveals the toggle button, the last one hides it
       fetchOptions();
     },
-    [reload, fetchOptions],
+    [reload, refetchSessions, fetchOptions],
   );
 
   const avgKills =
@@ -390,10 +402,32 @@ export default function MatchHistory() {
   // Session headers only make sense when the list reads in time order; any
   // other sort interleaves days, so those render flat.
   const isDateSort = !sort || sort === "date";
-  const sessions = useMemo(
-    () => (isDateSort ? groupIntoSessions(matches) : null),
-    [isDateSort, matches],
-  );
+  const sessions = useMemo(() => {
+    if (!isDateSort) return null;
+    const grouped = groupIntoSessions(matches);
+    if (!sessionTotals) return grouped;
+
+    // The rows stay as they are; only the header totals come from the database,
+    // so a session that is half-loaded still reports the whole day.
+    const byDay = new Map(sessionTotals.map((total) => [total.day, total]));
+    return grouped.map((session) => {
+      const total = byDay.get(sessionDayKey(session.day));
+      if (!total) return session;
+      return {
+        ...session,
+        games: total.games,
+        wins: total.wins,
+        losses: total.losses,
+        kills: total.kills,
+        deaths: total.deaths,
+        assists: total.assists,
+        avgScore:
+          total.scored_games > 0 && total.score_sum != null
+            ? total.score_sum / total.scored_games
+            : null,
+      };
+    });
+  }, [isDateSort, matches, sessionTotals]);
 
   const totalMultikills = dashboard
     ? dashboard.multikills.doubles +
@@ -884,7 +918,7 @@ function SessionHeader({ session }: { session: Session }) {
         {sessionLabel(session.day)}
       </span>
       <span className="text-xs text-lol-text">
-        {session.matches.length} {session.matches.length === 1 ? "game" : "games"}
+        {session.games} {session.games === 1 ? "game" : "games"}
       </span>
       {played > 0 && (
         <>

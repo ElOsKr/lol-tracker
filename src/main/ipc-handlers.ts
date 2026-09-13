@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow, dialog, app, shell } from "electron";
 import fs from "fs";
 import * as db from "./db";
 import * as lcu from "./lcu";
+import * as live from "./live";
 import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
@@ -59,6 +60,23 @@ export function registerIpcHandlers() {
       filters?: { championId?: number; patch?: string; queue?: number; account?: string },
     ) => {
       return db.getMatchFilterOptions(filters);
+    },
+  );
+
+  ipcMain.handle(
+    "db:match-sessions",
+    (
+      _event,
+      filters?: {
+        championId?: number;
+        patch?: string;
+        queue?: number;
+        account?: string;
+        multikills?: string[];
+        favorites?: boolean;
+      },
+    ) => {
+      return db.getMatchSessions(filters);
     },
   );
 
@@ -202,6 +220,20 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:records", (_event, queue?: number) => {
     return db.getRecords(queue);
+  });
+
+  // A fresh look rather than the cached snapshot: the page can be opened in
+  // the middle of a match the poll loop has not started for, and the answer to
+  // "is a game running" is the whole reason it asked. With no client there is
+  // nothing to ask, and asking anyway would cost a PowerShell launch to fail.
+  ipcMain.handle("live:snapshot", () => {
+    return lcu.isClientConnected() ? live.refreshLiveGame() : live.getLiveGame();
+  });
+
+  ipcMain.handle("db:game-recap", async (_event, gameId?: number) => {
+    // The scoreboard scores every player, which reads champion classes
+    await dragon.waitForChampionData();
+    return db.getGameRecap(gameId);
   });
 
   ipcMain.handle(

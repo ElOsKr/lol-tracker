@@ -6,6 +6,11 @@ import os from "os";
 import path from "path";
 
 const CHECK_TIMEOUT_MS = 10_000;
+// Official binaries do not contain League Companion's widget. Keep both
+// entry points disabled until this project has its own release channel.
+const OFFICIAL_UPDATES_ENABLED = false;
+const UPDATE_DISABLED_REASON =
+  "Official updates are disabled in League Companion to preserve its custom features.";
 // One page covers any realistic gap between installs, and costs the same single
 // request the old /releases/latest check did.
 const RELEASE_PAGE_SIZE = 20;
@@ -90,6 +95,9 @@ function parseDigest(digest: unknown): string | null {
 }
 
 export async function checkForUpdate(): Promise<UpdateInfo> {
+  if (!OFFICIAL_UPDATES_ENABLED) {
+    return { hasUpdate: false, error: UPDATE_DISABLED_REASON };
+  }
   try {
     const res = await fetch(
       `https://api.github.com/repos/Yhprum/mayhem-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
@@ -149,6 +157,9 @@ export async function downloadAndInstall(
   win: BrowserWindow,
   assetUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
+  if (!OFFICIAL_UPDATES_ENABLED) {
+    return { success: false, error: UPDATE_DISABLED_REASON };
+  }
   // Set by electron-builder's portable launcher; absent in dev and non-portable builds
   const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
   if (!portableExe) {

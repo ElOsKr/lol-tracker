@@ -44,7 +44,13 @@ En desarrollo, los datos se guardan en `data/` y las copias en `backups/`, ambos
 | `npm run dist`                               | Compilar y empaquetar el portable Windows en dist/.           |
 | `npm run gen:augments`                       | Regenerar descripciones de aumentos; solo cuando corresponda. |
 
-`dist` mantiene todavía el nombre MayhemTracker.exe y la identidad original. La adaptación de identidad y actualizador está pendiente. `npm version` ejecuta preversion y puede crear un commit y una etiqueta: no usarlo como comando de validación.
+`dist` mantiene todavía el nombre MayhemTracker.exe y la identidad original. La consulta y la instalación de actualizaciones oficiales están desactivadas para evitar sustituir las funciones propias por el ejecutable original. Queda pendiente adaptar la identidad y disponer de un canal de actualizaciones propio. `npm version` ejecuta preversion y puede crear un commit y una etiqueta: no usarlo como comando de validación.
+
+## Integración oficial — 2026-09-13
+
+Integrada la versión oficial v1.11.0 (58468b4) en la rama codex/lol-all-queues sobre nuestra base a9eca2c. Incluye partida en directo, resumen posterior, corrección de totales de sesión, mejoras de importación y aumentos del parche 26.18. Conserva Widget / OBS, ventana de escritorio, altura/opacidad y preferencias. Las dependencias no cambian; package-lock.json solo actualiza la versión del proyecto.
+
+Typecheck, lint, formato, build y cuatro pruebas automatizadas correctos. Se creó una copia consistente mediante la API de backup de SQLite en backups/upstream-1.11.0-validation/pre-update.db. Sobre otra copia aislada se verificaron integridad, conservación exacta de las tablas y ajustes existentes, totales de sesiones, resumen posterior y consulta del widget con la base nueva. Esta validación no sustituye una prueba gráfica de Electron, una partida en directo ni una nueva comprobación en OBS. Las copias y el script local de comprobación están excluidos de Git. El soporte de todas las colas LoL sigue pendiente.
 
 ## Validación de referencia — 2026-09-08
 

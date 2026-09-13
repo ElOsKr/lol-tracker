@@ -15,12 +15,14 @@ import {
   MedalIcon,
   SettingsIcon,
   RefreshIcon,
+  RadioIcon,
 } from "./icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 const links: { to: string; label: string; icon: IconComponent }[] = [
   { to: "/", label: "Match History", icon: SwordsIcon },
+  { to: "/live", label: "Live Game", icon: RadioIcon },
   { to: "/champions", label: "Champions", icon: TrophyIcon },
   { to: "/augments", label: "Augments", icon: CrosshairIcon },
   { to: "/friends", label: "Friends", icon: UsersIcon },

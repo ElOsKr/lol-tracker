@@ -2,6 +2,7 @@ import WidgetSettings from "./pages/WidgetSettings";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import MatchHistory from "./pages/MatchHistory";
+import LiveGame from "./pages/LiveGame";
 import Champions from "./pages/Champions";
 import Augments from "./pages/Augments";
 import Friends from "./pages/Friends";
@@ -18,6 +19,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<MatchHistory />} />
+          <Route path="/live" element={<LiveGame />} />
           <Route path="/champions" element={<Champions />} />
           <Route path="/augments" element={<Augments />} />
           <Route path="/friends" element={<Friends />} />

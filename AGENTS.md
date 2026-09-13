@@ -4,8 +4,8 @@
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-10): integración del widget autorizada por el usuario. El soporte de nuevas colas LoL y TFT sigue pendiente.
-- League Companion es el nombre de trabajo. La identidad técnica del paquete, ejecutable y actualizador sigue siendo la de Mayhem Tracker; su adaptación queda pendiente.
+- Fase actual (2026-09-13): widget integrado y validado en OBS; base oficial v1.11.0 integrada en la rama codex/lol-all-queues. El soporte de nuevas colas LoL y TFT sigue pendiente.
+- League Companion es el nombre de trabajo. La identidad técnica del paquete y ejecutable sigue siendo la de Mayhem Tracker; su adaptación queda pendiente. Consulta e instalación de actualizaciones oficiales desactivadas para preservar las funciones propias hasta disponer de un canal propio.
 - Conservar la licencia MIT y la atribución originales.
 
 ## Memoria compartida

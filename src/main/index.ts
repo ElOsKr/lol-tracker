@@ -4,6 +4,7 @@ import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
+import { startLiveTracking, stopLiveTracking } from "./live";
 import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
 import { applySecurityPolicy } from "./security";
 import { ensureStartMenuShortcut } from "./shortcut";
@@ -184,6 +185,9 @@ app.whenReady().then(async () => {
   createTray();
 
   startPolling(win);
+  // Follows the client into and out of matches, so the Live Game tab has a
+  // snapshot to show and the map a game was rolled onto gets written down
+  startLiveTracking(win);
   startBackupSchedule();
 });
 
@@ -218,6 +222,7 @@ app.on("before-quit", async (event) => {
 // Runs after before-quit has settled, so the final fetch has already written
 // whatever it found by the time the database closes.
 app.on("will-quit", () => {
+  stopLiveTracking();
   stopBackupSchedule();
   stopWidget();
   closeDatabase();

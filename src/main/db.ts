@@ -9,8 +9,18 @@ import {
   type ScoreInput,
 } from "../shared/opScore";
 import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
+import { mapNameForSkin } from "../shared/maps";
+import { DAY_START_HOUR, sessionDay } from "../shared/session";
+import { ordinal } from "../shared/text";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
+import type {
+  PlayerRecord,
+  RecapMilestone,
+  RecapPlacement,
+  RecapSessionGame,
+  RecapStreak,
+} from "../shared/api";
 
 // Poro-Snax (base and upgraded) is handed out for free, so it skews item stats
 const EXCLUDED_ITEM_IDS = [2052, 220013];
@@ -201,6 +211,17 @@ function createTables() {
     -- repeat backfills from re-fetching every ARAM/Arena game each time.
     CREATE TABLE IF NOT EXISTS ignored_games (
       game_id INTEGER PRIMARY KEY
+    );
+
+    -- Which of the three ARAM maps a game was rolled onto. Only the running
+    -- game knows this, so rows land here while the Live Game tab is watching
+    -- and never for a game imported after the fact. Deliberately outside the
+    -- export: it is opportunistic, and a backup that restores without it is
+    -- missing nothing a stat depends on.
+    CREATE TABLE IF NOT EXISTS match_maps (
+      game_id  INTEGER PRIMARY KEY,
+      map_id   INTEGER,
+      map_skin TEXT NOT NULL
     );
   `);
 }
@@ -1131,20 +1152,22 @@ const MULTIKILL_COLUMNS: Record<string, string> = {
   pentas: "ps.penta_kills",
 };
 
-export function getMatchHistory(
-  limit: number,
-  offset: number,
-  filters?: {
-    championId?: number;
-    patch?: string;
-    queue?: number;
-    account?: string;
-    sort?: string;
-    sortDir?: string;
-    multikills?: string[];
-    favorites?: boolean;
-  },
-): { matches: any[]; total: number } {
+interface MatchListFilters {
+  championId?: number;
+  patch?: string;
+  queue?: number;
+  account?: string;
+  sort?: string;
+  sortDir?: string;
+  multikills?: string[];
+  favorites?: boolean;
+}
+
+// The WHERE the match list is built on, shared with anything that has to
+// describe the same set of games. Sorting and paging are the caller's business;
+// everything that decides *which* games are in the list is here, so a summary
+// over the list can't drift from the list itself.
+function matchListWhere(filters?: MatchListFilters): { whereSql: string; params: any[] } {
   const where: string[] = [];
   const params: any[] = [];
   if (hideRemakes()) {
@@ -1174,7 +1197,51 @@ export function getMatchHistory(
       where.push(`(${cols.map((col) => `${col} > 0`).join(" OR ")})`);
     }
   }
-  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  return { whereSql: where.length > 0 ? `WHERE ${where.join(" AND ")}` : "", params };
+}
+
+/**
+ * One row per day of play, over every game the current filters match.
+ *
+ * The list itself arrives a page at a time, so counting the rows on screen
+ * describes the page rather than the day: a twenty-five game session read as
+ * twenty until it was scrolled. These totals don't depend on how far anyone has
+ * scrolled.
+ *
+ * Remakes are in the game count and out of everything else, matching how the
+ * rest of the app treats them.
+ */
+export function getMatchSessions(filters?: MatchListFilters): any[] {
+  const { whereSql, params } = matchListWhere(filters);
+
+  // The same "a day starts at 5am" rule the renderer groups rows by, applied
+  // after the timestamp is in local time so both sides land on the same date.
+  return db
+    .prepare(`
+      SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime', '-${DAY_START_HOUR} hours') AS day,
+             COUNT(*) AS games,
+             SUM(CASE WHEN g.is_remake = 0 AND ps.win = 1 THEN 1 ELSE 0 END) AS wins,
+             SUM(CASE WHEN g.is_remake = 0 AND ps.win = 0 THEN 1 ELSE 0 END) AS losses,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.kills ELSE 0 END) AS kills,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.deaths ELSE 0 END) AS deaths,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.assists ELSE 0 END) AS assists,
+             SUM(CASE WHEN g.is_remake = 0 THEN ps.score END) AS score_sum,
+             COUNT(CASE WHEN g.is_remake = 0 THEN ps.score END) AS scored_games
+      FROM games g
+      JOIN player_stats ps ON g.game_id = ps.game_id
+      ${whereSql}
+      GROUP BY day
+      ORDER BY day DESC
+    `)
+    .all(...params);
+}
+
+export function getMatchHistory(
+  limit: number,
+  offset: number,
+  filters?: MatchListFilters,
+): { matches: any[]; total: number } {
+  const { whereSql, params } = matchListWhere(filters);
   const orderBy = matchOrderBy(filters?.sort, filters?.sortDir);
 
   const total = db
@@ -2553,23 +2620,56 @@ export function getTrendsData(queue?: number): any {
 // chronological pass over our own rows — streaks need the ordering anyway, and
 // the maxima fall out of the same loop. On ties the earliest game keeps the
 // record, so a mark has to be strictly beaten to change hands.
-export function getRecords(queue?: number): any {
+// One row per counted game, oldest first: everything a whole-career walk needs
+// and nothing it doesn't. Records and the post-game recap both read the library
+// this way, and both depend on the order, since a streak and a milestone are
+// only meaningful in the order the games were played.
+interface CareerRow {
+  game_id: number;
+  game_creation: number;
+  game_duration: number;
+  queue_id: number;
+  champion_id: number;
+  win: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  total_damage_dealt: number;
+  total_damage_taken: number;
+  gold_earned: number;
+  total_heal: number;
+  largest_killing_spree: number;
+  score: number | null;
+  score_badge: "MVP" | "ACE" | null;
+  double_kills: number;
+  triple_kills: number;
+  quadra_kills: number;
+  penta_kills: number;
+}
+
+function careerRows(queue?: number): CareerRow[] {
   const where = ["g.is_remake = 0"];
   const params: any[] = [];
   applyQueueFilter(where, params, queue);
 
-  const rows = db
+  return db
     .prepare(`
       SELECT g.game_id, g.game_creation, g.game_duration, g.queue_id,
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
              ps.total_damage_dealt, ps.total_damage_taken,
-             ps.gold_earned, ps.total_heal, ps.largest_killing_spree, ps.score
+             ps.gold_earned, ps.total_heal, ps.largest_killing_spree,
+             ps.score, ps.score_badge,
+             ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
       WHERE ${where.join(" AND ")}
       ORDER BY g.game_creation ASC
     `)
-    .all(...params) as any[];
+    .all(...params) as CareerRow[];
+}
+
+export function getRecords(queue?: number): any {
+  const rows = careerRows(queue);
 
   // Just enough of the game to render a record's context and open its match
   const matchOf = (r: any) => ({
@@ -2651,6 +2751,650 @@ export function getRecords(queue?: number): any {
   }
 
   return { totalGames: rows.length, bests, winStreak, lossStreak };
+}
+
+// ---- Live game support ----
+
+// Which ARAM map a game was rolled onto, learned from the running game and
+// remembered so the recap can still name it once the match is over.
+export function setGameMap(gameId: number, mapId: number | null, mapSkin: string): void {
+  db.prepare("INSERT OR REPLACE INTO match_maps (game_id, map_id, map_skin) VALUES (?, ?, ?)").run(
+    gameId,
+    mapId,
+    mapSkin,
+  );
+}
+
+export function getGameMapName(gameId: number): string | null {
+  const row = db.prepare("SELECT map_skin FROM match_maps WHERE game_id = ?").get(gameId) as
+    | { map_skin: string }
+    | undefined;
+  return mapNameForSkin(row?.map_skin);
+}
+
+// A player to look up, however much of their identity we have. The in-game API
+// gives names and no puuid; the client gives puuids and sometimes no name.
+export interface PlayerRef {
+  key: string;
+  puuid: string | null;
+  gameName: string | null;
+  tagLine: string | null;
+  championId: number;
+}
+
+export interface PlayerHistory {
+  // Their line on the champion they're playing now, and across every champion
+  champion: PlayerRecord | null;
+  overall: PlayerRecord | null;
+  // Games on our own team, this one included
+  withUs: number;
+  // Set once there are enough shared games for the Friends page to hold them
+  friendKey: string | null;
+}
+
+// Lowercased so a riot id that comes back in different casing from two sources
+// still matches, which it does: the client and the game disagree about it.
+function playerNameKey(gameName: string | null, tagLine: string | null): string | null {
+  if (!gameName) return null;
+  return `${gameName}#${tagLine ?? ""}`.toLowerCase();
+}
+
+const NAME_KEY_SQL = "lower(%.game_name) || '#' || lower(COALESCE(%.tag_line, ''))";
+
+// Matches rows belonging to any of the given players, by puuid where we have
+// one and by riot id otherwise. Older stored games predate puuids entirely, so
+// a player can own rows found only by name and rows found only by puuid.
+function playerMatchClause(alias: string, players: PlayerRef[], params: any[]): string | null {
+  const puuids = [...new Set(players.map((p) => p.puuid).filter((p): p is string => !!p))];
+  const names = [
+    ...new Set(
+      players
+        .map((p) => playerNameKey(p.gameName, p.tagLine))
+        .filter((n): n is string => n !== null),
+    ),
+  ];
+
+  const clauses: string[] = [];
+  if (puuids.length > 0) {
+    clauses.push(`${alias}.puuid IN (${puuids.map(() => "?").join(", ")})`);
+    params.push(...puuids);
+  }
+  if (names.length > 0) {
+    clauses.push(`${NAME_KEY_SQL.replaceAll("%", alias)} IN (${names.map(() => "?").join(", ")})`);
+    params.push(...names);
+  }
+  return clauses.length > 0 ? `(${clauses.join(" OR ")})` : null;
+}
+
+function emptyRecord(): PlayerRecord {
+  return { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0, lastPlayed: 0 };
+}
+
+/**
+ * What this app has seen of a handful of players, keyed by the caller's own
+ * key. Everyone in a random lobby is a stranger, so most of these come back
+ * empty, and the ones that don't are the point: a friend's record on the
+ * champion they just locked in.
+ */
+export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerHistory> {
+  const histories: Record<string, PlayerHistory> = {};
+  if (players.length === 0) return histories;
+
+  const params: any[] = [];
+  const match = playerMatchClause("mp", players, params);
+  // Nothing identifiable to look up, which is every player in a game the
+  // client has stopped reporting names for
+  if (!match) return histories;
+
+  const where = [match, "mp.is_remake = 0"];
+  applyQueueFilter(where, params, undefined, "mp");
+
+  const rows = db
+    .prepare(`
+      SELECT mp.puuid, mp.game_name, mp.tag_line, mp.champion_id,
+             COUNT(*) AS games, SUM(mp.win) AS wins,
+             SUM(mp.kills) AS kills, SUM(mp.deaths) AS deaths, SUM(mp.assists) AS assists,
+             MAX(g.game_creation) AS last_played
+      FROM match_participants mp
+      JOIN games g ON g.game_id = mp.game_id
+      WHERE ${where.join(" AND ")}
+      GROUP BY mp.puuid, lower(mp.game_name), lower(COALESCE(mp.tag_line, '')), mp.champion_id
+    `)
+    .all(...params) as {
+    puuid: string | null;
+    game_name: string | null;
+    tag_line: string | null;
+    champion_id: number;
+    games: number;
+    wins: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    last_played: number;
+  }[];
+
+  const byPuuid = new Map<string, PlayerRef>();
+  const byName = new Map<string, PlayerRef>();
+  for (const player of players) {
+    if (player.puuid) byPuuid.set(player.puuid, player);
+    const name = playerNameKey(player.gameName, player.tagLine);
+    if (name) byName.set(name, player);
+  }
+  const ownerOf = (row: {
+    puuid: string | null;
+    game_name: string | null;
+    tag_line: string | null;
+  }) => {
+    if (row.puuid) {
+      const match = byPuuid.get(row.puuid);
+      if (match) return match;
+    }
+    const name = playerNameKey(row.game_name, row.tag_line);
+    return name ? (byName.get(name) ?? null) : null;
+  };
+
+  for (const row of rows) {
+    const owner = ownerOf(row);
+    if (!owner) continue;
+
+    const history = (histories[owner.key] ??= {
+      champion: null,
+      overall: null,
+      withUs: 0,
+      friendKey: null,
+    });
+
+    const overall = (history.overall ??= emptyRecord());
+    const targets =
+      owner.championId && row.champion_id === owner.championId
+        ? [overall, (history.champion ??= emptyRecord())]
+        : [overall];
+    for (const target of targets) {
+      target.games += row.games;
+      target.wins += row.wins;
+      target.kills += row.kills;
+      target.deaths += row.deaths;
+      target.assists += row.assists;
+      target.lastPlayed = Math.max(target.lastPlayed, row.last_played);
+    }
+  }
+
+  // Games on our own side, which is what the Friends page counts and the only
+  // number that says whether a name in the lobby is someone we know.
+  const ours = getAllPuuids();
+  if (ours.length > 0) {
+    const teamParams: any[] = [];
+    const teamMatch = playerMatchClause("o", players, teamParams);
+    if (teamMatch) {
+      const ourList = ours.map(() => "?").join(", ");
+      const teamWhere = [
+        teamMatch,
+        "o.is_remake = 0",
+        `(o.puuid IS NULL OR o.puuid NOT IN (${ourList}))`,
+      ];
+      teamParams.push(...ours);
+      applyQueueFilter(teamWhere, teamParams, undefined, "o");
+
+      const teamRows = db
+        .prepare(`
+          WITH our_teams AS (
+            SELECT DISTINCT game_id, team_id FROM match_participants WHERE puuid IN (${ourList})
+          )
+          SELECT o.puuid, o.game_name, o.tag_line, COUNT(*) AS games
+          FROM our_teams t
+          JOIN match_participants o ON o.game_id = t.game_id AND o.team_id = t.team_id
+          WHERE ${teamWhere.join(" AND ")}
+          GROUP BY o.puuid, lower(o.game_name), lower(COALESCE(o.tag_line, ''))
+        `)
+        .all(...ours, ...teamParams) as {
+        puuid: string | null;
+        game_name: string | null;
+        tag_line: string | null;
+        games: number;
+      }[];
+
+      for (const row of teamRows) {
+        const owner = ownerOf(row);
+        if (!owner) continue;
+        const history = (histories[owner.key] ??= {
+          champion: null,
+          overall: null,
+          withUs: 0,
+          friendKey: null,
+        });
+        history.withUs += row.games;
+        // Built from the stored row rather than from the lobby, so it matches
+        // the key the Friends page routes on even when the client spells the
+        // riot id differently from the game that was recorded.
+        if (history.withUs >= MIN_SHARED_GAMES) {
+          history.friendKey =
+            row.puuid || displayName(row.game_name, row.tag_line) || history.friendKey;
+        }
+      }
+    }
+  }
+
+  return histories;
+}
+
+// ---- Post-game recap ----
+
+// The biggest listed mark a running total passed on this game, or null for
+// none. The largest wins so a game that crosses two at once reports the one
+// worth reporting.
+function crossedMark(before: number, after: number, marks: number[]): number | null {
+  let best: number | null = null;
+  for (const mark of marks) {
+    if (before < mark && after >= mark && (best === null || mark > best)) best = mark;
+  }
+  return best;
+}
+
+// Repeating marks, for totals that keep climbing past any list worth writing.
+function crossedStep(before: number, after: number, step: number): number | null {
+  const mark = Math.floor(after / step) * step;
+  return mark > 0 && before < mark ? mark : null;
+}
+
+interface PlacementDef {
+  key: string;
+  label: string;
+  format: RecapPlacement["format"];
+  good: boolean;
+  value: (row: CareerRow) => number | null;
+  // True when a is the better of the two, which for deaths and duration is
+  // not the larger one
+  better: (a: number, b: number) => boolean;
+}
+
+const higher = (a: number, b: number) => a > b;
+const lower = (a: number, b: number) => a < b;
+
+const PLACEMENTS: PlacementDef[] = [
+  {
+    key: "kills",
+    label: "Kills",
+    format: "int",
+    good: true,
+    value: (r) => r.kills,
+    better: higher,
+  },
+  {
+    key: "kda",
+    label: "KDA",
+    format: "kda",
+    good: true,
+    // Deathless games rank by kills plus assists rather than dividing by zero,
+    // the same way the Records page ranks them
+    value: (r) => (r.kills + r.assists) / Math.max(r.deaths, 1),
+    better: higher,
+  },
+  {
+    key: "score",
+    label: "Score",
+    format: "score",
+    good: true,
+    value: (r) => r.score,
+    better: higher,
+  },
+  {
+    key: "assists",
+    label: "Assists",
+    format: "int",
+    good: true,
+    value: (r) => r.assists,
+    better: higher,
+  },
+  {
+    key: "killingSpree",
+    label: "Killing spree",
+    format: "int",
+    good: true,
+    value: (r) => r.largest_killing_spree,
+    better: higher,
+  },
+  {
+    key: "damage",
+    label: "Damage dealt",
+    format: "compact",
+    good: true,
+    value: (r) => r.total_damage_dealt,
+    better: higher,
+  },
+  {
+    key: "damageTaken",
+    label: "Damage taken",
+    format: "compact",
+    good: true,
+    value: (r) => r.total_damage_taken,
+    better: higher,
+  },
+  {
+    key: "healing",
+    label: "Healing",
+    format: "compact",
+    good: true,
+    value: (r) => r.total_heal,
+    better: higher,
+  },
+  {
+    key: "gold",
+    label: "Gold earned",
+    format: "compact",
+    good: true,
+    value: (r) => r.gold_earned,
+    better: higher,
+  },
+  {
+    key: "deaths",
+    label: "Deaths",
+    format: "int",
+    good: false,
+    value: (r) => r.deaths,
+    better: higher,
+  },
+  {
+    key: "fastestWin",
+    label: "Fastest win",
+    format: "duration",
+    good: true,
+    value: (r) => (r.win ? r.game_duration : null),
+    better: lower,
+  },
+  {
+    key: "longestGame",
+    label: "Longest game",
+    format: "duration",
+    good: true,
+    value: (r) => r.game_duration,
+    better: higher,
+  },
+];
+
+// Deep enough to be worth saying, shallow enough that a stat which happens to
+// be ordinary doesn't get listed as though it weren't.
+const MAX_PLACEMENT_RANK = 10;
+
+function buildPlacements(rows: CareerRow[], row: CareerRow): RecapPlacement[] {
+  const placements: RecapPlacement[] = [];
+
+  for (const def of PLACEMENTS) {
+    const value = def.value(row);
+    if (value == null) continue;
+
+    let rank = 1;
+    let total = 0;
+    for (const other of rows) {
+      const otherValue = def.value(other);
+      if (otherValue == null) continue;
+      total++;
+      // Strictly better only, so a tie shares the rank rather than pushing the
+      // game down behind a game it matched
+      if (other.game_id !== row.game_id && def.better(otherValue, value)) rank++;
+    }
+    if (rank <= MAX_PLACEMENT_RANK) {
+      placements.push({
+        key: def.key,
+        label: def.label,
+        value,
+        rank,
+        total,
+        good: def.good,
+        format: def.format,
+      });
+    }
+  }
+
+  return placements.sort((a, b) => a.rank - b.rank);
+}
+
+function buildMilestones(rows: CareerRow[], index: number): RecapMilestone[] {
+  const row = rows[index];
+  const milestones: RecapMilestone[] = [];
+  const add = (key: string, label: string, detail: string) =>
+    milestones.push({ key, label, detail });
+
+  let wins = 0;
+  let kills = 0;
+  let mvps = 0;
+  let pentas = 0;
+  let quadras = 0;
+  let champGames = 0;
+  let champWins = 0;
+  for (let i = 0; i <= index; i++) {
+    const r = rows[i];
+    wins += r.win;
+    kills += r.kills;
+    if (r.score_badge === "MVP") mvps++;
+    pentas += r.penta_kills;
+    quadras += r.quadra_kills;
+    if (r.champion_id === row.champion_id) {
+      champGames++;
+      champWins += r.win;
+    }
+  }
+
+  const games = index + 1;
+  const gamesMark =
+    crossedMark(games - 1, games, [10, 25, 50]) ?? crossedStep(games - 1, games, 100);
+  if (gamesMark) add("games", `${ordinal(gamesMark)} game`, "Across every tracked account");
+
+  const winsMark =
+    crossedMark(wins - row.win, wins, [10, 25, 50]) ?? crossedStep(wins - row.win, wins, 100);
+  if (winsMark) add("wins", `${ordinal(winsMark)} win`, "Career wins");
+
+  const killsMark = crossedStep(kills - row.kills, kills, 1000);
+  if (killsMark)
+    add("kills", `${killsMark.toLocaleString()} career kills`, "Every game, every champion");
+
+  if (champGames === 1) {
+    add("champion-first", "First game on this champion", "A new name on the list");
+  } else {
+    const champMark = crossedMark(champGames - 1, champGames, [5, 10, 25, 50, 100, 200]);
+    if (champMark)
+      add(
+        "champion-games",
+        `${ordinal(champMark)} game on this champion`,
+        "Career games on this pick",
+      );
+  }
+
+  const champWinMark = crossedMark(champWins - row.win, champWins, [5, 10, 25, 50, 100]);
+  if (champWinMark)
+    add(
+      "champion-wins",
+      `${ordinal(champWinMark)} win on this champion`,
+      "Career wins on this pick",
+    );
+
+  if (row.penta_kills > 0) {
+    add(
+      "penta",
+      pentas === row.penta_kills ? "First pentakill" : `${ordinal(pentas)} pentakill`,
+      "The rarest one",
+    );
+  } else if (row.quadra_kills > 0 && quadras === row.quadra_kills) {
+    add("quadra", "First quadra kill", "So close");
+  }
+
+  if (row.score_badge === "MVP") {
+    const mvpMark =
+      crossedMark(mvps - 1, mvps, [1, 5, 10, 25, 50]) ?? crossedStep(mvps - 1, mvps, 50);
+    if (mvpMark === 1) add("mvp", "First MVP", "Best player on the winning team");
+    else if (mvpMark) add("mvp", `${ordinal(mvpMark)} MVP`, "Best player on the winning team");
+  }
+
+  return milestones;
+}
+
+// The streak this game leaves us on, and whether it is the longest of its kind
+// on record. A single loss is a streak of one, which is honest: the page says
+// "1 loss" rather than pretending nothing is happening.
+function buildStreak(rows: CareerRow[], index: number): RecapStreak {
+  let length = 0;
+  const kind = rows[index].win ? "win" : "loss";
+  for (let i = index; i >= 0 && rows[i].win === rows[index].win; i--) length++;
+
+  let best = 0;
+  let run = 0;
+  for (let i = 0; i < rows.length; i++) {
+    run = i > 0 && rows[i].win === rows[i - 1].win ? run + 1 : 1;
+    if (rows[i].win === rows[index].win && run > best) best = run;
+  }
+
+  return { kind, length, best, isRecord: length >= best && length > 1 };
+}
+
+/**
+ * Everything the post-game page says about one match: the match itself, where
+ * its numbers land among every game on record, what the day looks like around
+ * it, and which marks it moved past.
+ *
+ * Placements are all-time, since "where it lands among your records" is a
+ * question about the library as it stands. Milestones are as of the game,
+ * because crossing a mark only happens once and happened then.
+ */
+export function getGameRecap(gameId?: number): any {
+  const rows = careerRows();
+  const id = gameId ?? rows[rows.length - 1]?.game_id;
+  if (id == null) return null;
+
+  const detail = getMatchDetail(id);
+  if (!detail) return null;
+
+  // A remake is in no aggregate anywhere, so it has no placements, no
+  // milestones and no streak. Everything else on the page still works.
+  const index = rows.findIndex((r) => r.game_id === id);
+  const row = index >= 0 ? rows[index] : null;
+
+  const day = sessionDay(detail.game.game_creation);
+  const sessionRows = rows.filter((r) => sessionDay(r.game_creation) === day);
+  const session = {
+    day,
+    index: sessionRows.findIndex((r) => r.game_id === id),
+    games: sessionRows.map(
+      (r): RecapSessionGame => ({
+        game_id: r.game_id,
+        game_creation: r.game_creation,
+        game_duration: r.game_duration,
+        champion_id: r.champion_id,
+        win: r.win,
+        kills: r.kills,
+        deaths: r.deaths,
+        assists: r.assists,
+        score: r.score,
+      }),
+    ),
+    wins: 0,
+    losses: 0,
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    avgScore: null as number | null,
+    duration: 0,
+  };
+  let sessionScore = 0;
+  let sessionScored = 0;
+  for (const r of sessionRows) {
+    if (r.win) session.wins++;
+    else session.losses++;
+    session.kills += r.kills;
+    session.deaths += r.deaths;
+    session.assists += r.assists;
+    session.duration += r.game_duration;
+    if (r.score != null) {
+      sessionScore += r.score;
+      sessionScored++;
+    }
+  }
+  if (sessionScored > 0) session.avgScore = sessionScore / sessionScored;
+
+  const championId = detail.stats?.champion_id ?? 0;
+  const championRows = rows.filter((r) => r.champion_id === championId);
+  const champion = {
+    championId,
+    games: championRows.length,
+    wins: 0,
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    avgScore: null as number | null,
+    previousBest: null as number | null,
+    firstTime:
+      row != null && championRows.filter((r) => r.game_creation <= row.game_creation).length === 1,
+  };
+  let champScore = 0;
+  let champScored = 0;
+  for (const r of championRows) {
+    champion.wins += r.win;
+    champion.kills += r.kills;
+    champion.deaths += r.deaths;
+    champion.assists += r.assists;
+    if (r.score != null) {
+      champScore += r.score;
+      champScored++;
+      if (r.game_id !== id && (champion.previousBest == null || r.score > champion.previousBest)) {
+        champion.previousBest = r.score;
+      }
+    }
+  }
+  if (champScored > 0) champion.avgScore = champScore / champScored;
+
+  const career = {
+    games: rows.length,
+    wins: 0,
+    avgScore: null as number | null,
+    avgKills: 0,
+    avgDeaths: 0,
+    avgAssists: 0,
+    avgDamage: 0,
+    avgTaken: 0,
+    avgHeal: 0,
+    avgGold: 0,
+  };
+  let careerScore = 0;
+  let careerScored = 0;
+  for (const r of rows) {
+    career.wins += r.win;
+    career.avgKills += r.kills;
+    career.avgDeaths += r.deaths;
+    career.avgAssists += r.assists;
+    career.avgDamage += r.total_damage_dealt;
+    career.avgTaken += r.total_damage_taken;
+    career.avgHeal += r.total_heal;
+    career.avgGold += r.gold_earned;
+    if (r.score != null) {
+      careerScore += r.score;
+      careerScored++;
+    }
+  }
+  if (rows.length > 0) {
+    for (const key of [
+      "avgKills",
+      "avgDeaths",
+      "avgAssists",
+      "avgDamage",
+      "avgTaken",
+      "avgHeal",
+      "avgGold",
+    ] as const) {
+      career[key] /= rows.length;
+    }
+  }
+  if (careerScored > 0) career.avgScore = careerScore / careerScored;
+
+  return {
+    detail,
+    mapName: getGameMapName(id),
+    score: detail.stats?.score ?? null,
+    scoreBadge: detail.stats?.score_badge ?? null,
+    placements: row ? buildPlacements(rows, row) : [],
+    milestones: row ? buildMilestones(rows, index) : [],
+    session,
+    streak: row ? buildStreak(rows, index) : null,
+    champion,
+    career,
+  };
 }
 
 export function getDatabase(): Database.Database {

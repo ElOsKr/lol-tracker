@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import texticons from "../texticons.json";
 
 // Renders Riot's tooltip markup — the <mainText>/<passive>/<magicDamage> soup
 // that items.json ships in its `description`. Like Markdown, the output is
@@ -169,6 +170,42 @@ function wrap(tag: string, attrs: string, children: ReactNode[], key: number): R
   return <Fragment key={key}>{children}</Fragment>;
 }
 
+// "%i:scaleAD%" asks the game's own renderer to inline a stat glyph mid-sentence
+// — the little sword before "20% Attack Damage". Riot's own 20x20 art for each
+// marker is bundled as a data URI by scripts/generate-augment-descriptions.mjs,
+// so they draw instantly and offline rather than popping in mid-sentence.
+//
+// A marker with no bundled icon (one Riot introduced since that script last ran)
+// drops out, the way an unknown tag degrades to its plain text.
+const ICONS: Record<string, string> = texticons;
+const INLINE_ICON = /%i:([A-Za-z0-9_]+)%/g;
+
+function withIcons(text: string, nextKey: () => number): ReactNode[] {
+  if (!text.includes("%i:")) return [text];
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(INLINE_ICON)) {
+    const before = text.slice(last, match.index);
+    if (before) out.push(before);
+    const src = ICONS[match[1].toLowerCase()];
+    // Sized in em so the glyph tracks the surrounding text rather than a fixed
+    // pixel size, and nudged onto the text's optical centre.
+    if (src) {
+      out.push(
+        <img
+          key={nextKey()}
+          src={src}
+          alt=""
+          className="mx-px inline-block h-[1.1em] w-[1.1em] translate-y-[-0.08em] align-middle"
+        />,
+      );
+    }
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 function build(tokens: Token[]): ReactNode[] {
   // A stack of open elements. Riot's markup is not always balanced, so a close
   // with no open is ignored, and tags left open at the end still render.
@@ -185,7 +222,9 @@ function build(tokens: Token[]): ReactNode[] {
 
   for (const token of tokens) {
     if (token.kind === "text") {
-      if (token.text) top().push(token.text.replace(/&nbsp;/g, " "));
+      if (token.text) {
+        top().push(...withIcons(token.text.replace(/&nbsp;/g, " "), () => key++));
+      }
     } else if (token.kind === "void") {
       // <li> is a break plus a marker, with the clause flowing after it — the
       // markup has no element to hang a real list item off.
@@ -220,14 +259,8 @@ const BR = String.raw`<br\s*\/?>`;
 // The leading <mainText> goes with them; it only ever wraps the whole string,
 // and dropping the open tag lets the "close with no open" rule discard its
 // partner.
-// "%i:scaleAD%" asks the game's own renderer to inline a stat sprite. There are
-// no sprites here, and left in place it reads as "Gain%i:scaleAD% 20% Attack
-// Damage" — so drop the marker and let the words close up around it.
-const INLINE_ICON = /%i:[A-Za-z0-9_]+%/g;
-
 function normalize(markup: string): string {
   return markup
-    .replace(INLINE_ICON, "")
     .replace(/^\s*<mainText>/i, "")
     .replace(new RegExp(String.raw`^(?:\s|<stats>\s*<\/stats>|${BR})+`, "i"), "")
     .replace(new RegExp(String.raw`(?:${BR}\s*){3,}`, "gi"), "<br><br>");
