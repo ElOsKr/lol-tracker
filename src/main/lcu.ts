@@ -189,6 +189,18 @@ const GAMES_UPDATED_BATCH = 25;
 // transient failure doesn't relaunch a full history walk every poll tick.
 const AUTO_BACKFILL_RETRY_DELAY = 15 * 60 * 1000;
 
+// How many games the LCU's match list holds. Asking for more is accepted and
+// ignored, so this is the whole window the recent-games sync gets to see.
+const LCU_HISTORY_PAGE_SIZE = 20;
+
+// Accounts whose history has been walked end to end this app session. Launch is
+// where the games missed while the app was closed are, and a walk that reads
+// ids only is five requests for Riot's whole window, so the app earns back
+// every gap it could have at a cost it pays once. An account seen for the first
+// time here gets its initial import from the same walk. Kept in memory
+// deliberately: the point is one per launch, not one per interval.
+const sweptThisLaunch = new Set<string>();
+
 // Shard probing walks candidates in turn, so one unresponsive host must not
 // stall the whole search. Paging gets longer, since those requests do real work.
 const SGP_PROBE_TIMEOUT_MS = 8_000;
@@ -417,7 +429,20 @@ export type BackfillResult = {
   cancelled: boolean;
 };
 
-export async function backfillHistory(win?: BrowserWindow | null): Promise<BackfillResult> {
+export type BackfillOptions = {
+  // Walk every page Riot will serve instead of stopping at the first one we
+  // already know in full. The early exit only ever proves that the games in
+  // front of it are accounted for, so a hole further back stays invisible to
+  // every run that takes it. Ids are cheap: Riot's whole window is five
+  // requests, and only the ids we don't have cost anything to hydrate, so the
+  // runs that exist to find holes can afford to look everywhere.
+  full?: boolean;
+};
+
+export async function backfillHistory(
+  win?: BrowserWindow | null,
+  { full = false }: BackfillOptions = {},
+): Promise<BackfillResult> {
   if (backfillRunning) {
     throw new Error("A backfill is already running");
   }
@@ -435,12 +460,14 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
 
     const known = db.getKnownGameIds();
 
-    // Once an account has been walked all the way back, a later run only needs
-    // the new games at the front. Results are newest-first, so the first page
-    // we've already fully accounted for means everything older is accounted for
-    // too. Tracked per account, since a newly added one still needs a full walk.
+    // Once an account has been walked all the way back, a run that only wants
+    // the new games at the front can stop early. Results are newest-first, so
+    // the first page we've already fully accounted for means everything in
+    // front of it is too. Tracked per account, since a newly added one has
+    // nothing to stop on.
     const completedKey = `backfill_complete_${CAPTURE_POLICY_VERSION}_${summoner.puuid}`;
     const walkedBefore = db.getSetting(completedKey) === "1";
+    const stopAtKnownPage = walkedBefore && !full;
 
     const walk = (from: string, tags: string) =>
       fetchAllMatchIds(
@@ -448,7 +475,7 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
         summoner.puuid,
         token,
         tags,
-        (pageIds) => walkedBefore && pageIds.every((id) => known.has(id)),
+        (pageIds) => stopAtKnownPage && pageIds.every((id) => known.has(id)),
       );
 
     let activeHost = host;
@@ -505,7 +532,10 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
         win.webContents.send("lcu:backfill-progress", { current, total: pending.length, added });
       }
     };
-    progress(0, 0);
+    // A periodic check that finds nothing has no progress to report, and
+    // announcing one anyway would flash an import bar at the user every few
+    // hours for work that never happened.
+    if (pending.length > 0) progress(0, 0);
 
     let added = 0;
     let announced = 0;
@@ -582,10 +612,18 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
   }
 }
 
+export type RecentSyncResult = {
+  newGames: number;
+  totalGames: number;
+  // Whether the window came back with nothing we had already accounted for.
+  // See syncRecentGames below for what that means and what it costs to ignore.
+  rolledOver: boolean;
+};
+
 export async function fetchNewGames(
   win?: BrowserWindow | null,
   knownSummoner?: any,
-): Promise<{ newGames: number; totalGames: number }> {
+): Promise<RecentSyncResult> {
   await connect();
 
   const summoner = knownSummoner ?? (await fetchCurrentSummoner());
@@ -595,20 +633,36 @@ export async function fetchNewGames(
 
   let historyResponse: any;
   try {
-    historyResponse = await fetchMatchHistoryByPuuid(summoner.puuid, 0, 19);
+    historyResponse = await fetchMatchHistoryByPuuid(summoner.puuid, 0, LCU_HISTORY_PAGE_SIZE - 1);
   } catch {
     try {
-      historyResponse = await fetchMatchHistory(0, 19);
+      historyResponse = await fetchMatchHistory(0, LCU_HISTORY_PAGE_SIZE - 1);
     } catch {
-      return { newGames: 0, totalGames: 0 };
+      return { newGames: 0, totalGames: 0, rolledOver: false };
     }
   }
 
   const games = historyResponse.games?.games || historyResponse.games || [];
 
+  // A game we've already decided about anchors this window to the history we
+  // hold: everything older than it was seen by an earlier sync. Without one,
+  // the window may have rolled clean past games we never got.
+  let sawKnownGame = false;
+
   for (const game of games) {
-    if (db.gameExists(game.gameId)) continue;
-    if (!TRACKED_QUEUE_IDS.includes(game.queueId)) continue;
+    if (db.isGameKnown(game.gameId)) {
+      sawKnownGame = true;
+      continue;
+    }
+
+    // Recorded rather than skipped, so the next window has this game as an
+    // anchor too. Otherwise a run of games in other queues looks exactly like
+    // the gap below and would send us off on a deep walk to rediscover that
+    // they still aren't tracked games.
+    if (!TRACKED_QUEUE_IDS.includes(game.queueId)) {
+      db.markIgnoredGame(game.gameId);
+      continue;
+    }
 
     let fullGame: any;
     try {
@@ -629,7 +683,45 @@ export async function fetchNewGames(
   }
 
   const dashboard = db.getDashboardData();
-  return { newGames: newGamesCount, totalGames: dashboard.totalGames };
+  return {
+    newGames: newGamesCount,
+    totalGames: dashboard.totalGames,
+    // A window shorter than the cap is the account's whole recent history, so
+    // there is nothing behind it to have missed.
+    rolledOver: games.length >= LCU_HISTORY_PAGE_SIZE && !sawKnownGame,
+  };
+}
+
+// The recent-games sync sees twenty games and no further, so a session where
+// more than twenty were played while the app was closed leaves the older ones
+// with nothing to find them: the window has rolled over completely, and every
+// later poll sees only games it has already stored. The shape is recognisable,
+// a full window without one game we had accounted for, and the deep walk is
+// what can still reach behind it, so escalate instead of accepting the hole.
+// On an account that has been walked before, the walk stops at the first page
+// it recognises, so closing a small gap costs little more than the poll it
+// follows.
+export async function syncRecentGames(
+  win?: BrowserWindow | null,
+  knownSummoner?: any,
+): Promise<{ newGames: number; totalGames: number }> {
+  const recent = await fetchNewGames(win, knownSummoner);
+  if (!recent.rolledOver || backfillRunning || Date.now() < autoBackfillPausedUntil) {
+    return recent;
+  }
+
+  console.log("Recent games contained nothing already known; walking history for missed games");
+  try {
+    const deep = await backfillHistory(win);
+    return { newGames: recent.newGames + deep.added, totalGames: deep.totalGames };
+  } catch (err) {
+    // The recent games did land, so this reports what it got rather than
+    // failing the sync outright. backfillHistory has already told the UI why
+    // the walk didn't finish.
+    console.log("History walk after a rolled-over window failed:", err);
+    autoBackfillPausedUntil = Date.now() + AUTO_BACKFILL_RETRY_DELAY;
+    return recent;
+  }
 }
 
 // --- Instant capture from the post-game screen ----------------------------
@@ -948,12 +1040,17 @@ async function isInGame(): Promise<boolean> {
   return phase !== null && IN_GAME_PHASES.has(phase);
 }
 
-// An account that has never been walked gets the full history on its first
-// connect — that import is the whole point of the app, and it's a superset of
-// the recent-games sync. Every later tick takes the cheap LCU path instead: the
-// pvp.net service is only touched while an account still needs its first walk.
-// Deferred while a game is in progress so we aren't hammering the client
-// mid-match; a later poll picks it up.
+// The first sync an account gets in a session walks its whole history, and
+// every later tick takes the cheap LCU path. That first walk is the app's
+// answer to everything the twenty-game window cannot see: the games played
+// while it was closed, however many, and any hole an earlier version of it
+// left behind. It is also the initial import for an account being seen for the
+// first time, which is the same walk with nothing to skip.
+//
+// Marked only once the walk finishes, so a session that starts before the
+// client has finished signing in retries on a later tick rather than going the
+// rest of its life without one. Deferred while a game is in progress so we
+// aren't hammering the client mid-match; a later poll picks it up.
 async function syncGames(win: BrowserWindow) {
   let summoner: any = null;
   try {
@@ -962,14 +1059,13 @@ async function syncGames(win: BrowserWindow) {
     // Fall through to the recent-games sync, which reports its own errors
   }
 
-  const wantsBackfill =
-    summoner &&
-    Date.now() >= autoBackfillPausedUntil &&
-    db.getSetting(`backfill_complete_${CAPTURE_POLICY_VERSION}_${summoner.puuid}`) !== "1";
+  const wantsSweep =
+    summoner && Date.now() >= autoBackfillPausedUntil && !sweptThisLaunch.has(summoner.puuid);
 
-  if (wantsBackfill && !(await isInGame())) {
+  if (wantsSweep && !(await isInGame())) {
     try {
-      await backfillHistory(win);
+      await backfillHistory(win, { full: true });
+      sweptThisLaunch.add(summoner.puuid);
       return;
     } catch (err) {
       console.log("Automatic backfill failed, falling back to recent games:", err);
@@ -977,7 +1073,7 @@ async function syncGames(win: BrowserWindow) {
     }
   }
 
-  await fetchNewGames(win, summoner ?? undefined);
+  await syncRecentGames(win, summoner ?? undefined);
 }
 
 // Both timers are cleared before the connect loop starts again, so a restart

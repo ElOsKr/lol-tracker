@@ -4,7 +4,7 @@
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-13): widget integrado y validado previamente en OBS; base oficial v1.11.0 integrada. ARAM normal (450) implementado localmente en codex/lol-all-queues junto a Mayhem 2400/2450, con selección global de una sola cola. Validación con partida real de ARAM normal pendiente. Otras colas LoL y TFT siguen pendientes.
+- Fase actual (2026-09-14): widget integrado y validado previamente en OBS; base oficial v1.11.1 integrada. ARAM normal (450) implementado localmente en codex/lol-all-queues junto a Mayhem 2400/2450, con selección global de una sola cola. Validación con partida real de ARAM normal pendiente. Otras colas LoL y TFT siguen pendientes.
 - Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo League Companion. El renombrado visual/técnico del paquete y ejecutable, todavía Mayhem Tracker, se realizará en una entrega separada. Consulta e instalación de actualizaciones oficiales desactivadas para preservar las funciones propias hasta disponer de un canal propio.
 - Conservar la licencia MIT y la atribución originales.
 

@@ -2,6 +2,10 @@
 
 Riftally es el nombre elegido. La interfaz y la identidad del ejecutable siguen siendo Mayhem Tracker hasta la entrega específica de renombrado.
 
+## Integración oficial v1.11.1 — 2026-09-14
+
+Integrada v1.11.1 (91cb554): revisión completa del historial disponible una vez por cuenta y arranque, importación manual completa y recuperación si las últimas 20 partidas no contienen ninguna conocida. Conserva las tres colas admitidas y los descartes por política aram-v1; la nueva consulta isGameKnown respeta esa política para recuperar ARAM normal descartado por versiones antiguas. Sin cambios de esquema ni dependencias. La cobertura sigue limitada por el historial que Riot ofrece.
+
 ## ARAM normal — 2026-09-13
 
 Añadida captura de ARAM normal (450) al refresco, importación histórica y fin de partida; continúan ARAM Mayhem (2400) y Mayhem Classic (2450). El selector superior muestra una sola cola y la guarda en SQLite. Sin selección previa se abre ARAM normal; una cola vacía no cambia a “todas”. Historial, estadísticas, compañeros y resumen respetan la cola. Las selecciones antiguas por página se sustituyen por la global; los valores antiguos de hidden_queues se conservan pero ya no gobiernan las vistas.

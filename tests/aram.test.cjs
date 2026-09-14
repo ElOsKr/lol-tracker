@@ -88,6 +88,7 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     sql.prepare("INSERT INTO ignored_games (game_id) VALUES (?)").run(1);
     db.setSetting(`backfill_complete_${account}`, "1");
     assert.equal(db.getKnownGameIds().has(1), false);
+    assert.equal(db.isGameKnown(1), false);
     history = [game(1, 450), game(2, 2400, false), game(3, 2450), game(4, 420), game(5, 1090)];
     const captured = await lcu.fetchNewGames(null, {
       puuid: account,
@@ -95,6 +96,10 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
       tagLine: "TEST",
     });
     assert.equal(captured.newGames, 3);
+    assert.equal(captured.rolledOver, false);
+    assert.equal(db.isGameKnown(1), true);
+    assert.equal(db.isGameKnown(4), true);
+    assert.equal(db.isGameKnown(5), true);
     assert.equal(
       requested.some((url) => url.endsWith("/games/1")),
       true,
@@ -135,6 +140,11 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     assert.throws(() => db.setSetting("selected_queue", "420"), /Invalid queue/);
     db.markIgnoredGame(7);
     assert.equal(db.getKnownGameIds().has(7), true);
+    assert.equal(db.isGameKnown(7), true);
+    sql
+      .prepare("INSERT INTO ignored_games_by_policy (game_id, policy) VALUES (?, ?)")
+      .run(99, "old-policy");
+    assert.equal(db.isGameKnown(99), false);
     assert.equal(sql.prepare("SELECT COUNT(*) AS count FROM ignored_games").get().count, 1);
     db.insertGameFull(game(8, 450, true, 240, false), account);
     db.insertGameFull(game(9, 450, false, 120, true), account);
@@ -160,6 +170,11 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     );
     assert.equal(snapshot.totalWins, 2);
     assert.equal(snapshot.totalLosses, 0);
+    history = Array.from({ length: 20 }, (_, index) => game(100 + index, 420));
+    const summoner = { puuid: account, gameName: "Fixture", tagLine: "TEST" };
+    assert.equal((await lcu.fetchNewGames(null, summoner)).rolledOver, true);
+    assert.equal((await lcu.fetchNewGames(null, summoner)).rolledOver, false);
+    assert.equal((await lcu.syncRecentGames(null, summoner)).newGames, 0);
     db.closeDatabase();
     db.initDatabase();
     assert.equal(db.selectedQueue(), 2400);
