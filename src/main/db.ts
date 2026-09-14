@@ -2651,6 +2651,7 @@ interface CareerRow {
   total_heal: number;
   largest_killing_spree: number;
   score: number | null;
+  score_raw: number | null;
   score_badge: "MVP" | "ACE" | null;
   double_kills: number;
   triple_kills: number;
@@ -2669,7 +2670,7 @@ function careerRows(queue?: number): CareerRow[] {
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
              ps.total_damage_dealt, ps.total_damage_taken,
              ps.gold_earned, ps.total_heal, ps.largest_killing_spree,
-             ps.score, ps.score_badge,
+             ps.score, ps.score_raw, ps.score_badge,
              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
@@ -2711,10 +2712,21 @@ export function getRecords(queue?: number): any {
   };
   const higher = (a: number, b: number) => a > b;
   const lower = (a: number, b: number) => a < b;
-  const track = (key: string, value: number | null, row: any, better = higher) => {
-    if (value == null) return;
-    const current = bests[key];
-    if (!current || better(value, current.value)) bests[key] = { value, match: matchOf(row) };
+  // What each record is ranked on, where that differs from the value the card
+  // shows: the score displays the clamped 1-10 number and ranks on the raw one.
+  const ranks: Record<string, number> = {};
+  const track = (
+    key: string,
+    value: number | null,
+    row: any,
+    better = higher,
+    rank: number | null = value,
+  ) => {
+    if (value == null || rank == null) return;
+    if (!bests[key] || better(rank, ranks[key])) {
+      bests[key] = { value, match: matchOf(row) };
+      ranks[key] = rank;
+    }
   };
 
   interface Streak {
@@ -2734,7 +2746,7 @@ export function getRecords(queue?: number): any {
     // Deathless games rank by kills+assists rather than dividing by zero; the
     // renderer still labels them "Perfect"
     track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r);
-    track("score", r.score, r);
+    track("score", r.score, r, higher, r.score_raw ?? r.score);
     track("killingSpree", r.largest_killing_spree, r);
     track("damage", r.total_damage_dealt, r);
     track("damageTaken", r.total_damage_taken, r);
