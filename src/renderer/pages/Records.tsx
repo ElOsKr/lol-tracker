@@ -1,5 +1,6 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useEffect, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type {
@@ -312,20 +313,7 @@ function streakCard(streak: StreakRecord, win: boolean): CardDef {
 }
 
 export default function Records() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
-  const setQueue = (q: number | undefined) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (q == null) next.delete("queue");
-        else next.set("queue", String(q));
-        return next;
-      },
-      { replace: true },
-    );
-  };
+  const [queue, setQueue] = useQueueSelection();
 
   const { data, refetch } = useIpc<RecordsData>(() => window.api.getRecords(queue), [queue]);
   const champData = useChampionData();

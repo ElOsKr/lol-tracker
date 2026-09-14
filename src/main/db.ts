@@ -8,7 +8,14 @@ import {
   type PlayerScore,
   type ScoreInput,
 } from "../shared/opScore";
-import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
+import {
+  AUGMENT_SLOTS,
+  QUEUE_ID_MAYHEM_CLASSIC,
+  QUEUE_ID_ARAM,
+  MAYHEM_QUEUE_IDS,
+  isTrackedQueue,
+  CAPTURE_POLICY_VERSION,
+} from "../shared/queues";
 import { mapNameForSkin } from "../shared/maps";
 import { DAY_START_HOUR, sessionDay } from "../shared/session";
 import { ordinal } from "../shared/text";
@@ -207,8 +214,14 @@ function createTables() {
       value TEXT NOT NULL
     );
 
-    -- Games seen during a backfill that aren't Mayhem. Remembering them keeps
-    -- repeat backfills from re-fetching every ARAM/Arena game each time.
+    -- Discards belong to a capture policy; expanding supported queues revisits
+    -- earlier decisions without removing the legacy record below.
+    CREATE TABLE IF NOT EXISTS ignored_games_by_policy (
+      game_id INTEGER NOT NULL,
+      policy TEXT NOT NULL,
+      PRIMARY KEY (game_id, policy)
+    );
+
     CREATE TABLE IF NOT EXISTS ignored_games (
       game_id INTEGER PRIMARY KEY
     );
@@ -774,10 +787,13 @@ function backfillPlayerStatsSpells() {
 
 // Retroactively detect remakes for games stored before the flag existed
 function backfillRemakes() {
-  const games = db.prepare("SELECT game_id, game_duration, raw_json FROM games").all() as {
+  const games = db
+    .prepare("SELECT game_id, queue_id, game_duration, raw_json FROM games")
+    .all() as {
     game_id: number;
     game_duration: number;
     raw_json: string | null;
+    queue_id: number;
   }[];
   const updateStmt = db.prepare("UPDATE games SET is_remake = 1 WHERE game_id = ?");
   const tx = db.transaction(() => {
@@ -792,7 +808,7 @@ function backfillRemakes() {
           /* ignore parse errors */
         }
       }
-      if (detectRemake(game.game_duration, rows)) {
+      if (detectRemake(game.game_duration, rows, game.queue_id)) {
         updateStmt.run(game.game_id);
       }
     }
@@ -902,20 +918,7 @@ function backfillAugmentSlots() {
   `);
 }
 
-// Queues switched off on the Settings page, as stored in hidden_queues. An
-// absent key means the setting was never written; an empty one means the user
-// has everything switched on.
-function getHiddenQueues(): number[] {
-  const raw = getSetting("hidden_queues");
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map(Number)
-    .filter((id) => Number.isFinite(id));
-}
-
-// Every queue with games stored, ignoring which ones are hidden — the Settings
-// page needs the full list to offer a hidden queue's switch back on.
+// The unfiltered list is used for maintenance and catalogue discovery.
 export function getStoredQueues(): number[] {
   const rows = db
     .prepare(`
@@ -928,19 +931,15 @@ export function getStoredQueues(): number[] {
   return rows.map((r) => r.queue_id);
 }
 
-// Appends queue conditions to a query's WHERE list. An explicit queue filter
-// wins; otherwise the queues switched off in Settings are excluded everywhere.
+// A missing selection resolves to one queue, never to an aggregate.
+export function selectedQueue(): number {
+  const value = Number(getSetting("selected_queue"));
+  return isTrackedQueue(value) ? value : QUEUE_ID_ARAM;
+}
+
 function applyQueueFilter(where: string[], params: any[], queue?: number, alias = "g") {
-  if (queue != null) {
-    where.push(`${alias}.queue_id = ?`);
-    params.push(queue);
-    return;
-  }
-  const hidden = getHiddenQueues();
-  if (hidden.length > 0) {
-    where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
-    params.push(...hidden);
-  }
+  where.push(`${alias}.queue_id = ?`);
+  params.push(isTrackedQueue(queue) ? queue : selectedQueue());
 }
 
 // Remakes are already left out of every stat; this setting takes them out of
@@ -953,7 +952,7 @@ function hideRemakes(): boolean {
 // stored scores recompute when either changes (new formula, new patch,
 // re-tagged champion).
 function scoreFormulaKey() {
-  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}`;
+  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}:mayhem-only`;
 }
 
 // Recompute stored scores from the participant rows. Runs whenever the formula version or
@@ -1049,7 +1048,7 @@ function computeOwnerScore(
 function backfillScores() {
   const games = db
     .prepare(`
-      SELECT g.game_id, g.puuid, g.is_remake,
+      SELECT g.game_id, g.puuid, g.queue_id, g.is_remake,
              ps.champion_id, ps.kills, ps.deaths, ps.assists
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
@@ -1058,6 +1057,7 @@ function backfillScores() {
     game_id: number;
     puuid: string;
     is_remake: number;
+    queue_id: number;
     champion_id: number;
     kills: number;
     deaths: number;
@@ -1075,7 +1075,7 @@ function backfillScores() {
   );
   const tx = db.transaction(() => {
     for (const row of games) {
-      if (row.is_remake) {
+      if (row.is_remake || !MAYHEM_QUEUE_IDS.includes(row.queue_id)) {
         updateStmt.run(null, null, null, row.game_id);
         continue;
       }
@@ -1097,7 +1097,13 @@ function parsePatch(version: unknown): string | null {
   return m ? `${m[1]}.${m[2]}` : null;
 }
 
-function detectRemake(gameDuration: number, rows: { early_surrender: number }[]): boolean {
+function detectRemake(
+  gameDuration: number,
+  rows: { early_surrender: number }[],
+  queue?: number,
+): boolean {
+  if (queue === QUEUE_ID_ARAM)
+    return gameDuration < 300 && rows.some((r) => r.early_surrender === 1);
   // Very short games are always remakes
   if (gameDuration < 300) return true;
   // An early surrender still inside the first ten minutes counts as one too
@@ -1344,7 +1350,7 @@ export function getMatchFilterOptions(filters?: {
     queueWhere.push("g.game_version = ?");
     queueParams.push(filters.patch);
   }
-  applyQueueFilter(queueWhere, queueParams, undefined);
+  // Catalogue must remain independent from the selected queue.
   applyAccountFilter(queueWhere, queueParams);
   const queueRows = db
     .prepare(`
@@ -1812,13 +1818,18 @@ export function gameExists(gameId: number): boolean {
 // skipped. One query beats a lookup per id when a backfill checks hundreds.
 export function getKnownGameIds(): Set<number> {
   const rows = db
-    .prepare("SELECT game_id FROM games UNION SELECT game_id FROM ignored_games")
-    .all() as { game_id: number }[];
+    .prepare(
+      "SELECT game_id FROM games UNION SELECT game_id FROM ignored_games_by_policy WHERE policy = ?",
+    )
+    .all(CAPTURE_POLICY_VERSION) as { game_id: number }[];
   return new Set(rows.map((r) => r.game_id));
 }
 
 export function markIgnoredGame(gameId: number): void {
-  db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)").run(gameId);
+  db.prepare("INSERT OR IGNORE INTO ignored_games_by_policy (game_id, policy) VALUES (?, ?)").run(
+    gameId,
+    CAPTURE_POLICY_VERSION,
+  );
 }
 
 // The game's owner among its participant rows. participantRowsFromRaw has
@@ -1830,14 +1841,15 @@ function findOwnerRow(rows: RawParticipantRow[], puuid: string): RawParticipantR
 }
 
 export function insertGameFull(gameData: any, puuid: string): boolean {
+  if (!isTrackedQueue(gameData?.queueId)) return false;
   const rows = participantRowsFromRaw(gameData);
   const owner = findOwnerRow(rows, puuid);
   if (!owner) return false;
 
-  const isRemake = detectRemake(gameData.gameDuration, rows) ? 1 : 0;
+  const isRemake = detectRemake(gameData.gameDuration, rows, gameData.queueId) ? 1 : 0;
 
   let ownerScore: PlayerScore | null = null;
-  if (!isRemake) {
+  if (!isRemake && MAYHEM_QUEUE_IDS.includes(gameData.queueId)) {
     ownerScore = computeOwnerScore(rows, puuid, {
       champion_id: owner.champion_id,
       kills: owner.kills,
@@ -2260,9 +2272,11 @@ ${GAME_MAX_STATS_SQL}
     champ.assists += friend.assists;
 
     const gameRows = scoreRows.get(row.game_id) ?? [];
-    const friendScore = computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses()).get(
-      friend.participant_id,
-    );
+    const friendScore = !MAYHEM_QUEUE_IDS.includes(row.queue_id)
+      ? undefined
+      : computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses()).get(
+          friend.participant_id,
+        );
     const friendStats = gameRows.find((p) => p.participant_id === friend.participant_id);
 
     matches.push({
@@ -2836,7 +2850,10 @@ function emptyRecord(): PlayerRecord {
  * empty, and the ones that don't are the point: a friend's record on the
  * champion they just locked in.
  */
-export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerHistory> {
+export function getPlayerHistories(
+  players: PlayerRef[],
+  queue?: number,
+): Record<string, PlayerHistory> {
   const histories: Record<string, PlayerHistory> = {};
   if (players.length === 0) return histories;
 
@@ -2847,7 +2864,7 @@ export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerH
   if (!match) return histories;
 
   const where = [match, "mp.is_remake = 0"];
-  applyQueueFilter(where, params, undefined, "mp");
+  applyQueueFilter(where, params, queue, "mp");
 
   const rows = db
     .prepare(`
@@ -2933,7 +2950,7 @@ export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerH
         `(o.puuid IS NULL OR o.puuid NOT IN (${ourList}))`,
       ];
       teamParams.push(...ours);
-      applyQueueFilter(teamWhere, teamParams, undefined, "o");
+      applyQueueFilter(teamWhere, teamParams, queue, "o");
 
       const teamRows = db
         .prepare(`
@@ -3255,7 +3272,15 @@ function buildStreak(rows: CareerRow[], index: number): RecapStreak {
  * because crossing a mark only happens once and happened then.
  */
 export function getGameRecap(gameId?: number): any {
-  const rows = careerRows();
+  const targetQueue =
+    gameId == null
+      ? selectedQueue()
+      : (
+          db.prepare("SELECT queue_id FROM games WHERE game_id = ?").get(gameId) as
+            | { queue_id: number }
+            | undefined
+        )?.queue_id;
+  const rows = careerRows(targetQueue);
   const id = gameId ?? rows[rows.length - 1]?.game_id;
   if (id == null) return null;
 
@@ -3411,6 +3436,8 @@ export function getSetting(key: string): string | null {
 }
 
 export function setSetting(key: string, value: string): void {
+  if (key === "selected_queue" && !isTrackedQueue(Number(value)))
+    throw new Error("Invalid queue selection");
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
 }
 
@@ -3514,7 +3541,7 @@ export function importData(data: any): number {
 function rebuildDerivedStats(): number {
   const games = db
     .prepare(`
-      SELECT g.game_id, g.puuid, g.game_duration,
+      SELECT g.game_id, g.puuid, g.queue_id, g.game_duration,
              ps.champion_id, ps.kills, ps.deaths, ps.assists
       FROM games g
       LEFT JOIN player_stats ps ON g.game_id = ps.game_id
@@ -3523,6 +3550,7 @@ function rebuildDerivedStats(): number {
     game_id: number;
     puuid: string;
     game_duration: number;
+    queue_id: number;
     champion_id: number | null;
     kills: number | null;
     deaths: number | null;
@@ -3601,11 +3629,11 @@ function rebuildDerivedStats(): number {
 
       // Writing is_remake fires trg_games_denorm_participants, which carries
       // the new value down to the participant rows.
-      const isRemake = detectRemake(row.game_duration, rows) ? 1 : 0;
+      const isRemake = detectRemake(row.game_duration, rows, row.queue_id) ? 1 : 0;
       updateRemake.run(isRemake, row.game_id);
 
       let ownerScore: PlayerScore | null = null;
-      if (!isRemake) {
+      if (!isRemake && MAYHEM_QUEUE_IDS.includes(row.queue_id)) {
         ownerScore = computeOwnerScore(rows, row.puuid || null, {
           champion_id: owner.champion_id,
           kills: owner.kills,

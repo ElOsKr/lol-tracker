@@ -1,3 +1,4 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useMemo, useEffect } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -49,7 +50,7 @@ export default function Augments() {
   const champData = useChampionData();
   const augmentData = useAugmentData();
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
-  const [queue, setQueue] = useViewState<number | undefined>("augments.queue", undefined);
+  const [queue, setQueue] = useQueueSelection();
   const { data, refetch } = useIpc<AugmentStatsDetailedResult>(
     () => window.api.getAugmentStatsDetailed(patch, queue),
     [patch, queue],

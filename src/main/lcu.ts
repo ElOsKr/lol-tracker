@@ -10,7 +10,7 @@ import {
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
-import { MAYHEM_QUEUE_IDS } from "../shared/queues";
+import { TRACKED_QUEUE_IDS, CAPTURE_POLICY_VERSION } from "../shared/queues";
 import { SGP_HISTORY_CAP } from "../shared/api";
 import type { BackfillLimit, LcuStatus } from "../shared/api";
 
@@ -178,7 +178,7 @@ const SGP_MAX_PAGES = 25;
 // reaches no further back: without it the hydration loop below pays one LCU
 // request per game the account played in some other queue, only to throw it
 // away. OR because a game is in exactly one queue.
-const SGP_MAYHEM_TAGS = `${MAYHEM_QUEUE_IDS.map((id) => `tag=q_${id}`).join("&")}&tagsQueryType=OR`;
+const SGP_TRACKED_TAGS = `${TRACKED_QUEUE_IDS.map((id) => `tag=q_${id}`).join("&")}&tagsQueryType=OR`;
 const SGP_ALL_TAGS = "tagsQueryType=AND";
 
 // How many new games to accumulate before nudging the UI to re-query, so a long
@@ -439,7 +439,7 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
     // the new games at the front. Results are newest-first, so the first page
     // we've already fully accounted for means everything older is accounted for
     // too. Tracked per account, since a newly added one still needs a full walk.
-    const completedKey = `backfill_complete_${summoner.puuid}`;
+    const completedKey = `backfill_complete_${CAPTURE_POLICY_VERSION}_${summoner.puuid}`;
     const walkedBefore = db.getSetting(completedKey) === "1";
 
     const walk = (from: string, tags: string) =>
@@ -454,7 +454,7 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
     let activeHost = host;
     let walked: { ids: number[]; stoppedBy: WalkStop };
     try {
-      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
+      walked = await walk(activeHost, SGP_TRACKED_TAGS);
     } catch (err) {
       // The remembered shard may simply be the wrong one now. Find the right
       // one and restart the walk there; if none answers, the original failure
@@ -463,7 +463,7 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
       const rehomed = await rehomeSgpHost(summoner.puuid, token, activeHost);
       if (!rehomed) throw err;
       activeHost = rehomed;
-      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
+      walked = await walk(activeHost, SGP_TRACKED_TAGS);
     }
 
     // The queue filter is Riot's vocabulary, not ours, and a filtered walk that
@@ -522,11 +522,11 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
         continue;
       }
 
-      if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) {
+      if (!TRACKED_QUEUE_IDS.includes(game.queueId)) {
         db.markIgnoredGame(gameId);
       } else if (db.insertGameFull(game, summoner.puuid)) {
         added++;
-        console.log(`Backfilled ARAM Mayhem game ${gameId}`);
+        console.log(`Backfilled tracked ARAM game ${gameId}`);
       }
 
       // Let the app fill in as it goes rather than staying empty for minutes
@@ -608,7 +608,7 @@ export async function fetchNewGames(
 
   for (const game of games) {
     if (db.gameExists(game.gameId)) continue;
-    if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) continue;
+    if (!TRACKED_QUEUE_IDS.includes(game.queueId)) continue;
 
     let fullGame: any;
     try {
@@ -620,7 +620,7 @@ export async function fetchNewGames(
     const inserted = db.insertGameFull(fullGame, summoner.puuid);
     if (inserted) {
       newGamesCount++;
-      console.log(`Stored ARAM Mayhem game ${fullGame.gameId}`);
+      console.log(`Stored tracked ARAM game ${fullGame.gameId}`);
     }
   }
 
@@ -724,14 +724,14 @@ async function captureEogGame(
 
     const game = await fetchGameDetails(gameId);
 
-    if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) {
+    if (!TRACKED_QUEUE_IDS.includes(game.queueId)) {
       db.markIgnoredGame(gameId);
       eogPending.delete(gameId);
       return;
     }
 
     if (db.insertGameFull(game, summoner.puuid)) {
-      console.log(`Stored ARAM Mayhem game ${gameId} from the post-game screen`);
+      console.log(`Stored tracked ARAM game ${gameId} from the post-game screen`);
       notifyGamesUpdated(win);
     }
     eogPending.delete(gameId);
@@ -759,7 +759,7 @@ function startCapture(win: BrowserWindow, gameId: number, queueId: number): void
   // The queue id rides along whenever the source has one, so a game we don't
   // track is dismissed without a single request. Sources that omit it leave
   // this NaN, and the fetched game is what decides instead.
-  if (Number.isFinite(queueId) && queueId > 0 && !MAYHEM_QUEUE_IDS.includes(queueId)) {
+  if (Number.isFinite(queueId) && queueId > 0 && !TRACKED_QUEUE_IDS.includes(queueId)) {
     db.markIgnoredGame(gameId);
     return;
   }
@@ -965,7 +965,7 @@ async function syncGames(win: BrowserWindow) {
   const wantsBackfill =
     summoner &&
     Date.now() >= autoBackfillPausedUntil &&
-    db.getSetting(`backfill_complete_${summoner.puuid}`) !== "1";
+    db.getSetting(`backfill_complete_${CAPTURE_POLICY_VERSION}_${summoner.puuid}`) !== "1";
 
   if (wantsBackfill && !(await isInGame())) {
     try {

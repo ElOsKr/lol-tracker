@@ -302,8 +302,8 @@ function emptySnapshot(): LiveGameSnapshot {
 // than on every three-second poll.
 let recordCache: { signature: string; histories: Record<string, db.PlayerHistory> } | null = null;
 
-function playerHistories(gameId: number | null, players: LivePlayer[]) {
-  const signature = `${gameId}:${players.map((p) => `${p.key}@${p.championId}`).join("|")}`;
+function playerHistories(gameId: number | null, players: LivePlayer[], queue: number | null) {
+  const signature = `${gameId}:${queue}:${players.map((p) => `${p.key}@${p.championId}`).join("|")}`;
   if (recordCache?.signature === signature) return recordCache.histories;
 
   const histories = db.getPlayerHistories(
@@ -314,6 +314,7 @@ function playerHistories(gameId: number | null, players: LivePlayer[]) {
       tagLine: p.tagLine,
       championId: p.championId,
     })),
+    queue ?? undefined,
   );
   recordCache = { signature, histories };
   return histories;
@@ -404,7 +405,7 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
     };
   });
 
-  const histories = playerHistories(snapshot.gameId, snapshot.players);
+  const histories = playerHistories(snapshot.gameId, snapshot.players, snapshot.queueId);
   for (const player of snapshot.players) {
     const history = histories[player.key];
     if (!history) continue;

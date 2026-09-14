@@ -1,4 +1,16 @@
-# Desarrollo de League Companion
+# Desarrollo de Riftally
+
+Riftally es el nombre elegido. La interfaz y la identidad del ejecutable siguen siendo Mayhem Tracker hasta la entrega específica de renombrado.
+
+## ARAM normal — 2026-09-13
+
+Añadida captura de ARAM normal (450) al refresco, importación histórica y fin de partida; continúan ARAM Mayhem (2400) y Mayhem Classic (2450). El selector superior muestra una sola cola y la guarda en SQLite. Sin selección previa se abre ARAM normal; una cola vacía no cambia a “todas”. Historial, estadísticas, compañeros y resumen respetan la cola. Las selecciones antiguas por página se sustituyen por la global; los valores antiguos de hidden_queues se conservan pero ya no gobiernan las vistas.
+
+Widget / OBS mantiene su cuenta, tamaño y opacidad y permite fijar cualquiera de las tres colas, incluso sin partidas. Una selección antigua vacía se interpreta como ARAM normal. La URL de OBS sigue siendo la misma. Los aumentos y la puntuación calibrada para Mayhem no se aplican a ARAM normal; el score se deja sin valor. En ARAM normal, la detección conservadora de remake requiere el indicador de rendición temprana y menos de cinco minutos; pendiente contrastarlo con muestras reales.
+
+La política aram-v1 reexamina el historial aunque la importación Mayhem anterior estuviera completada. Conserva los descartes antiguos y registra los nuevos por versión de política. Importa las tres colas admitidas independientemente de la vista elegida; otras colas siguen fuera de alcance. El límite histórico del servicio sigue vigente.
+
+Validación: typecheck, lint, formato, build, test:widget y test:aram. Prueba de interfaz compilada en Electron con base aislada: selección, navegación, recarga, colas vacías y páginas principales. Copia consistente previa en backups/aram-normal-1789330102523/pre-aram.db; migración ensayada sobre otra copia con conservación exacta de tablas/ajustes existentes e integridad correcta. Las pruebas de transporte utilizan respuestas sintéticas; falta verificar una partida real y repetir OBS con esta versión. Reiniciar completamente desde Quit en la bandeja para cargar la compilación nueva.
 
 La base sigue siendo Mayhem Tracker. El alcance acordado es ampliar primero a todas las colas de LoL, después añadir TFT y mantener el widget como complemento. Esta preparación no implementa esas funcionalidades.
 

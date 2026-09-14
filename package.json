@@ -20,7 +20,8 @@
     "predev": "npm run build:widget",
     "prebuild": "npm run build:widget",
     "predist": "npm run build:widget",
-    "test:widget": "npm run build:widget && node --test tests/widget.test.cjs"
+    "test:widget": "npm run build:widget && node --test tests/widget.test.cjs",
+    "test:aram": "node scripts/test-aram.cjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",

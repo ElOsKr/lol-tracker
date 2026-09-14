@@ -15,6 +15,7 @@ import { applyAutoStart, isAutoStartSupported } from "./autostart";
 // the renderer has any business reading or rewriting. Only the keys backing the
 // Settings page are exposed.
 const RENDERER_SETTINGS = new Set([
+  "selected_queue",
   "auto_start",
   "minimize_to_tray",
   "hidden_queues",

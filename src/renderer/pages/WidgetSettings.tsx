@@ -1,3 +1,4 @@
+import { TRACKED_QUEUE_IDS } from "../../shared/queues";
 import { useEffect, useState } from "react";
 import type { MatchFilterOptions } from "../../shared/api";
 import type { WidgetState, WidgetPreferences } from "../../shared/widget";
@@ -99,8 +100,7 @@ export default function WidgetSettings() {
                     select({ queue: e.target.value === "" ? null : Number(e.target.value) })
                   }
                 >
-                  <option value="">Todas las colas visibles</option>
-                  {options?.queues.map((q) => (
+                  {TRACKED_QUEUE_IDS.map((q) => (
                     <option key={q} value={q}>
                       {queueLabel(q)}
                     </option>
@@ -111,7 +111,7 @@ export default function WidgetSettings() {
             <p className="text-sm">
               Muestra las últimas 15 partidas. El porcentaje se calcula con el historial almacenado
               de la cuenta y cola seleccionadas, excluyendo remakes. No garantiza todas las partidas
-              jugadas. La captura actual sigue limitada a ARAM Caos.
+              jugadas. Captura ARAM normal, ARAM Caos y Mayhem Classic.
             </p>
           </section>
           <section className="p-5 rounded-lg border border-lol-border space-y-3">

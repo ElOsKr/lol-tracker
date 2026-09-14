@@ -1,5 +1,6 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+
 import { useIpc } from "../hooks/useIpc";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import { formatPatch } from "../lib/format";
@@ -660,20 +661,7 @@ function HourChart({ hours }: { hours: TrendsData["hours"] }) {
 // ---- Page ----
 
 export default function Trends() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
-  const setQueue = (q: number | undefined) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (q == null) next.delete("queue");
-        else next.set("queue", String(q));
-        return next;
-      },
-      { replace: true },
-    );
-  };
+  const [queue, setQueue] = useQueueSelection();
 
   const { data, refetch } = useIpc<TrendsData>(() => window.api.getTrends(queue), [queue]);
 

@@ -1,3 +1,4 @@
+import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
 import { useMemo, useState, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
@@ -32,10 +33,11 @@ export default function MatchScoreboard({
   );
   const teams = useMemo(() => groupByTeam(participants), [participants]);
   const scores = useMemo(() => {
+    if (!MAYHEM_QUEUE_IDS.includes(detail.game.queue_id)) return new Map<number, ScoreBreakdown>();
     const classes: Record<number, string | undefined> = {};
     for (const p of participants) classes[p.championId] = champData?.[p.championId]?.class;
     return computeMatchScoreBreakdowns(participants, classes);
-  }, [participants, champData]);
+  }, [participants, champData, detail.game.queue_id]);
 
   const gameMaxStats = useMemo(() => {
     let dmg = 0,

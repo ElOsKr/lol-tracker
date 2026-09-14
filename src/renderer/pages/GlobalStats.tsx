@@ -1,3 +1,5 @@
+import { QUEUE_ID_ARAM } from "../../shared/queues";
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -74,10 +76,12 @@ export default function GlobalStats() {
   // back on the same view
   const [searchParams, setSearchParams] = useSearchParams();
   const patch = searchParams.get("patch") ?? undefined;
-  const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
+  const [queue, setQueue] = useQueueSelection();
   const tabParam = searchParams.get("tab");
-  const tab: Tab = tabParam === "augments" || tabParam === "items" ? tabParam : "champions";
+  const tab: Tab =
+    (tabParam === "augments" && queue !== QUEUE_ID_ARAM) || tabParam === "items"
+      ? tabParam
+      : "champions";
 
   const setParam = (key: string, value: string | number | undefined) => {
     setSearchParams(
@@ -91,7 +95,7 @@ export default function GlobalStats() {
     );
   };
   const setPatch = (p: string | undefined) => setParam("patch", p);
-  const setQueue = (q: number | undefined) => setParam("queue", q);
+
   const setTab = (t: Tab) => setParam("tab", t === "champions" ? undefined : t);
 
   // Those three live in the URL, so remembering them means putting the query
@@ -352,6 +356,7 @@ export default function GlobalStats() {
           Champions
         </button>
         <button
+          hidden={queue === QUEUE_ID_ARAM}
           onClick={() => setTab("augments")}
           className={`px-4 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
             tab === "augments"

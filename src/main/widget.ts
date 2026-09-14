@@ -1,3 +1,4 @@
+import { TRACKED_QUEUE_IDS, QUEUE_ID_ARAM, isTrackedQueue } from "../shared/queues";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
 import * as db from "./db";
@@ -61,7 +62,7 @@ function preferences(): WidgetPreferences {
     height,
     opacity,
     account,
-    queue: queue !== null && Number.isInteger(queue) && queue >= 0 ? queue : null,
+    queue: isTrackedQueue(queue) ? queue : QUEUE_ID_ARAM,
   };
 }
 
@@ -242,8 +243,8 @@ export function registerWidgetHandlers(main: () => BrowserWindow | null) {
       typeof value.account !== "string" ||
       (value.account !== "" &&
         !db.getMatchFilterOptions().accounts.some((a) => a.puuid === value.account)) ||
-      (value.queue !== null &&
-        (!Number.isInteger(value.queue) || !db.getStoredQueues().includes(value.queue)))
+      !Number.isInteger(value.queue) ||
+      !TRACKED_QUEUE_IDS.includes(value.queue as number)
     )
       throw new Error("Invalid widget selection");
     db.setSetting("widget_account", value.account);

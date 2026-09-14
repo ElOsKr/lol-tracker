@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBackfill } from "../hooks/useBackfill";
-import { queueLabel } from "../components/QueueSelect";
+
 import { setRemembering } from "../lib/viewState";
 import { SGP_HISTORY_CAP } from "../lib/types";
 import type { BackupInfo } from "../lib/types";
@@ -62,9 +62,6 @@ export default function Settings() {
   // so instead of pretending in a dev build
   const [autoStartSupported, setAutoStartSupported] = useState(false);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
-  // Every queue with games stored, and the subset the user has switched off
-  const [queues, setQueues] = useState<number[]>([]);
-  const [hiddenQueues, setHiddenQueues] = useState<Set<number>>(new Set());
   const [hideRemakes, setHideRemakes] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
   const [rememberFilters, setRememberFilters] = useState(false);
@@ -84,28 +81,19 @@ export default function Settings() {
       window.api.getSetting("auto_start"),
       window.api.isAutoStartSupported(),
       window.api.getSetting("minimize_to_tray"),
-      window.api.getSetting("hidden_queues"),
+
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember]) => {
+    ]).then(([startup, startupSupported, tray, remakes, backup, remember]) => {
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
       setMinimizeToTray(tray !== "false");
-      setHiddenQueues(new Set(hidden ? hidden.split(",").map(Number) : []));
       setHideRemakes(remakes === "true");
       setAutoBackup(backup !== "false");
       setRememberFilters(remember === "true");
       setLoading(false);
     });
-  }, []);
-
-  // Kept current the same way the queue dropdown is: a game from a queue that
-  // wasn't in the database yet adds a switch for it without a reload.
-  useEffect(() => {
-    const fetchQueues = () => window.api.getStoredQueues().then(setQueues);
-    fetchQueues();
-    return window.api.onGamesUpdated(fetchQueues);
   }, []);
 
   const refreshBackups = useCallback(() => {
@@ -126,16 +114,6 @@ export default function Settings() {
     setMinimizeToTray(next);
     await window.api.setSetting("minimize_to_tray", String(next));
   }, [minimizeToTray]);
-
-  const handleQueueToggle = useCallback(
-    async (queueId: number) => {
-      const next = new Set(hiddenQueues);
-      if (!next.delete(queueId)) next.add(queueId);
-      setHiddenQueues(next);
-      await window.api.setSetting("hidden_queues", [...next].join(","));
-    },
-    [hiddenQueues],
-  );
 
   const handleHideRemakesToggle = useCallback(async () => {
     const next = !hideRemakes;
@@ -343,39 +321,10 @@ export default function Settings() {
             <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
           </div>
 
-          {/* A single queue has nothing to choose between, so the whole block
-              waits until a second one shows up in the database */}
-          {queues.length > 1 && (
-            <>
-              <div className="border-t border-lol-border" />
-
-              <div>
-                <p className="text-sm text-lol-text-bright">Queues to include</p>
-                <p className="text-xs text-lol-text mt-0.5">
-                  Stats and match history only count the queues switched on here. Games from the
-                  others are still recorded, and can be counted again by switching their queue back
-                  on.
-                </p>
-                <div className="mt-3 space-y-3">
-                  {queues.map((q, _i, all) => {
-                    const shown = !hiddenQueues.has(q);
-                    const shownCount = all.filter((id) => !hiddenQueues.has(id)).length;
-                    return (
-                      <div key={q} className="flex items-center justify-between">
-                        <p className="text-sm text-lol-text">{queueLabel(q)}</p>
-                        {/* Switching off the last one would empty every page */}
-                        <Switch
-                          checked={shown}
-                          disabled={shown && shownCount === 1}
-                          onChange={() => handleQueueToggle(q)}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
+          <p className="text-xs text-lol-text">
+            La cola se elige en el selector superior y se conserva al reiniciar. No se mezclan las
+            estadísticas de distintas colas.
+          </p>
         </div>
       </div>
 
@@ -387,9 +336,9 @@ export default function Settings() {
             <div>
               <p className="text-sm text-lol-text-bright">Backfill match history</p>
               <p className="text-xs text-lol-text mt-0.5">
-                Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs
-                automatically the first time an account connects; use this to run it again, or to
-                finish an import you cancelled.
+                Pull your older ARAM and Mayhem games from Riot and add any that aren't stored yet.
+                This runs automatically the first time an account connects; use this to run it
+                again, or to finish an import you cancelled.
               </p>
             </div>
             <button

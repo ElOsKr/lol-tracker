@@ -1,3 +1,4 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMatches } from "../hooks/useMatches";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
@@ -37,7 +38,7 @@ import {
   kdaColor,
   formatPatch,
 } from "../lib/format";
-import { queueLabel } from "../components/QueueSelect";
+import QueueSelect from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
 import { sessionDay, sessionDayKey } from "../../shared/session";
 
@@ -164,10 +165,7 @@ export default function MatchHistory() {
     "matches.patch",
     undefined,
   );
-  const [queueFilter, setQueueFilter] = useViewState<number | undefined>(
-    "matches.queue",
-    undefined,
-  );
+  const [queueFilter, setQueueFilter] = useQueueSelection();
   const [accountFilter, setAccountFilter] = useViewState<string | undefined>(
     "matches.account",
     undefined,
@@ -305,9 +303,7 @@ export default function MatchHistory() {
     if (patchFilter !== undefined && !filterOptions.patches.includes(patchFilter)) {
       setPatchFilter(undefined);
     }
-    if (queueFilter !== undefined && !filterOptions.queues.includes(queueFilter)) {
-      setQueueFilter(undefined);
-    }
+
     if (
       accountFilter !== undefined &&
       !filterOptions.accounts.some((a) => a.puuid === accountFilter)
@@ -620,22 +616,7 @@ export default function MatchHistory() {
               </option>
             ))}
           </select>
-          {(filterOptions.queues.length > 1 || queueFilter !== undefined) && (
-            <select
-              value={queueFilter ?? ""}
-              onChange={(e) =>
-                setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
-              }
-              className={SELECT_CLASS}
-            >
-              <option value="">All Queues</option>
-              {filterOptions.queues.map((q) => (
-                <option key={q} value={q}>
-                  {queueLabel(q)}
-                </option>
-              ))}
-            </select>
-          )}
+          <QueueSelect value={queueFilter} onChange={setQueueFilter} />
           <div className="flex items-center gap-1">
             <select
               value={sort ?? ""}

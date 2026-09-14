@@ -1,3 +1,5 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
+import { QUEUE_ID_ARAM } from "../../shared/queues";
 import { NavLink } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef, type ComponentType, type SVGProps } from "react";
 import { useLcuStatus } from "../hooks/useLcuStatus";
@@ -70,6 +72,7 @@ function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: I
 }
 
 export default function Sidebar() {
+  const [queue] = useQueueSelection();
   const status = useLcuStatus();
   const { running: backfilling, progress, percent } = useBackfill();
   const [refreshing, setRefreshing] = useState(false);
@@ -160,9 +163,11 @@ export default function Sidebar() {
         </div>
       </div>
       <div className="flex flex-col gap-0.5 p-3 mt-1 flex-1">
-        {links.map((link) => (
-          <NavItem key={link.to} {...link} />
-        ))}
+        {links
+          .filter((link) => queue !== QUEUE_ID_ARAM || link.to !== "/augments")
+          .map((link) => (
+            <NavItem key={link.to} {...link} />
+          ))}
       </div>
       <div className="px-3 pb-1">
         <NavItem to="/settings" label="Settings" icon={SettingsIcon} />
