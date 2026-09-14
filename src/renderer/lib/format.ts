@@ -42,6 +42,17 @@ export function formatTimeAgo(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+// The exact moment behind a relative timestamp, for tooltips
+export function formatDateTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return `${date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+
 // Riot switched displayed patch numbers to year-based in 2025 (internal 15.x
 // shown as "25.x"), but match data and CDN branches still use the internal
 // season number. Shift the major version for display only.

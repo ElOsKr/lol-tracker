@@ -29,6 +29,7 @@ import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
 import { ArrowDownIcon, StarIcon, SwordsIcon, ZapIcon } from "../components/icons";
 import {
+  formatDateTime,
   formatDuration,
   formatPlaytime,
   formatTimeAgo,
@@ -1103,7 +1104,9 @@ function GameRow({
         </div>
         <div className="text-xs text-lol-text text-right shrink-0">
           <div>{formatDuration(match.game_duration)}</div>
-          <div>{formatTimeAgo(match.game_creation)}</div>
+          <div className="w-fit ml-auto" title={formatDateTime(match.game_creation)}>
+            {formatTimeAgo(match.game_creation)}
+          </div>
         </div>
       </button>
 
