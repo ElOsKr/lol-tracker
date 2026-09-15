@@ -150,7 +150,13 @@ export function loadAugmentData(patch?: string): Promise<Record<number, AugmentI
         data = await fetchJson(cherryAugmentsUrl("latest"));
       }
       const augments = parseAugments(data, resolved);
-      augmentCaches.set(key, augments);
+      // Current data stands in for an archived branch that wouldn't load, but
+      // it isn't what the game was played with: serve it once and let the next
+      // request try the patch's own branch again. Memoizing it would report an
+      // old game against today's augments — and blank the art of every augment
+      // retired since — for the rest of the session.
+      if (resolved === branch) augmentCaches.set(key, augments);
+      else augmentPromises.delete(key);
       console.log(
         `Loaded ${Object.keys(augments).length} augments from CommunityDragon (${resolved})`,
       );
@@ -326,10 +332,23 @@ let archivedBranches: string[] | null = null;
 
 const augmentIconCacheFile = () => path.join(getDataDir(), "augment-icon-cache.json");
 
+// A hit is good for every patch — it's the branch that still has the art — so
+// it's filed under the augment id alone. A miss only means "not on any branch
+// this lookup walked", which depends on the patch it started from, so it's
+// filed under both.
+const missKey = (id: number, patch?: string) => `${id}|${patch ?? "latest"}`;
+
 function readAugmentIconCache(): AugmentIconCache {
   if (!augmentIconCache) {
     try {
-      augmentIconCache = JSON.parse(fs.readFileSync(augmentIconCacheFile(), "utf8"));
+      const parsed = JSON.parse(fs.readFileSync(augmentIconCacheFile(), "utf8"));
+      // Misses written before they carried a patch claimed to be the last word
+      // on an augment for every patch, including ones the walk never reached.
+      augmentIconCache = Object.fromEntries(
+        Object.entries(parsed as AugmentIconCache).filter(
+          ([key, url]) => url !== null || key.includes("|"),
+        ),
+      );
     } catch {
       augmentIconCache = {};
     }
@@ -337,9 +356,9 @@ function readAugmentIconCache(): AugmentIconCache {
   return augmentIconCache!;
 }
 
-function writeAugmentIconCache(id: number, url: string | null) {
+function writeAugmentIconCache(key: string, url: string | null) {
   const cache = readAugmentIconCache();
-  cache[String(id)] = url;
+  cache[key] = url;
   try {
     fs.writeFileSync(augmentIconCacheFile(), JSON.stringify(cache));
   } catch (err) {
@@ -466,7 +485,9 @@ async function findIconOnBranch(branch: string, iconPath: string): Promise<Branc
  */
 export function resolveAugmentIcon(id: number, patch?: string): Promise<string | null> {
   const cache = readAugmentIconCache();
-  const key = String(id);
+  const hitKey = String(id);
+  if (hitKey in cache) return Promise.resolve(cache[hitKey]);
+  const key = missKey(id, patch);
   if (key in cache) return Promise.resolve(cache[key]);
 
   let pending = augmentIconPending.get(key);
@@ -497,13 +518,16 @@ export function resolveAugmentIcon(id: number, patch?: string): Promise<string |
         const found = await findIconOnBranch(branch, iconPath);
         if (found.url) {
           console.log(`Resolved augment ${id} icon from CommunityDragon ${branch}`);
-          if (liveIsGone) writeAugmentIconCache(id, found.url);
+          if (liveIsGone) writeAugmentIconCache(hitKey, found.url);
           return found.url;
         }
         if (!found.conclusive) walkComplete = false;
       }
-      // Only remember "no art anywhere" if every branch actually said so.
-      if (liveIsGone && walkComplete) writeAugmentIconCache(id, null);
+      // Only remember "no art anywhere" if every branch actually said so. The
+      // walk stops at MAX_ICON_BRANCH_LOOKBACK, so it speaks for the patch it
+      // started from and no other — an augment retired before that window still
+      // has art on the branch the game that used it was played on.
+      if (liveIsGone && walkComplete) writeAugmentIconCache(key, null);
       return null;
     });
     // Drop the in-flight entry either way: a resolved lookup is either cached

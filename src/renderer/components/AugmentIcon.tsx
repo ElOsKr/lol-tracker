@@ -25,24 +25,30 @@ const rarityTextColor: Record<string, string> = {
 
 // One lookup per augment for the whole renderer: a retired augment shows up on
 // every row of the stats pages, and they'd otherwise each ask the main process.
-const fallbackLookups = new Map<number, Promise<string | null>>();
+// Keyed by patch as well, because a lookup that started from the live export
+// searches different branches than one that knows the game it's drawing.
+const fallbackLookups = new Map<string, Promise<string | null>>();
 // The settled result of those lookups, so a remount can start on the archived
 // URL instead of waiting a tick for the promise to come back around.
-const fallbackResults = new Map<number, string | null>();
+const fallbackResults = new Map<string, string | null>();
 // Live "latest" URLs already known to 404. Without this, every remount of a
 // retired augment — re-sorting a list, reopening an expanded row — replays the
 // dead paths and shows a broken <img> until the fallback lands, which is what
 // made the icon flicker each time.
 const deadSources = new Set<string>();
 
+const fallbackKey = (augmentId: number, patch?: string | null) =>
+  `${augmentId}|${patch || "latest"}`;
+
 function lookupFallbackIcon(augmentId: number, patch?: string | null): Promise<string | null> {
-  let promise = fallbackLookups.get(augmentId);
+  const key = fallbackKey(augmentId, patch);
+  let promise = fallbackLookups.get(key);
   if (!promise) {
     promise = window.api.resolveAugmentIcon(augmentId, patch ?? undefined);
-    fallbackLookups.set(augmentId, promise);
+    fallbackLookups.set(key, promise);
     promise.then(
-      (url) => fallbackResults.set(augmentId, url),
-      () => fallbackLookups.delete(augmentId),
+      (url) => fallbackResults.set(key, url),
+      () => fallbackLookups.delete(key),
     );
   }
   return promise;
@@ -64,8 +70,9 @@ export default function AugmentIcon({
   const augmentData = useAugmentData(patch);
   const aug = augmentData[augmentId];
   const [attempt, setAttempt] = useState(0);
+  const cacheKey = fallbackKey(augmentId, patch);
   const [fallback, setFallback] = useState<string | null>(
-    () => fallbackResults.get(augmentId) ?? null,
+    () => fallbackResults.get(cacheKey) ?? null,
   );
 
   const sources = useMemo(() => {
@@ -83,14 +90,14 @@ export default function AugmentIcon({
   // start over on them, keeping whatever fallback is already known.
   useEffect(() => {
     setAttempt(0);
-    setFallback(fallbackResults.get(augmentId) ?? null);
-  }, [sources, augmentId]);
+    setFallback(fallbackResults.get(cacheKey) ?? null);
+  }, [sources, cacheKey]);
 
   // Augments Riot has cut keep their name and rarity on "latest" but lose their
   // art, so once the live paths 404 ask the main process to dig the icon out of
   // an archived patch branch.
   const exhausted = attempt >= sources.length;
-  const resolved = fallbackResults.has(augmentId);
+  const resolved = fallbackResults.has(cacheKey);
   useEffect(() => {
     if (!exhausted || resolved) return;
     let active = true;
