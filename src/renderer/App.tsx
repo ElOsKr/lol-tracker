@@ -11,6 +11,8 @@ import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import Settings from "./pages/Settings";
+import GameCard from "./pages/GameCard";
+import { CARD_ROUTE } from "../shared/card";
 
 export default function App() {
   return (
@@ -29,6 +31,9 @@ export default function App() {
           <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
+        {/* Outside the layout: this one is drawn to be captured as an image,
+            not to be navigated to, so it carries no sidebar or title bar. */}
+        <Route path={`${CARD_ROUTE}/:gameId`} element={<GameCard />} />
       </Routes>
     </HashRouter>
   );

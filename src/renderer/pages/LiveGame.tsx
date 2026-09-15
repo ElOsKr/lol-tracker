@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useChampionData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useLiveGame } from "../hooks/useLiveGame";
@@ -14,6 +14,11 @@ import { queueLabel } from "../components/QueueSelect";
 import GameRecap from "../components/GameRecap";
 import LiveScoreboard, { LiveEventFeed } from "../components/LiveScoreboard";
 import { MapPinIcon, RadioIcon, SwordsIcon } from "../components/icons";
+import {
+  ExportImageButton,
+  ExportImageMessage,
+  useGameImageExport,
+} from "../components/ExportImage";
 
 // How long to keep waiting for a finished game's results before giving up and
 // showing the most recent recorded one instead. The post-game capture normally
@@ -185,6 +190,7 @@ function RecapView({
 }) {
   const [recap, setRecap] = useState<GameRecapData | null>(null);
   const [loading, setLoading] = useState(true);
+  const exporting = useGameImageExport();
   // Set when a game finished but its results never turned up, so the page can
   // say why it is showing an older one
   const [gaveUp, setGaveUp] = useState(false);
@@ -257,9 +263,14 @@ function RecapView({
             recap={recap}
             champData={champData}
             puuids={puuids}
-            heading={<PreviousGameNote />}
+            heading={
+              <RecapHeading recap={recap} exporting={exporting}>
+                <span className="text-xs text-lol-text">Meanwhile, the game before it:</span>
+              </RecapHeading>
+            }
           />
         )}
+        <ExportImageMessage message={exporting.message} />
       </div>
     );
   }
@@ -287,20 +298,49 @@ function RecapView({
         champData={champData}
         puuids={puuids}
         heading={
-          <div className="flex items-center gap-2 px-1">
+          <RecapHeading recap={recap} exporting={exporting}>
             <RadioIcon className="h-3.5 w-3.5 text-lol-text" />
             <span className="text-xs text-lol-text">
               {gaveUp
                 ? "That game never produced results, so here is your most recent recorded one."
                 : "Your most recent game. This tab switches to a live scoreboard when the next one starts."}
             </span>
-          </div>
+          </RecapHeading>
         }
       />
+      <ExportImageMessage message={exporting.message} />
     </div>
   );
 }
 
-function PreviousGameNote() {
-  return <div className="px-1 text-xs text-lol-text">Meanwhile, the game before it:</div>;
+// The line above the recap: what this game is, and what can be done with it
+// besides read it.
+function RecapHeading({
+  recap,
+  exporting,
+  children,
+}: {
+  recap: GameRecapData;
+  exporting: ReturnType<typeof useGameImageExport>;
+  children: ReactNode;
+}) {
+  const gameId = recap.detail.game.game_id;
+
+  return (
+    <div className="flex items-center gap-2 px-1">
+      {children}
+      <div className="ml-auto flex items-center gap-2">
+        <ExportImageButton
+          action="copy"
+          busy={exporting.busyWith(gameId, "copy")}
+          onClick={() => exporting.run(gameId, "copy")}
+        />
+        <ExportImageButton
+          action="save"
+          busy={exporting.busyWith(gameId, "save")}
+          onClick={() => exporting.run(gameId, "save")}
+        />
+      </div>
+    </div>
+  );
 }

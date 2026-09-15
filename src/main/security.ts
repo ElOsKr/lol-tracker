@@ -38,17 +38,23 @@ function isInternalUrl(url: string): boolean {
   }
 }
 
-// Call once, after the app is ready and before any window is created.
-export function applySecurityPolicy() {
-  // Nothing here uses the camera, microphone, geolocation or notifications, so
-  // no request for one can be genuine.
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
+// Nothing here uses the camera, microphone, geolocation or notifications, so no
+// request for one can be genuine. Applied per session, since the card window
+// runs in one of its own.
+export function hardenSession(target: Electron.Session) {
+  target.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(false);
   });
+}
+
+// Call once, after the app is ready and before any window is created.
+export function applySecurityPolicy() {
+  hardenSession(session.defaultSession);
 
   app.on("web-contents-created", (_event, contents) => {
-    // Links that would open a new window go to the system browser instead; the
-    // app never opens a second Electron window.
+    // Links that would open a new window go to the system browser instead. The
+    // only second window the app ever has is the offscreen one it draws game
+    // cards in, and that is created by the main process, not from a page.
     contents.setWindowOpenHandler(({ url }) => {
       openExternalUrl(url);
       return { action: "deny" };

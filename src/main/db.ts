@@ -2817,6 +2817,26 @@ export function getGameMapName(gameId: number): string | null {
   return mapNameForSkin(row?.map_skin);
 }
 
+// The icon the account who played a game was wearing at the time, which is what
+// a picture of that game should carry. Games imported before the participant
+// rows recorded one fall back to the account's icon as it stands now.
+export function getGameProfileIcon(gameId: number): number | null {
+  const game = db.prepare("SELECT puuid FROM games WHERE game_id = ?").get(gameId) as
+    | { puuid: string }
+    | undefined;
+  if (!game?.puuid) return null;
+
+  const played = db
+    .prepare("SELECT profile_icon FROM match_participants WHERE game_id = ? AND puuid = ?")
+    .get(gameId, game.puuid) as { profile_icon: number | null } | undefined;
+  if (played?.profile_icon != null) return played.profile_icon;
+
+  const account = db.prepare("SELECT profile_icon FROM summoner WHERE puuid = ?").get(game.puuid) as
+    | { profile_icon: number | null }
+    | undefined;
+  return account?.profile_icon ?? null;
+}
+
 // A player to look up, however much of their identity we have. The in-game API
 // gives names and no puuid; the client gives puuids and sometimes no name.
 export interface PlayerRef {

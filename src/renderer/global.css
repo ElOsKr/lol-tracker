@@ -108,3 +108,11 @@ body {
 .titlebar-no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* The game card gets a window of its own, sized to the card itself. Nothing
+   scrolls there, so the root grows with its contents instead of being pinned to
+   the viewport the way the app's own layout wants. */
+body.card-window #root {
+  height: auto;
+  display: block;
+}

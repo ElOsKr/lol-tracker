@@ -14,17 +14,26 @@ import ChampionIcon from "./ChampionIcon";
 import AugmentIcon from "./AugmentIcon";
 import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
+import MultikillBadge from "./MultikillBadge";
 
 const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px]";
+// An eleventh column is only affordable where the rows are laid out wider than
+// the app lays them out: at the app's own window size every column above is
+// already at its floor, so the extra would come out of the player name.
+const GRID_COLS_MULTIKILLS =
+  "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px_92px]";
 
 export default function MatchScoreboard({
   detail,
   champData,
   puuids,
+  multikills = false,
 }: {
   detail: MatchDetail;
   champData: any;
   puuids: string[] | null;
+  // Off by default: only a caller that knows its rows are wide should ask
+  multikills?: boolean;
 }) {
   const participants = useMemo(
     () => parseParticipants(detail.participants, puuids),
@@ -68,6 +77,7 @@ export default function MatchScoreboard({
           champData={champData}
           scores={scores}
           patch={detail.game.game_version}
+          multikills={multikills}
         />
       ))}
     </div>
@@ -81,6 +91,7 @@ function TeamScoreboard({
   champData,
   scores,
   patch,
+  multikills,
 }: {
   teamId: number;
   players: ParsedParticipant[];
@@ -88,12 +99,16 @@ function TeamScoreboard({
   champData: any;
   scores: Map<number, ScoreBreakdown>;
   patch?: string | null;
+  multikills: boolean;
 }) {
   const isWin = players[0]?.win ?? false;
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
+  // The team panel paints its own background rather than borrowing whatever is
+  // behind it: inside the app that's the panel it sits in, but an exported card
+  // has the page's gradient back there.
   return (
-    <div className="rounded-lg border border-lol-border overflow-hidden">
+    <div className="rounded-lg border border-lol-border bg-lol-card overflow-hidden">
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
         className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
@@ -131,7 +146,9 @@ function TeamScoreboard({
 
       {/* Column headers */}
       <div
-        className={`px-3 py-1 border-b border-lol-border/50 grid ${GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
+        className={`px-3 py-1 border-b border-lol-border/50 grid ${
+          multikills ? GRID_COLS_MULTIKILLS : GRID_COLS
+        } gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
       >
         <span></span>
         <span>Player</span>
@@ -143,6 +160,7 @@ function TeamScoreboard({
         <span className="text-right">Heal</span>
         <span>Items</span>
         <span>Augments</span>
+        {multikills && <span>Multis</span>}
       </div>
 
       {/* Player rows */}
@@ -154,6 +172,7 @@ function TeamScoreboard({
           champData={champData}
           score={scores.get(p.participantId)}
           patch={patch}
+          multikills={multikills}
         />
       ))}
     </div>
@@ -219,20 +238,22 @@ function PlayerRow({
   champData,
   score,
   patch,
+  multikills,
 }: {
   player: ParsedParticipant;
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
   champData: any;
   score?: ScoreBreakdown;
   patch?: string | null;
+  multikills: boolean;
 }) {
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
 
   return (
     <div
-      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${GRID_COLS} gap-2 items-center ${
-        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""
-      }`}
+      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${
+        multikills ? GRID_COLS_MULTIKILLS : GRID_COLS
+      } gap-2 items-center ${p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""}`}
     >
       {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
       <div className="flex items-center gap-0.5">
@@ -306,6 +327,19 @@ function PlayerRow({
           <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
         ))}
       </div>
+
+      {/* Multikills */}
+      {multikills && (
+        <div className="flex">
+          <MultikillBadge
+            compact
+            doubles={p.doubleKills}
+            triples={p.tripleKills}
+            quadras={p.quadraKills}
+            pentas={p.pentaKills}
+          />
+        </div>
+      )}
     </div>
   );
 }

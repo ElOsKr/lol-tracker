@@ -27,7 +27,15 @@ import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
-import { ArrowDownIcon, StarIcon, SwordsIcon, ZapIcon } from "../components/icons";
+import {
+  ArrowDownIcon,
+  CopyIcon,
+  ImageIcon,
+  StarIcon,
+  SwordsIcon,
+  ZapIcon,
+} from "../components/icons";
+import { ExportImageMessage, useGameImageExport } from "../components/ExportImage";
 import {
   formatDateTime,
   formatDuration,
@@ -278,6 +286,9 @@ export default function MatchHistory() {
   } | null>(null);
   const [detail, setDetail] = useState<MatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // One instance for the page: both of the right-click menu's image items
+  // report through the same message
+  const exporting = useGameImageExport();
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const [profile, setProfile] = useState<{
     name: string | null;
@@ -775,8 +786,32 @@ export default function MatchHistory() {
             </span>
             {contextMenu.match.favorite ? "Remove from Favorites" : "Add to Favorites"}
           </button>
+          <button
+            onClick={() => {
+              const gameId = contextMenu.match.game_id;
+              setContextMenu(null);
+              void exporting.run(gameId, "copy");
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
+          >
+            <CopyIcon className="h-3.5 w-3.5 text-lol-text" />
+            Copy Image
+          </button>
+          <button
+            onClick={() => {
+              const gameId = contextMenu.match.game_id;
+              setContextMenu(null);
+              void exporting.run(gameId, "save");
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
+          >
+            <ImageIcon className="h-3.5 w-3.5 text-lol-text" />
+            Export as PNG
+          </button>
         </ContextMenu>
       )}
+
+      <ExportImageMessage message={exporting.message} />
     </div>
   );
 }

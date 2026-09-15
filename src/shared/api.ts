@@ -728,6 +728,18 @@ export interface GameRecap {
   career: RecapCareer;
 }
 
+// What the exported image is drawn from: the scoreboard and the line above it.
+// Deliberately not the recap — a card is about the game, not about where it
+// lands in a career.
+export interface GameCardData {
+  detail: MatchDetail;
+  // Only known for games the app watched live, since nothing in the stored
+  // match says which of the three ARAM maps it was played on
+  mapName: string | null;
+  // The icon of the account that played it, as it was at the time
+  profileIcon: number | null;
+}
+
 export interface ElectronAPI {
   getMatchHistory: (
     limit: number,
@@ -767,6 +779,7 @@ export interface ElectronAPI {
   getLiveGame: () => Promise<LiveGameSnapshot>;
   onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => () => void;
   getGameRecap: (gameId?: number) => Promise<GameRecap | null>;
+  getGameCard: (gameId: number) => Promise<GameCardData | null>;
   getGlobalChampionDetail: (
     championId: number,
     patch?: string,
@@ -792,6 +805,15 @@ export interface ElectronAPI {
   getSetting: (key: string) => Promise<string | null>;
   isAutoStartSupported: () => Promise<boolean>;
   setSetting: (key: string, value: string) => Promise<void>;
+  // No error alongside success: false means the save dialog was dismissed
+  exportGameImage: (gameId: number) => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
+  }>;
+  // Nothing to report on success beyond that it worked: the image is on the
+  // clipboard, not anywhere on disk
+  copyGameImage: (gameId: number) => Promise<{ success: boolean; error?: string }>;
   exportData: () => Promise<{
     success: boolean;
     path?: string;
