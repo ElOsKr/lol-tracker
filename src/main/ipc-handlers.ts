@@ -9,6 +9,7 @@ import * as backup from "./backup";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
+import { SESSION_GROUPING_SETTING } from "../shared/session";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
 // per-account backfill_complete_* flags, score_formula_version — none of which
@@ -21,6 +22,7 @@ const RENDERER_SETTINGS = new Set([
   "hide_remakes",
   "auto_backup",
   "remember_filters",
+  SESSION_GROUPING_SETTING,
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a

@@ -10,7 +10,13 @@ import {
 } from "../shared/opScore";
 import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
 import { mapNameForSkin } from "../shared/maps";
-import { DAY_START_HOUR, sessionDay } from "../shared/session";
+import {
+  DAY_START_HOUR,
+  SESSION_GROUPING_SETTING,
+  parseSessionGrouping,
+  sessionDay,
+  type SessionGrouping,
+} from "../shared/session";
 import { ordinal } from "../shared/text";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
@@ -1200,25 +1206,37 @@ function matchListWhere(filters?: MatchListFilters): { whereSql: string; params:
   return { whereSql: where.length > 0 ? `WHERE ${where.join(" AND ")}` : "", params };
 }
 
+// What a session is grouped by, in the same terms sessionKey uses in the
+// renderer so a group there lines up with a row here. Day and week both start
+// at the hour a day of play does, and 'weekday 0' then '-6 days' walks back to
+// that week's Monday.
+const LOCAL_SESSION_DATE = `g.game_creation / 1000, 'unixepoch', 'localtime', '-${DAY_START_HOUR} hours'`;
+const SESSION_KEY_SQL: Record<Exclude<SessionGrouping, "none">, string> = {
+  day: `date(${LOCAL_SESSION_DATE})`,
+  week: `date(${LOCAL_SESSION_DATE}, 'weekday 0', '-6 days')`,
+  patch: "COALESCE(g.game_version, '')",
+};
+
 /**
- * One row per day of play, over every game the current filters match.
+ * One row per session of play, over every game the current filters match.
  *
  * The list itself arrives a page at a time, so counting the rows on screen
- * describes the page rather than the day: a twenty-five game session read as
- * twenty until it was scrolled. These totals don't depend on how far anyone has
- * scrolled.
+ * describes the page rather than the session: a twenty-five game session read
+ * as twenty until it was scrolled. These totals don't depend on how far anyone
+ * has scrolled.
  *
  * Remakes are in the game count and out of everything else, matching how the
  * rest of the app treats them.
  */
 export function getMatchSessions(filters?: MatchListFilters): any[] {
+  const grouping = parseSessionGrouping(getSetting(SESSION_GROUPING_SETTING));
+  // Nothing to total up when the list runs flat.
+  if (grouping === "none") return [];
   const { whereSql, params } = matchListWhere(filters);
 
-  // The same "a day starts at 5am" rule the renderer groups rows by, applied
-  // after the timestamp is in local time so both sides land on the same date.
   return db
     .prepare(`
-      SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime', '-${DAY_START_HOUR} hours') AS day,
+      SELECT ${SESSION_KEY_SQL[grouping]} AS key,
              COUNT(*) AS games,
              SUM(CASE WHEN g.is_remake = 0 AND ps.win = 1 THEN 1 ELSE 0 END) AS wins,
              SUM(CASE WHEN g.is_remake = 0 AND ps.win = 0 THEN 1 ELSE 0 END) AS losses,
@@ -1230,8 +1248,8 @@ export function getMatchSessions(filters?: MatchListFilters): any[] {
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
       ${whereSql}
-      GROUP BY day
-      ORDER BY day DESC
+      GROUP BY key
+      ORDER BY MAX(g.game_creation) DESC
     `)
     .all(...params);
 }

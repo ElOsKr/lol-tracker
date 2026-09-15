@@ -4,6 +4,19 @@ import { queueLabel } from "../components/QueueSelect";
 import { setRemembering } from "../lib/viewState";
 import { SGP_HISTORY_CAP } from "../lib/types";
 import type { BackupInfo } from "../lib/types";
+import {
+  DEFAULT_SESSION_GROUPING,
+  SESSION_GROUPING_SETTING,
+  parseSessionGrouping,
+  type SessionGrouping,
+} from "../../shared/session";
+
+const SESSION_GROUPING_OPTIONS: { value: SessionGrouping; label: string }[] = [
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "patch", label: "Patch" },
+  { value: "none", label: "Don't group" },
+];
 
 const BACKUP_REASONS: Record<string, string> = {
   auto: "Scheduled",
@@ -66,6 +79,7 @@ export default function Settings() {
   const [queues, setQueues] = useState<number[]>([]);
   const [hiddenQueues, setHiddenQueues] = useState<Set<number>>(new Set());
   const [hideRemakes, setHideRemakes] = useState(false);
+  const [sessionGrouping, setSessionGrouping] = useState<SessionGrouping>(DEFAULT_SESSION_GROUPING);
   const [autoBackup, setAutoBackup] = useState(true);
   const [rememberFilters, setRememberFilters] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,7 +102,8 @@ export default function Settings() {
       window.api.getSetting("hide_remakes"),
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
-    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember]) => {
+      window.api.getSetting(SESSION_GROUPING_SETTING),
+    ]).then(([startup, startupSupported, tray, hidden, remakes, backup, remember, grouping]) => {
       setAutoStart(startup === "true");
       setAutoStartSupported(startupSupported);
       setMinimizeToTray(tray !== "false");
@@ -96,6 +111,7 @@ export default function Settings() {
       setHideRemakes(remakes === "true");
       setAutoBackup(backup !== "false");
       setRememberFilters(remember === "true");
+      setSessionGrouping(parseSessionGrouping(grouping));
       setLoading(false);
     });
   }, []);
@@ -142,6 +158,11 @@ export default function Settings() {
     setHideRemakes(next);
     await window.api.setSetting("hide_remakes", String(next));
   }, [hideRemakes]);
+
+  const handleSessionGroupingChange = useCallback(async (next: SessionGrouping) => {
+    setSessionGrouping(next);
+    await window.api.setSetting(SESSION_GROUPING_SETTING, next);
+  }, []);
 
   const handleAutoBackupToggle = useCallback(async () => {
     const next = !autoBackup;
@@ -341,6 +362,29 @@ export default function Settings() {
               </p>
             </div>
             <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">Group match history by</p>
+              <p className="text-xs text-lol-text mt-0.5">
+                Break the match list into sessions, each under a heading with its own record and
+                averages. Days start at 5am; weeks run Monday to Sunday.
+              </p>
+            </div>
+            <select
+              className="select shrink-0"
+              value={sessionGrouping}
+              onChange={(e) => handleSessionGroupingChange(e.target.value as SessionGrouping)}
+            >
+              {SESSION_GROUPING_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* A single queue has nothing to choose between, so the whole block

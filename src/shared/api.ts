@@ -111,12 +111,13 @@ export interface MatchFilters {
   favorites?: boolean;
 }
 
-// One day of play under the current match-list filters. The list is paged, so
-// the rows on screen only ever describe part of a session; these totals cover
-// all of it.
+// One session of play under the current match-list filters. The list is paged,
+// so the rows on screen only ever describe part of a session; these totals
+// cover all of it.
 export interface MatchSession {
-  // Local calendar date of the session day, YYYY-MM-DD
-  day: string;
+  // What the session is grouped under, as sessionKey spells it: a YYYY-MM-DD
+  // date for days and weeks, a patch for patches, empty for games missing one
+  key: string;
   // Every game, remakes included
   games: number;
   // Everything below counts only games that are not remakes
@@ -125,7 +126,7 @@ export interface MatchSession {
   kills: number;
   deaths: number;
   assists: number;
-  // Null when no game that day has a stored score; scored_games is the
+  // Null when no game in the session has a stored score; scored_games is the
   // denominator, so the average stays honest when only some of them do
   score_sum: number | null;
   scored_games: number;
@@ -659,8 +660,9 @@ export interface RecapSessionGame {
   score: number | null;
 }
 
-// The day's play around this game, by the same "day starts at 5am" rule the
-// match list groups sessions with.
+// The day's play around this game, under the same "day starts at 5am" rule the
+// match list uses for a day. Always a day, however the match list is grouped:
+// what a game sat among is a question about that night's play.
 export interface RecapSession {
   day: number;
   // Where this game sits in games, 0-based
