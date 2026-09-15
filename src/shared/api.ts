@@ -146,8 +146,7 @@ export interface MatchFilterOptions {
   hasFavorites: boolean;
 }
 
-// One row per player, straight from match_participants — the scoreboard no
-// longer reconstructs these from a raw match payload.
+// One row per player, straight from match_participants.
 export interface MatchParticipantRecord {
   participantId: number;
   puuid: string | null;
@@ -785,7 +784,6 @@ export interface ElectronAPI {
     patch?: string,
     queue?: number,
   ) => Promise<GlobalChampionDetail>;
-  getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;

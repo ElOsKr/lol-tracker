@@ -6,8 +6,7 @@ import os from "os";
 import path from "path";
 
 const CHECK_TIMEOUT_MS = 10_000;
-// One page covers any realistic gap between installs, and costs the same single
-// request the old /releases/latest check did.
+// One page covers any realistic gap between installs, for a single request.
 const RELEASE_PAGE_SIZE = 20;
 // Release bodies are hand-written, but they still arrive over the network, so
 // cap what the dialog is asked to lay out.

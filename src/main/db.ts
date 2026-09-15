@@ -112,9 +112,8 @@ function createTables() {
     );
 
     -- Every player in every game, which is what separates this from
-    -- player_stats (only ever our own row). Stats over all ten players used to
-    -- mean parsing raw_json for every game in the main process; now they're
-    -- ordinary aggregates.
+    -- player_stats (only ever our own row). Stats over all ten players are
+    -- ordinary aggregates against this table.
     CREATE TABLE IF NOT EXISTS match_participants (
       game_id        INTEGER NOT NULL REFERENCES games(game_id),
       participant_id INTEGER NOT NULL,
@@ -523,8 +522,8 @@ function runMigrations() {
 }
 
 // Brings pre-versioning databases up to the schema createTables now declares.
-// Each column is added only if absent, so this is a no-op on both new databases
-// and ones already carried forward by the old try/catch migrations.
+// Each column is added only if absent, so this is a no-op on a database that
+// already has the column, however it got there.
 function migrateToV1() {
   const games = tableColumns("games");
 
@@ -564,8 +563,8 @@ function migrateToV1() {
   }
 }
 // Payloads are read a page at a time wherever they're read in bulk: a library
-// of a few thousand is a hundred megabytes-plus of JSON, and holding it all at
-// once is what this whole change exists to stop doing.
+// of a few thousand is a hundred megabytes-plus of JSON, far too much to hold
+// in memory at once.
 const PAYLOAD_PAGE_SIZE = 200;
 
 interface NormalizeResult {
@@ -1115,8 +1114,7 @@ function detectRemake(gameDuration: number, rows: { early_surrender: number }[])
 
 // The per-game maxima the match list scales its stat bars against. Selected
 // alongside the row rather than derived in JS: three correlated MAX()es over a
-// page of 25 games cost a fraction of a millisecond, where the old version
-// parsed 25 raw payloads to find them.
+// page of 25 games cost a fraction of a millisecond.
 const GAME_MAX_STATS_SQL = `
            MAX(IFNULL((SELECT MAX(mp.total_damage_dealt) FROM match_participants mp
                         WHERE mp.game_id = g.game_id), 0), 1) as game_max_dmg,
@@ -1436,8 +1434,8 @@ export function getMatchFilterOptions(filters?: {
 }
 
 // The full ten-player scoreboard for one game, in the shape the renderer draws.
-// This is what the match detail view used to reconstruct by parsing raw_json in
-// the renderer; the payload is now a few kilobytes instead of thirty.
+// Columns are listed rather than starred so the IPC message stays a few
+// kilobytes instead of carrying the stored payload with it.
 function getMatchParticipants(gameId: number): any[] {
   const rows = db
     .prepare(`
@@ -1977,7 +1975,7 @@ export function upsertSummoner(summoner: any): void {
   );
 }
 
-export function getSummoner(): any {
+function getSummoner(): any {
   return db.prepare("SELECT * FROM summoner ORDER BY updated_at DESC LIMIT 1").get();
 }
 
@@ -2073,10 +2071,9 @@ interface TeammateRow {
 //
 // Which (game, team) pairs are ours is resolved up front in a CTE rather than
 // as an EXISTS against each candidate row: the CTE is a single indexed lookup
-// per account, where the correlated form made SQLite build a throwaway index
-// on every call — 2.8 ms against 46 ms on a 580-game library, and it doesn't
-// swing on whether ANALYZE has ever run. DISTINCT is what keeps the row count
-// honest when two of our own accounts played the same game on the same side.
+// per account, where the correlated form makes SQLite build a throwaway index
+// on every call. DISTINCT is what keeps the row count honest when two of our
+// own accounts played the same game on the same side.
 function teammateRows(puuids: string[]): TeammateRow[] {
   const ours = puuids.map(() => "?").join(", ");
   const where = ["o.is_remake = 0", `(o.puuid IS NULL OR o.puuid NOT IN (${ours}))`];
@@ -2645,10 +2642,6 @@ export function getTrendsData(queue?: number): any {
   return { daily, patches, hours, weekdays };
 }
 
-// The trophy case: best single-game marks and longest streaks, from one
-// chronological pass over our own rows — streaks need the ordering anyway, and
-// the maxima fall out of the same loop. On ties the earliest game keeps the
-// record, so a mark has to be strictly beaten to change hands.
 // One row per counted game, oldest first: everything a whole-career walk needs
 // and nothing it doesn't. Records and the post-game recap both read the library
 // this way, and both depend on the order, since a streak and a milestone are
@@ -2702,6 +2695,10 @@ function careerRows(queue?: number, account?: string): CareerRow[] {
     .all(...params) as CareerRow[];
 }
 
+// The trophy case: best single-game marks and longest streaks, from one
+// chronological pass over our own rows — streaks need the ordering anyway, and
+// the maxima fall out of the same loop. On ties the earliest game keeps the
+// record, so a mark has to be strictly beaten to change hands.
 export function getRecords(queue?: number, account?: string): any {
   const rows = careerRows(queue, account);
 
@@ -2732,8 +2729,6 @@ export function getRecords(queue?: number, account?: string): any {
     fastestWin: null,
     longestGame: null,
   };
-  const higher = (a: number, b: number) => a > b;
-  const lower = (a: number, b: number) => a < b;
   // What each record is ranked on, where that differs from the value the card
   // shows: the score displays the clamped 1-10 number and ranks on the raw one.
   const ranks: Record<string, number> = {};
@@ -3482,10 +3477,10 @@ export function setSetting(key: string, value: string): void {
 // ---- Export / Import ----
 
 // Games are read a page at a time and written straight to disk, rather than
-// building the whole backup in memory and handing one huge string to
-// writeFileSync. Two reasons: a library of a few thousand games is a hundred
-// megabytes-plus of JSON to hold twice over, and every await here returns the
-// main process to the event loop, so exporting no longer freezes the window.
+// building the whole backup in memory. Two reasons: a library of a few thousand
+// games is a hundred megabytes-plus of JSON to hold twice over, and every await
+// here returns the main process to the event loop, so the window keeps painting
+// while the export runs.
 const EXPORT_PAGE_SIZE = 200;
 
 export async function writeExportTo(filePath: string): Promise<number> {

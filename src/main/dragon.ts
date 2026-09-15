@@ -16,8 +16,6 @@ let championDataVersion = "none";
 
 let championReady: Promise<void> | null = null;
 
-// fetch follows redirects itself, with its own cap — the hand-rolled version
-// this replaces recursed on Location with no limit and no timeout.
 async function fetchJson(url: string): Promise<any> {
   const res = await fetch(url, {
     headers: { "User-Agent": "MayhemTracker/1.0" },

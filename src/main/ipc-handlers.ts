@@ -266,11 +266,6 @@ export function registerIpcHandlers() {
     return db.getAllPuuids();
   });
 
-  ipcMain.handle("db:summoner-puuid", () => {
-    const s = db.getSummoner();
-    return s?.puuid ?? null;
-  });
-
   ipcMain.handle("db:profile", () => {
     return db.getProfile();
   });

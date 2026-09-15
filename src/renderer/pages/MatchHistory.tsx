@@ -86,8 +86,6 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "healing", label: "Healing" },
 ];
 
-const SELECT_CLASS = "select";
-
 interface Session {
   // Doubles as the React key and as what the database's totals are looked up by
   key: string;
@@ -634,7 +632,7 @@ export default function MatchHistory() {
             <select
               value={accountFilter ?? ""}
               onChange={(e) => setAccountFilter(e.target.value === "" ? undefined : e.target.value)}
-              className={SELECT_CLASS}
+              className="select"
             >
               <option value="">All Accounts</option>
               {filterOptions.accounts.map((a) => (
@@ -649,7 +647,7 @@ export default function MatchHistory() {
             onChange={(e) =>
               setChampionFilter(e.target.value === "" ? undefined : Number(e.target.value))
             }
-            className={SELECT_CLASS}
+            className="select"
           >
             <option value="">All Champions</option>
             {championOptions.map(({ id, name }) => (
@@ -661,7 +659,7 @@ export default function MatchHistory() {
           <select
             value={patchFilter ?? ""}
             onChange={(e) => setPatchFilter(e.target.value === "" ? undefined : e.target.value)}
-            className={SELECT_CLASS}
+            className="select"
           >
             <option value="">All Patches</option>
             {filterOptions.patches.map((p) => (
@@ -676,7 +674,7 @@ export default function MatchHistory() {
               onChange={(e) =>
                 setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
               }
-              className={SELECT_CLASS}
+              className="select"
             >
               <option value="">All Queues</option>
               {filterOptions.queues.map((q) => (
@@ -693,7 +691,7 @@ export default function MatchHistory() {
                 setSort(e.target.value === "" ? undefined : (e.target.value as MatchSort));
                 setSortDir("desc");
               }}
-              className={SELECT_CLASS}
+              className="select"
             >
               <option value="">Sort</option>
               {SORT_OPTIONS.map(({ value, label }) => (

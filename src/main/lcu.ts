@@ -1166,10 +1166,8 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
     // Installed before the first sync runs, never after. The client answers
     // authenticate() from its command line the moment it starts, seconds before
     // its HTTP server is listening, so the first sync of a session is the one
-    // most likely to fail — and a failure that happened before this line left
-    // the app with no connect timer and no poll timer at all: still showing
-    // "connected", never noticing another game, and never retrying the
-    // post-game socket, until it was restarted by hand.
+    // most likely to fail. The connect timer has already been cleared above, so
+    // this is the only thing left that will retry it.
     pollTimer = setInterval(() => {
       void pollTick(win);
     }, POLL_INTERVAL_MS);

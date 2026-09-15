@@ -3,7 +3,7 @@ import { app, session, shell } from "electron";
 // A URL reaching the main process can name any protocol the OS is willing to
 // launch — file:, a UNC path, ms-msdt:. Everything this app opens is a web
 // page, so anything else is refused rather than handed to the shell.
-export function isAllowedExternalUrl(url: string): boolean {
+function isAllowedExternalUrl(url: string): boolean {
   try {
     const { protocol } = new URL(url);
     return protocol === "https:" || protocol === "http:";

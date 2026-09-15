@@ -125,15 +125,6 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function SearchIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <Icon {...props}>
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </Icon>
-  );
-}
-
 export function MinusIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
@@ -173,16 +164,6 @@ export function XIcon(props: SVGProps<SVGSVGElement>) {
     <Icon {...props}>
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
-    </Icon>
-  );
-}
-
-export function XCircleIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6" />
-      <path d="m9 9 6 6" />
     </Icon>
   );
 }

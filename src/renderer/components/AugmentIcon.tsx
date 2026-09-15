@@ -54,7 +54,7 @@ function lookupFallbackIcon(augmentId: number, patch?: string | null): Promise<s
   return promise;
 }
 
-export function getAugmentRarityLabel(rarity: string): string {
+function getAugmentRarityLabel(rarity: string): string {
   if (rarity === "kSilver") return "Silver";
   if (rarity === "kGold") return "Gold";
   if (rarity === "kPrismatic") return "Prismatic";

@@ -35,7 +35,7 @@ export function sessionWeek(ms: number): number {
 // a game's own timestamp: SQLite has no local-midnight epoch to hand back, so
 // its session totals are keyed by date string, and this is what matches a
 // session grouped in the renderer up with them.
-export function sessionDayKey(day: number): string {
+function sessionDayKey(day: number): string {
   const d = new Date(day);
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const date = String(d.getDate()).padStart(2, "0");
