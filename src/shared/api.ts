@@ -761,7 +761,7 @@ export interface ElectronAPI {
   getTeammateDetail: (key: string) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getTrends: (queue?: number) => Promise<TrendsData>;
-  getRecords: (queue?: number) => Promise<RecordsData>;
+  getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getLiveGame: () => Promise<LiveGameSnapshot>;
   onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => () => void;
   getGameRecap: (gameId?: number) => Promise<GameRecap | null>;

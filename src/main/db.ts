@@ -2659,10 +2659,14 @@ interface CareerRow {
   penta_kills: number;
 }
 
-function careerRows(queue?: number): CareerRow[] {
+function careerRows(queue?: number, account?: string): CareerRow[] {
   const where = ["g.is_remake = 0"];
   const params: any[] = [];
   applyQueueFilter(where, params, queue);
+  if (account) {
+    where.push("g.puuid = ?");
+    params.push(account);
+  }
 
   return db
     .prepare(`
@@ -2680,8 +2684,8 @@ function careerRows(queue?: number): CareerRow[] {
     .all(...params) as CareerRow[];
 }
 
-export function getRecords(queue?: number): any {
-  const rows = careerRows(queue);
+export function getRecords(queue?: number, account?: string): any {
+  const rows = careerRows(queue, account);
 
   // Just enough of the game to render a record's context and open its match
   const matchOf = (r: any) => ({

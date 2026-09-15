@@ -221,8 +221,8 @@ export function registerIpcHandlers() {
     return db.getTrendsData(queue);
   });
 
-  ipcMain.handle("db:records", (_event, queue?: number) => {
-    return db.getRecords(queue);
+  ipcMain.handle("db:records", (_event, queue?: number, account?: string) => {
+    return db.getRecords(queue, account);
   });
 
   // A fresh look rather than the cached snapshot: the page can be opened in

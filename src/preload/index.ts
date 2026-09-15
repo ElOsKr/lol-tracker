@@ -96,7 +96,8 @@ const api: ElectronAPI = {
 
   getTrends: (queue?: number) => ipcRenderer.invoke("db:trends", queue),
 
-  getRecords: (queue?: number) => ipcRenderer.invoke("db:records", queue),
+  getRecords: (queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:records", queue, account),
 
   getLiveGame: () => ipcRenderer.invoke("live:snapshot"),
 
