@@ -12,7 +12,7 @@ import { BrowserWindow } from "electron";
 import * as db from "./db";
 import { MAYHEM_QUEUE_IDS } from "../shared/queues";
 import { SGP_HISTORY_CAP } from "../shared/api";
-import type { BackfillLimit, LcuStatus } from "../shared/api";
+import type { BackfillLimit, BackfillResult, LcuStatus } from "../shared/api";
 
 let credentials: Credentials | null = null;
 let status: LcuStatus = "disconnected";
@@ -419,15 +419,6 @@ export function cancelBackfill(): void {
 export function isBackfillRunning(): boolean {
   return backfillRunning;
 }
-
-export type BackfillResult = {
-  added: number;
-  scanned: number;
-  checked: number;
-  totalGames: number;
-  limit: BackfillLimit;
-  cancelled: boolean;
-};
 
 export type BackfillOptions = {
   // Walk every page Riot will serve instead of stopping at the first one we

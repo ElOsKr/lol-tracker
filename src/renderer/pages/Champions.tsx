@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
+import { useSort } from "../hooks/useSort";
 import { useChampionData, getChampionName, useAugmentData } from "../hooks/useChampions";
 import type { ChampionStats, AugmentStats, ItemStats, MatchListItem } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
@@ -9,6 +10,7 @@ import ItemIcon from "../components/ItemIcon";
 import WinRateBar from "../components/WinRateBar";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
+import SortHeader from "../components/SortHeader";
 import { formatKDA, formatDuration, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
 
@@ -24,7 +26,6 @@ type SortKey =
   | "avg_damage"
   | "avg_gold"
   | "multikills";
-type SortDir = "asc" | "desc";
 
 // Table columns, for the expanded row's colSpan
 const COLUMN_COUNT = 13;
@@ -166,23 +167,14 @@ export default function Champions() {
     [patch, queue],
   );
   const [search, setSearch] = useViewState("champions.search", "");
-  const [sortKey, setSortKey] = useViewState<SortKey>("champions.sortKey", "games");
-  const [sortDir, setSortDir] = useViewState<SortDir>("champions.sortDir", "desc");
+  const sort = useSort<SortKey>("champions", "games");
+  const { sortKey, sortDir } = sort;
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
     return unsub;
   }, [refetch]);
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === "desc" ? "asc" : "desc");
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
 
   const toggleExpand = (championId: number) => {
     setExpandedId((prev) => (prev === championId ? null : championId));
@@ -226,15 +218,6 @@ export default function Champions() {
   if (!data) {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
-
-  const SortHeader = ({ label, field }: { label: string; field: SortKey }) => (
-    <th
-      onClick={() => handleSort(field)}
-      className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none"
-    >
-      {label} {sortKey === field ? (sortDir === "desc" ? "▼" : "▲") : ""}
-    </th>
-  );
 
   return (
     <div className="max-w-6xl space-y-4">
@@ -284,17 +267,17 @@ export default function Champions() {
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
                 Champion
               </th>
-              <SortHeader label="Games" field="games" />
-              <SortHeader label="Win Rate" field="wins" />
-              <SortHeader label="Avg K" field="avg_kills" />
-              <SortHeader label="Avg D" field="avg_deaths" />
-              <SortHeader label="Avg A" field="avg_assists" />
-              <SortHeader label="KDA" field="kda" />
-              <SortHeader label="Score" field="avg_score" />
-              <SortHeader label="MVP / ACE" field="badges" />
-              <SortHeader label="Avg Dmg" field="avg_damage" />
-              <SortHeader label="Avg Gold" field="avg_gold" />
-              <SortHeader label="Multikills" field="multikills" />
+              <SortHeader {...sort} label="Games" field="games" />
+              <SortHeader {...sort} label="Win Rate" field="wins" />
+              <SortHeader {...sort} label="Avg K" field="avg_kills" />
+              <SortHeader {...sort} label="Avg D" field="avg_deaths" />
+              <SortHeader {...sort} label="Avg A" field="avg_assists" />
+              <SortHeader {...sort} label="KDA" field="kda" />
+              <SortHeader {...sort} label="Score" field="avg_score" />
+              <SortHeader {...sort} label="MVP / ACE" field="badges" />
+              <SortHeader {...sort} label="Avg Dmg" field="avg_damage" />
+              <SortHeader {...sort} label="Avg Gold" field="avg_gold" />
+              <SortHeader {...sort} label="Multikills" field="multikills" />
             </tr>
           </thead>
           <tbody>

@@ -523,9 +523,12 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // Every release newer than the installed version, newest first
+  // Every release newer than the installed version, newest first, so someone who
+  // skipped a few versions sees the notes they missed rather than only the last
+  // set. Empty when already up to date.
   releases?: ReleaseNote[];
-  // True when there are skipped releases beyond the page the check fetched
+  // True when the fetched page never reached back to the installed version, so
+  // there are skipped releases the dialog cannot show.
   moreVersions?: boolean;
   error?: string;
 }
