@@ -23,6 +23,7 @@ import ItemIcon from "../components/ItemIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import MultikillBadge from "../components/MultikillBadge";
 import StatBars from "../components/StatBars";
+import ScoreCell from "../components/ScoreCell";
 import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
@@ -44,6 +45,7 @@ import {
   formatKDA,
   kdaRatio,
   kdaColor,
+  kdaHighlight,
   formatPatch,
 } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
@@ -1105,36 +1107,11 @@ function GameRow({
           <div className="text-sm text-lol-text-bright">
             {formatKDA(match.kills, match.deaths, match.assists)}
           </div>
-          <div
-            className={`text-xs ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
-          >
-            {kda} KDA
-          </div>
+          <div className={`text-xs ${kdaHighlight(kda)}`}>{kda} KDA</div>
         </div>
 
-        {/* Score */}
-        <div className="w-10 shrink-0 text-center">
-          {match.score != null && !isRemake && (
-            <>
-              <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
-                {match.score.toFixed(1)}
-              </div>
-              {match.score_badge ? (
-                <div
-                  className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                    match.score_badge === "MVP"
-                      ? "bg-amber-400/20 text-amber-300"
-                      : "bg-purple-500/20 text-purple-400"
-                  }`}
-                >
-                  {match.score_badge}
-                </div>
-              ) : (
-                <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-              )}
-            </>
-          )}
-        </div>
+        {/* Score — a remake is scored by nothing, so it shows none */}
+        <ScoreCell score={isRemake ? null : match.score} badge={match.score_badge} />
 
         {/* Stat bars */}
         <StatBars

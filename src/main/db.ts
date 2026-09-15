@@ -30,6 +30,10 @@ import type {
 
 // Poro-Snax (base and upgraded) is handed out for free, so it skews item stats
 const EXCLUDED_ITEM_IDS = [2052, 220013];
+const EXCLUDED_ITEMS_SQL = EXCLUDED_ITEM_IDS.join(", ");
+
+// item0..item6 on both player_stats and match_participants; slot 6 is the trinket
+const ITEM_SLOTS = [0, 1, 2, 3, 4, 5, 6];
 
 let db: Database.Database;
 
@@ -1123,6 +1127,21 @@ const GAME_MAX_STATS_SQL = `
            MAX(IFNULL((SELECT MAX(mp.total_heal) FROM match_participants mp
                         WHERE mp.game_id = g.game_id), 0), 1) as game_max_heal`;
 
+// Everything MatchListItem promises, for the three queries that return a row
+// per game to the match list. Shared so a column added for one of them can't
+// leave the other two handing back a row the renderer's type says is complete.
+const MATCH_ROW_SQL = `
+      g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
+      g.puuid, g.game_version,
+      ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
+      ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
+      ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
+      ps.score, ps.score_badge, ps.spell1, ps.spell2,
+      ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
+      (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga
+        WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
+${GAME_MAX_STATS_SQL}`;
+
 // ---- Query functions ----
 
 const MATCH_SORT_COLUMNS: Record<string, string> = {
@@ -1270,14 +1289,7 @@ export function getMatchHistory(
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, g.puuid, g.game_version,
-           ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
-           ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-           ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-           ps.score, ps.score_badge, ps.spell1, ps.spell2,
-           ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-           (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
-${GAME_MAX_STATS_SQL}
+    SELECT ${MATCH_ROW_SQL}
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
     ${whereSql}
@@ -1793,14 +1805,7 @@ export function getChampionMatchHistory(
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, g.puuid,
-           ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
-           ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-           ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-           ps.score, ps.score_badge, ps.spell1, ps.spell2,
-           ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-           (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
-${GAME_MAX_STATS_SQL}
+    SELECT ${MATCH_ROW_SQL}
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
     ${whereSql}
@@ -2212,15 +2217,7 @@ export function getTeammateDetail(key: string): { player: any; matches: any[] } 
   // Our own row for each shared game — the same columns the match list shows.
   const ourMatches = db
     .prepare(`
-      SELECT g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
-             g.puuid, g.game_version,
-             ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
-             ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-             ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-             ps.score, ps.score_badge, ps.spell1, ps.spell2,
-             ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-             (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
-${GAME_MAX_STATS_SQL}
+      SELECT ${MATCH_ROW_SQL}
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
       WHERE g.game_id IN (${idList})
@@ -2329,21 +2326,28 @@ export function getChampionItemStats(
   }
   applyQueueFilter(extraWhere, extraParams, queue);
   const extraSql = extraWhere.length > 0 ? ` AND ${extraWhere.join(" AND ")}` : "";
-  const itemCols = ["item0", "item1", "item2", "item3", "item4", "item5", "item6"];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
-  const subquery = (col: string) =>
-    `SELECT ps.${col} as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.${col} IS NOT NULL AND ps.${col} > 0 AND ps.${col} NOT IN (${excludedList}) AND g.is_remake = 0${extraSql}`;
-  const params = itemCols.flatMap(() => [championId, ...extraParams]);
+  const params = ITEM_SLOTS.flatMap(() => [championId, ...extraParams]);
   return db
     .prepare(`
     SELECT item_id, COUNT(*) as picks, SUM(win) as wins
     FROM (
-      ${itemCols.map(subquery).join("\n      UNION ALL\n      ")}
+        ${itemSlotUnion(
+          (i) => `SELECT ps.item${i} as item_id, ps.win
+                FROM player_stats ps JOIN games g ON ps.game_id = g.game_id
+                WHERE ps.champion_id = ? AND g.is_remake = 0${extraSql}
+                  AND ps.item${i} > 0 AND ps.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
     )
     GROUP BY item_id
     ORDER BY picks DESC
   `)
     .all(...params) as any[];
+}
+
+// The seven item slots are columns, and every item stat wants them as rows.
+// `row` builds one slot's SELECT; the caller's params repeat once per slot.
+function itemSlotUnion(row: (slot: number) => string): string {
+  return ITEM_SLOTS.map(row).join("\n        UNION ALL\n        ");
 }
 
 // Filters for a query over match_participants. is_remake, queue_id and
@@ -2392,25 +2396,21 @@ export function getGlobalStats(
     `)
     .all(...mpa.params) as { augment_id: number; picks: number; wins: number }[];
 
-  const itemCols = [0, 1, 2, 3, 4, 5, 6];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
   const items = db
     .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
-        ${itemCols
-          .map(
-            (i) => `SELECT mp.item${i} as item_id, mp.win as win
+        ${itemSlotUnion(
+          (i) => `SELECT mp.item${i} as item_id, mp.win as win
                 FROM match_participants mp
                 WHERE ${mp.sql}
-                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
-          )
-          .join("\n        UNION ALL\n        ")}
+                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
       )
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(...itemCols.flatMap(() => mp.params)) as {
+    .all(...ITEM_SLOTS.flatMap(() => mp.params)) as {
     item_id: number;
     picks: number;
     wins: number;
@@ -2503,25 +2503,21 @@ export function getGlobalChampionDetail(
     `)
     .get(...mp.params) as { count: number };
 
-  const itemCols = [0, 1, 2, 3, 4, 5, 6];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
   const items = db
     .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
-        ${itemCols
-          .map(
-            (i) => `SELECT mp.item${i} as item_id, mp.win as win
+        ${itemSlotUnion(
+          (i) => `SELECT mp.item${i} as item_id, mp.win as win
                 FROM match_participants mp
                 WHERE ${mp.sql} AND mp.champion_id = ?
-                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
-          )
-          .join("\n        UNION ALL\n        ")}
+                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
       )
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(...itemCols.flatMap(() => [...mp.params, championId])) as {
+    .all(...ITEM_SLOTS.flatMap(() => [...mp.params, championId])) as {
     item_id: number;
     picks: number;
     wins: number;

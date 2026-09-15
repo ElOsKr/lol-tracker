@@ -443,18 +443,7 @@ const LIVE_POLL_INTERVAL_MS = 3_000;
 let win: BrowserWindow | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let refreshing = false;
-let latest: LiveGameSnapshot = {
-  inGame: false,
-  starting: false,
-  gameId: null,
-  queueId: null,
-  mapId: null,
-  mapName: null,
-  mapSkin: null,
-  gameTime: 0,
-  players: [],
-  events: [],
-};
+let latest: LiveGameSnapshot = emptySnapshot();
 
 function publish(snapshot: LiveGameSnapshot) {
   latest = snapshot;

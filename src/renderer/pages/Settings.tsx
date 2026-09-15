@@ -130,18 +130,23 @@ export default function Settings() {
 
   useEffect(refreshBackups, [refreshBackups]);
 
-  const handleAutoStartToggle = useCallback(async () => {
-    const next = !autoStart;
-    setAutoStart(next);
-    // The main process registers or clears the login item off the back of this
-    await window.api.setSetting("auto_start", String(next));
-  }, [autoStart]);
-
-  const handleToggle = useCallback(async () => {
-    const next = !minimizeToTray;
-    setMinimizeToTray(next);
-    await window.api.setSetting("minimize_to_tray", String(next));
-  }, [minimizeToTray]);
+  // Every switch on this page flips one boolean setting and writes it back, so
+  // they share one handler. `also` is for the two that have somewhere else to
+  // be: auto_start is acted on by the main process, remember_filters by the
+  // pages already mounted.
+  const toggle =
+    (
+      key: string,
+      value: boolean,
+      setValue: (next: boolean) => void,
+      also?: (next: boolean) => void,
+    ) =>
+    async () => {
+      const next = !value;
+      setValue(next);
+      also?.(next);
+      await window.api.setSetting(key, String(next));
+    };
 
   const handleQueueToggle = useCallback(
     async (queueId: number) => {
@@ -153,31 +158,10 @@ export default function Settings() {
     [hiddenQueues],
   );
 
-  const handleHideRemakesToggle = useCallback(async () => {
-    const next = !hideRemakes;
-    setHideRemakes(next);
-    await window.api.setSetting("hide_remakes", String(next));
-  }, [hideRemakes]);
-
   const handleSessionGroupingChange = useCallback(async (next: SessionGrouping) => {
     setSessionGrouping(next);
     await window.api.setSetting(SESSION_GROUPING_SETTING, next);
   }, []);
-
-  const handleAutoBackupToggle = useCallback(async () => {
-    const next = !autoBackup;
-    setAutoBackup(next);
-    await window.api.setSetting("auto_backup", String(next));
-  }, [autoBackup]);
-
-  const handleRememberFiltersToggle = useCallback(async () => {
-    const next = !rememberFilters;
-    setRememberFilters(next);
-    // Takes effect on the pages right away: they read the flag as they mount,
-    // and turning it off drops whatever was already stored.
-    setRemembering(next);
-    await window.api.setSetting("remember_filters", String(next));
-  }, [rememberFilters]);
 
   const handleBackupNow = useCallback(async () => {
     setBackupBusy(true);
@@ -320,7 +304,7 @@ export default function Settings() {
             </div>
             <Switch
               checked={autoStart}
-              onChange={handleAutoStartToggle}
+              onChange={toggle("auto_start", autoStart, setAutoStart)}
               disabled={!autoStartSupported}
             />
           </div>
@@ -335,7 +319,10 @@ export default function Settings() {
                 closed. You can still close the program from the system tray.
               </p>
             </div>
-            <Switch checked={minimizeToTray} onChange={handleToggle} />
+            <Switch
+              checked={minimizeToTray}
+              onChange={toggle("minimize_to_tray", minimizeToTray, setMinimizeToTray)}
+            />
           </div>
 
           <div className="border-t border-lol-border" />
@@ -348,7 +335,15 @@ export default function Settings() {
                 each page starts on its defaults again every time the program opens.
               </p>
             </div>
-            <Switch checked={rememberFilters} onChange={handleRememberFiltersToggle} />
+            <Switch
+              checked={rememberFilters}
+              onChange={toggle(
+                "remember_filters",
+                rememberFilters,
+                setRememberFilters,
+                setRemembering,
+              )}
+            />
           </div>
 
           <div className="border-t border-lol-border" />
@@ -361,7 +356,10 @@ export default function Settings() {
                 counted toward your stats either way.
               </p>
             </div>
-            <Switch checked={hideRemakes} onChange={handleHideRemakesToggle} />
+            <Switch
+              checked={hideRemakes}
+              onChange={toggle("hide_remakes", hideRemakes, setHideRemakes)}
+            />
           </div>
 
           <div className="border-t border-lol-border" />
@@ -517,7 +515,10 @@ export default function Settings() {
                 missing or won't open, the newest working copy is restored on startup.
               </p>
             </div>
-            <Switch checked={autoBackup} onChange={handleAutoBackupToggle} />
+            <Switch
+              checked={autoBackup}
+              onChange={toggle("auto_backup", autoBackup, setAutoBackup)}
+            />
           </div>
 
           <div className="border-t border-lol-border" />

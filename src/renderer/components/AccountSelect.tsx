@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import type { TrackedAccount } from "../lib/types";
+import { useEffect } from "react";
+import { useFilterOptions } from "../hooks/useFilterOptions";
 
 export default function AccountSelect({
   value,
@@ -8,15 +8,7 @@ export default function AccountSelect({
   value: string | undefined;
   onChange: (account: string | undefined) => void;
 }) {
-  const [accounts, setAccounts] = useState<TrackedAccount[]>([]);
-
-  useEffect(() => {
-    const fetchAccounts = () =>
-      window.api.getMatchFilterOptions().then((o) => setAccounts(o.accounts));
-    fetchAccounts();
-    const unsub = window.api.onGamesUpdated(fetchAccounts);
-    return unsub;
-  }, []);
+  const { accounts } = useFilterOptions();
 
   // Clear the selection if new data leaves it without any matching games
   useEffect(() => {

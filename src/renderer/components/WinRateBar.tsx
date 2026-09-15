@@ -1,3 +1,5 @@
+import { winRateColor, winRatePercent } from "../lib/format";
+
 interface WinRateBarProps {
   wins: number;
   total: number;
@@ -14,12 +16,8 @@ export default function WinRateBar({ wins, total }: WinRateBarProps) {
           style={{ width: `${rate}%` }}
         />
       </div>
-      <span
-        className={`text-xs font-medium min-w-10 text-right ${
-          rate >= 60 ? "text-lol-win" : rate >= 50 ? "text-sky-400" : "text-lol-loss"
-        }`}
-      >
-        {rate.toFixed(1)}%
+      <span className={`text-xs font-medium min-w-10 text-right ${winRateColor(wins, total)}`}>
+        {winRatePercent(wins, total)}
       </span>
     </div>
   );

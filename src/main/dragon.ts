@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getDataDir } from "./paths";
 import augmentDescriptions from "./augment-descriptions.json";
+import { cdragonAssetUrl, cherryAugmentsUrl } from "../shared/cdragon";
 
 // Every one of these requests gates something the UI waits on: champion data
 // blocks dragon:champions, db:teammate-detail and data:repair-puuids, and a
@@ -84,9 +85,6 @@ export type AugmentInfo = {
 
 const augmentCaches = new Map<string, Record<number, AugmentInfo>>();
 const augmentPromises = new Map<string, Promise<Record<number, AugmentInfo>>>();
-
-const cherryAugmentsUrl = (branch: string) =>
-  `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`;
 
 // Tooltip text, bundled rather than fetched: cherry-augments.json carries an
 // augment's name, rarity and art but no description at all, and the game data
@@ -400,9 +398,7 @@ async function getBranchAugmentIcons(branch: string): Promise<Record<number, str
   if (cached) return cached;
   const icons: Record<number, string> = {};
   try {
-    const data = await fetchJson(
-      `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`,
-    );
+    const data = await fetchJson(cherryAugmentsUrl(branch));
     const entries = Array.isArray(data) ? data : Object.values(data ?? {});
     for (const aug of entries as any[]) {
       const iconPath = aug?.augmentSmallIconPath || aug?.iconSmall || aug?.iconLarge;
@@ -415,13 +411,6 @@ async function getBranchAugmentIcons(branch: string): Promise<Record<number, str
   }
   branchAugmentIcons.set(branch, icons);
   return icons;
-}
-
-// Mirrors the renderer's CDRAGON_ASSET_URL so a resolved URL can be used as-is.
-function assetUrl(branch: string, iconPath: string): string {
-  return `https://raw.communitydragon.org/${branch}/game/${iconPath
-    .replace("/lol-game-data/assets/", "")
-    .toLowerCase()}`;
 }
 
 // The UI prefers the large art; the data names the small path, and a few
@@ -457,7 +446,7 @@ type BranchIcon = { url: string | null; conclusive: boolean };
 async function findIconOnBranch(branch: string, iconPath: string): Promise<BranchIcon> {
   let conclusive = true;
   for (const variant of iconVariants(iconPath)) {
-    const url = assetUrl(branch, variant);
+    const url = cdragonAssetUrl(branch, variant);
     const probe = await probeUrl(url);
     if (probe === "ok") return { url, conclusive: true };
     if (probe === "error") conclusive = false;

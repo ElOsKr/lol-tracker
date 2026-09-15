@@ -7,7 +7,7 @@ import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./l
 import { startLiveTracking, stopLiveTracking } from "./live";
 import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
 import { applySecurityPolicy } from "./security";
-import { ensureStartMenuShortcut } from "./shortcut";
+import { APP_USER_MODEL_ID, ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 
 let mainWindow: BrowserWindow | null = null;
@@ -141,9 +141,8 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
-  // Windows groups taskbar entries and attributes notifications by this id;
-  // without it the app is identified by the Electron executable instead.
-  app.setAppUserModelId("com.mayhem-tracker.app");
+  // Without this the app is identified by the Electron executable instead.
+  app.setAppUserModelId(APP_USER_MODEL_ID);
 
   // Pairs with that id: gives the taskbar a durable shortcut to pin in place of
   // the temp exe the portable launcher runs from.

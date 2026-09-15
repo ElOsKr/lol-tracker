@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useFilterOptions } from "../hooks/useFilterOptions";
 import { formatPatch } from "../lib/format";
 
 export default function PatchSelect({
@@ -8,15 +9,7 @@ export default function PatchSelect({
   value: string | undefined;
   onChange: (patch: string | undefined) => void;
 }) {
-  const [patches, setPatches] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchPatches = () =>
-      window.api.getMatchFilterOptions().then((o) => setPatches(o.patches));
-    fetchPatches();
-    const unsub = window.api.onGamesUpdated(fetchPatches);
-    return unsub;
-  }, []);
+  const { patches } = useFilterOptions();
 
   // Clear the selection if new data leaves it without any matching games
   useEffect(() => {

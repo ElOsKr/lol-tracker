@@ -7,11 +7,22 @@ export function kdaRatio(kills: number, deaths: number, assists: number): string
   return ((kills + assists) / deaths).toFixed(2);
 }
 
+// A KDA worth pointing out, taken from the string kdaRatio returns: "Perfect"
+// always counts, and parseFloat leaves NaN there, which fails the comparison.
+export function kdaHighlight(kda: string): string {
+  return parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text";
+}
+
 export function kdaColor(ratio: number): string {
   if (ratio >= 5) return "text-amber-400";
   if (ratio >= 4) return "text-sky-400";
   if (ratio >= 3) return "text-emerald-400";
   return "text-slate-300";
+}
+
+// Large stats at a glance, for table cells and bar labels: 12345 reads "12.3k".
+export function formatCompact(value: number): string {
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : Math.round(value).toString();
 }
 
 export function formatDuration(seconds: number): string {
@@ -73,5 +84,5 @@ export function winRateColor(wins: number, total: number): string {
   const rate = wins / total;
   if (rate >= 0.6) return "text-emerald-400";
   if (rate >= 0.5) return "text-sky-400";
-  return "text-red-400";
+  return "text-lol-loss";
 }
