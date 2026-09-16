@@ -226,7 +226,7 @@ export default function Settings() {
         const summary =
           result.added > 0
             ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
-            : `No new Mayhem games found (${result.scanned} games checked)`;
+            : `No new LoL games found (${result.scanned} games checked)`;
         setBackfillStatus(
           result.cancelled
             ? `Stopped after adding ${result.added} game(s). Run it again to finish.`
@@ -336,9 +336,9 @@ export default function Settings() {
             <div>
               <p className="text-sm text-lol-text-bright">Backfill match history</p>
               <p className="text-xs text-lol-text mt-0.5">
-                Pull your older ARAM and Mayhem games from Riot and add any that aren't stored yet.
-                This runs automatically the first time an account connects; use this to run it
-                again, or to finish an import you cancelled.
+                Pull your available LoL games from Riot and add any that aren't stored yet. This
+                runs automatically the first time an account connects; use this to run it again, or
+                to finish an import you cancelled.
               </p>
             </div>
             <button

@@ -4,7 +4,7 @@
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-14): widget integrado y validado previamente en OBS; base oficial v1.11.1 integrada. ARAM normal (450) implementado localmente en codex/lol-all-queues junto a Mayhem 2400/2450, con selección global de una sola cola. Validación con partida real de ARAM normal pendiente. Otras colas LoL y TFT siguen pendientes.
+- Fase actual (2026-09-14): widget integrado y validado previamente en OBS; base oficial v1.11.1 integrada. Catálogo LoL ampliado e importación por política lol-v1, con selección global de una sola cola; TFT excluido. Diez colas verificadas con muestras reales sobre copia; Arena/Enjambre con validación real pendiente. Contadores EOG son snapshots de Riot y pueden reiniciarse; no equivalen al histórico completo.
 - Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo League Companion. El renombrado visual/técnico del paquete y ejecutable, todavía Mayhem Tracker, se realizará en una entrega separada. Consulta e instalación de actualizaciones oficiales desactivadas para preservar las funciones propias hasta disponer de un canal propio.
 - Conservar la licencia MIT y la atribución originales.
 
@@ -32,10 +32,10 @@
 
 - `src/main/`: Electron, LCU, persistencia, IPC, copias de seguridad y actualizador.
 - `src/preload/`: puente entre Electron y la interfaz.
-- `src/shared/`: contratos y reglas compartidas; `queues.ts` contiene actualmente las colas Mayhem.
+- `src/shared/`: contratos y reglas compartidas; `queues.ts` define captura y capacidades; `queue-catalog.ts` conserva el catálogo LoL obtenido de Riot/LCU.
 - `src/renderer/`: interfaz React, páginas, componentes y hooks.
 - `scripts/`: generación de descripciones de aumentos.
-- Antes de ampliar colas, revisar el filtrado en `src/main/lcu.ts`, los contratos, SQLite y las vistas dependientes de Mayhem. No asumir que quitar un filtro completa la adaptación. TRACKED_QUEUE_IDS define captura; MAYHEM_QUEUE_IDS mantiene la puntuación exclusiva de Mayhem. Versionar CAPTURE_POLICY_VERSION al ampliar captura para reexaminar descartes e importaciones completadas.
+- Antes de ampliar colas, revisar el filtrado en `src/main/lcu.ts`, los contratos, SQLite y las vistas dependientes de Mayhem. No asumir que quitar un filtro completa la adaptación. TRACKED_QUEUE_IDS define captura; MAYHEM_QUEUE_IDS conserva los aumentos propios de Mayhem. hasScore admite Mayhem y ARAM normal; pasar siempre la cola al cálculo compartido. ARAM normal usa perfil experimental v2 contrastado con historial antiguo por autorización de Oscar; Mayhem v4 no cambia. Consultar CALIBRATION-ARAM.md y versionar SCORE_POLICY_VERSION al cambiar pesos de ARAM. Versionar CAPTURE_POLICY_VERSION al ampliar captura para reexaminar descartes e importaciones completadas.
 - Verificar la disponibilidad real del historial TFT antes de diseñar su integración; no mezclar métricas LoL y TFT.
 - Preservar los datos existentes y las copias de seguridad. No incorporar credenciales LCU ni datos personales a Git.
 

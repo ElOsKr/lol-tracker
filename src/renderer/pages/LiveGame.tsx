@@ -171,12 +171,12 @@ function LiveHeader({
           {snapshot.mapName}
         </span>
       )}
-      {snapshot.queueId != null && snapshot.queueId > 0 && (
+      {snapshot.queueId != null && snapshot.queueId >= 0 && (
         <span className="text-[11px] text-lol-text">{queueLabel(snapshot.queueId)}</span>
       )}
 
       <div className="ml-auto flex items-center gap-4">
-        {snapshot.inGame && (
+        {snapshot.inGame && snapshot.players.every((p) => p.teamId === 100 || p.teamId === 200) && (
           <span className="text-sm font-semibold">
             <span className="text-sky-400">{teamKills[100] ?? 0}</span>
             <span className="mx-1.5 text-lol-text/40">vs</span>

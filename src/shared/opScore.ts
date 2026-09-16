@@ -6,6 +6,8 @@
 // so class changes trigger a recompute too). Settings → Repair rescores
 // unconditionally, which is the way out when stored values went stale under a
 // key that never changed.
+import { QUEUE_ID_ARAM } from "./queues";
+
 export const SCORE_FORMULA_VERSION = 4;
 
 // championId → Data Dragon class tag ("Assassin" | "Fighter" | "Mage" |
@@ -101,6 +103,16 @@ const CLASS_WEIGHTS: Record<string, ClassWeights> = {
   Support: { kda: 2.2, kp: 2.7, dmg: 1.7, taken: 0.8, heal: 1.8, gold: 0.6 },
 };
 
+// Conservative ARAM-normal profile: shift a small amount of damage/gold weight
+// to participation. Evaluated on historical ARAM games, not fitted to Riot grades.
+// Each row still sums to 9.8. Keep the Mayhem table and arithmetic unchanged.
+const ARAM_CLASS_WEIGHTS: Record<string, ClassWeights> = {
+  ...CLASS_WEIGHTS,
+  Marksman: { kda: 2.2, kp: 2.4, dmg: 2.7, taken: 0.7, heal: 0.5, gold: 1.3 },
+  Tank: { kda: 2.0, kp: 2.8, dmg: 1.8, taken: 2.2, heal: 0.3, gold: 0.7 },
+  Support: { kda: 2.2, kp: 3.0, dmg: 1.4, taken: 0.8, heal: 1.8, gold: 0.6 },
+};
+
 export type ScoreComponentKey = "kda" | "kp" | "dmg" | "taken" | "heal" | "gold";
 
 // One weighted term of the score. `points` and `weight` are post-SCALE, so
@@ -144,12 +156,13 @@ function buildBreakdown(
   // something to be measured against. 0 when there's nobody else.
   runnerUpDmg: number,
   classes: ChampionClassMap | undefined,
+  weights: Record<string, ClassWeights>,
 ): ScoreBreakdown {
   const kda = (p.kills + p.assists) / Math.max(p.deaths, 1);
   const kp = teamKills > 0 ? (p.kills + p.assists) / teamKills : 0;
 
   const cls = classes?.[p.championId];
-  const w = (cls && CLASS_WEIGHTS[cls]) || DEFAULT_WEIGHTS;
+  const w = (cls && weights[cls]) || DEFAULT_WEIGHTS;
 
   // Sum unscaled and scale once at the end — same float ordering as when the
   // formula only produced a total, so stored scores don't shift by an ulp at
@@ -215,7 +228,8 @@ function buildBreakdown(
 
 export function computeMatchScoreBreakdowns(
   participants: ScoreInput[],
-  classes?: ChampionClassMap,
+  classes: ChampionClassMap | undefined,
+  queueId: number,
 ): Map<number, ScoreBreakdown> {
   const breakdowns = new Map<number, ScoreBreakdown>();
   if (participants.length === 0) return breakdowns;
@@ -244,7 +258,14 @@ export function computeMatchScoreBreakdowns(
   for (const p of participants) {
     breakdowns.set(
       p.participantId,
-      buildBreakdown(p, teamKills.get(p.teamId) ?? 0, max, runnerUpDmg, classes),
+      buildBreakdown(
+        p,
+        teamKills.get(p.teamId) ?? 0,
+        max,
+        runnerUpDmg,
+        classes,
+        queueId === QUEUE_ID_ARAM ? ARAM_CLASS_WEIGHTS : CLASS_WEIGHTS,
+      ),
     );
   }
 
@@ -269,10 +290,11 @@ export function computeMatchScoreBreakdowns(
 
 export function computeMatchScores(
   participants: ScoreInput[],
-  classes?: ChampionClassMap,
+  classes: ChampionClassMap | undefined,
+  queueId: number,
 ): Map<number, PlayerScore> {
   const scores = new Map<number, PlayerScore>();
-  for (const [id, b] of computeMatchScoreBreakdowns(participants, classes)) {
+  for (const [id, b] of computeMatchScoreBreakdowns(participants, classes, queueId)) {
     scores.set(id, { score: b.score, raw: b.raw, badge: b.badge });
   }
   return scores;

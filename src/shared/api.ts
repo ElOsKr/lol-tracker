@@ -1,3 +1,12 @@
+export interface QueueLifetimeTotal {
+  puuid: string;
+  account: string;
+  queueId: number;
+  wins: number;
+  losses: number;
+  capturedAt: number;
+}
+
 import type { WidgetPreferences, WidgetState } from "./widget";
 // The IPC contract: every shape that crosses the preload bridge, and the
 // ElectronAPI interface the bridge is checked against. It lives in shared/ so
@@ -51,6 +60,7 @@ export interface GameAugment {
 }
 
 export interface MatchListItem {
+  placement?: number | null;
   game_id: number;
   queue_id: number;
   game_creation: number;
@@ -149,6 +159,10 @@ export interface MatchFilterOptions {
 // One row per player, straight from match_participants — the scoreboard no
 // longer reconstructs these from a raw match payload.
 export interface MatchParticipantRecord {
+  placement?: number | null;
+  cs?: number | null;
+  vision?: number | null;
+  position?: string | null;
   participantId: number;
   puuid: string | null;
   gameName: string | null;
@@ -457,6 +471,10 @@ export interface GlobalChampionDetail {
 }
 
 export interface ParsedParticipant {
+  placement?: number | null;
+  cs?: number | null;
+  vision?: number | null;
+  position?: string | null;
   participantId: number;
   championId: number;
   teamId: number;
@@ -492,7 +510,7 @@ export interface BackfillProgress {
 
 // Riot's match history service holds only this many matches per account, and
 // reports the end of that window as an empty page — exactly what a genuine end
-// of history looks like. Anything older is unreachable, by any route.
+// of history looks like. Older IDs can sometimes still be fetched directly if already known.
 export const SGP_HISTORY_CAP = 1000;
 
 // What stopped a backfill short of an account's full history, if anything.
@@ -742,6 +760,7 @@ export interface ElectronAPI {
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<MatchFilterOptions>;
   getStoredQueues: () => Promise<number[]>;
+  getQueueLifetimeTotals: () => Promise<QueueLifetimeTotal[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;

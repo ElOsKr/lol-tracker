@@ -111,7 +111,8 @@ export default function WidgetSettings() {
             <p className="text-sm">
               Muestra las últimas 15 partidas. El porcentaje se calcula con el historial almacenado
               de la cuenta y cola seleccionadas, excluyendo remakes. No garantiza todas las partidas
-              jugadas. Captura ARAM normal, ARAM Caos y Mayhem Classic.
+              jugadas. La cola seleccionada filtra el historial de LoL disponible; TFT no está
+              incluido.
             </p>
           </section>
           <section className="p-5 rounded-lg border border-lol-border space-y-3">

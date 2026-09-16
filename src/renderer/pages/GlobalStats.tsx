@@ -1,4 +1,4 @@
-import { QUEUE_ID_ARAM } from "../../shared/queues";
+import { hasAugments } from "../../shared/queues";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -79,7 +79,7 @@ export default function GlobalStats() {
   const [queue, setQueue] = useQueueSelection();
   const tabParam = searchParams.get("tab");
   const tab: Tab =
-    (tabParam === "augments" && queue !== QUEUE_ID_ARAM) || tabParam === "items"
+    (tabParam === "augments" && hasAugments(queue)) || tabParam === "items"
       ? tabParam
       : "champions";
 
@@ -356,7 +356,7 @@ export default function GlobalStats() {
           Champions
         </button>
         <button
-          hidden={queue === QUEUE_ID_ARAM}
+          hidden={!hasAugments(queue)}
           onClick={() => setTab("augments")}
           className={`px-4 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
             tab === "augments"

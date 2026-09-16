@@ -1,3 +1,4 @@
+import { getQueueLifetimeTotals } from "./queue-totals";
 import { ipcMain, BrowserWindow, dialog, app, shell } from "electron";
 import fs from "fs";
 import * as db from "./db";
@@ -33,6 +34,7 @@ function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | 
 }
 
 export function registerIpcHandlers() {
+  ipcMain.handle("db:queue-lifetime-totals", () => getQueueLifetimeTotals());
   ipcMain.handle(
     "db:match-history",
     (

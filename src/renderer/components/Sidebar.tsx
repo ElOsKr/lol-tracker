@@ -1,5 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
-import { QUEUE_ID_ARAM } from "../../shared/queues";
+import { hasAugments } from "../../shared/queues";
 import { NavLink } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef, type ComponentType, type SVGProps } from "react";
 import { useLcuStatus } from "../hooks/useLcuStatus";
@@ -164,7 +164,7 @@ export default function Sidebar() {
       </div>
       <div className="flex flex-col gap-0.5 p-3 mt-1 flex-1">
         {links
-          .filter((link) => queue !== QUEUE_ID_ARAM || link.to !== "/augments")
+          .filter((link) => hasAugments(queue) || link.to !== "/augments")
           .map((link) => (
             <NavItem key={link.to} {...link} />
           ))}

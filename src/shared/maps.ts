@@ -11,7 +11,12 @@ export const MAP_SKIN_NAMES: Record<string, string> = {
 
 // Anything Riot adds later still reads as a name rather than as nothing, since
 // the skins are already spelled close enough to their display names.
-export function mapNameForSkin(skin: string | null | undefined): string | null {
+export function mapNameForSkin(
+  skin: string | null | undefined,
+  mapId?: number | null,
+): string | null {
+  if (mapId === 11) return "Grieta del Invocador";
+  if (mapId != null && mapId !== 12) return `Mapa ${mapId}`;
   if (!skin) return null;
   return MAP_SKIN_NAMES[skin] ?? skin.replace(/_/g, " ");
 }

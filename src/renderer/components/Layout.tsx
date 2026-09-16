@@ -1,7 +1,8 @@
+import QueueTotals from "./QueueTotals";
 import { useState } from "react";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import QueueSelect from "./QueueSelect";
-import { QUEUE_ID_ARAM } from "../../shared/queues";
+import { hasAugments } from "../../shared/queues";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import StatusBar from "./StatusBar";
@@ -27,9 +28,13 @@ export default function Layout() {
           />
           {error && <span role="alert">{error}</span>}
         </div>
+        <QueueTotals />
         <main className="scrollbar-edge flex-1 overflow-y-auto p-6">
-          {queue === QUEUE_ID_ARAM && location.pathname === "/augments" ? (
-            <p>ARAM normal no utiliza aumentos. Elige ARAM Caos para consultar sus estadísticas.</p>
+          {!hasAugments(queue) && location.pathname === "/augments" ? (
+            <p>
+              Esta cola no utiliza los aumentos de Mayhem. Elige ARAM Caos para consultar sus
+              estadísticas.
+            </p>
           ) : (
             <Outlet key={queue} />
           )}

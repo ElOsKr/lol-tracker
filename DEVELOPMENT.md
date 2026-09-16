@@ -2,9 +2,29 @@
 
 Riftally es el nombre elegido. La interfaz y la identidad del ejecutable siguen siendo Mayhem Tracker hasta la entrega específica de renombrado.
 
+## Puntuación ARAM normal — 2026-09-15
+
+La cola 450 admite AVG Score experimental con perfil propio v2: tanques y soportes trasladan 0.3 de peso de daño a participación; tiradores trasladan 0.1 de daño y 0.1 de oro a participación. Los demás pesos, curvas y bonificaciones permanecen iguales. Esta revisión conservadora se contrastó con el historial disponible, autorizado por Oscar pese a su antigüedad; no constituye validación frente a notas oficiales. No incorpora todavía escudos ni control de masas. `hasScore` separa puntuación y aumentos; la cola se pasa explícitamente a captura, reparación, amigos y marcador. Remakes sin nota. La política `mayhem-v4-aram-experimental-v2` provoca recálculo tras cargar campeones al arrancar. Mayhem v4 conserva sus resultados; Clash ARAM y otras colas siguen sin nota. Pruebas SQLite: captura, media, migración desde v1, reparación, persistencia y coincidencia del desglose. Recálculo sobre copia consistente: conservación del resto de tablas/ajustes y comparación exacta de resultados Mayhem con la fórmula anterior. Metodología en CALIBRATION-ARAM.md. Reiniciar desde Quit para cargar el cambio.
+
 ## Integración oficial v1.11.1 — 2026-09-14
 
 Integrada v1.11.1 (91cb554): revisión completa del historial disponible una vez por cuenta y arranque, importación manual completa y recuperación si las últimas 20 partidas no contienen ninguna conocida. Conserva las tres colas admitidas y los descartes por política aram-v1; la nueva consulta isGameKnown respeta esa política para recuperar ARAM normal descartado por versiones antiguas. Sin cambios de esquema ni dependencias. La cobertura sigue limitada por el historial que Riot ofrece.
+
+## Otras colas LoL — 2026-09-14
+
+Catálogo de colas obtenido de Riot y del cliente local: clasificatorias, normales, ARAM, Clash, bots, rotatorios, Arena, cooperativos, práctica, personalizadas e históricas. TFT excluido por catálogo y validación del payload. El selector agrupa las colas y conserva una sola selección, incluida la cola 0. Una entrada no implica que Riot la tenga disponible actualmente ni que publique todo su historial.
+
+La política lol-v1 reexamina descartes anteriores y recorre el historial sin limitarlo a etiquetas ARAM. Captura solo partidas LoL reconocidas con participantes y resultado explícito; una respuesta incompleta no se convierte en derrota. Muestras reales de diez colas importadas sobre copia SQLite, conservando tablas/ajustes e integridad. Backup consistente previo: backups/lol-queues-validation/pre-queues.db. No se ha importado directamente en la base real durante las pruebas.
+
+CS, visión y posición aparecen en detalle cuando existen. Arena usa subequipos y posición final cuando la fuente los proporciona; equipos desconocidos no se agrupan falsamente. El widget muestra puesto si está disponible. Resultado y winrate usan el resultado explícito del servicio; la puntuación e iconos de aumentos Mayhem no se extrapolan a otros modos. Remakes fuera de Mayhem requieren rendición temprana además de duración corta. En directo la Grieta no se etiqueta como Abismo y el marcador admite más de dos equipos.
+
+Pruebas: selección incluida cola 0 y ausencia de valor, exclusión TFT, resultados incompletos, colas separadas, Arena sintético, preservación de datos, muestras reales de normales/Solo-Dúo/Flexible/Clash/URF/práctica/personalizadas/Bots Malditos; interfaz Electron con selección, persistencia, estados vacíos y puestos Arena. Arena y Enjambre aún requieren validación con partidas reales; no había muestras propias disponibles. Exportación y reparación conservan las reglas de modo. Reiniciar por Quit para cargar la versión; la importación inicial recuperará las colas disponibles dentro de la ventana del servicio. Sin ampliar TFT ni publicar cambios.
+
+## Contadores por cola — 2026-09-14
+
+El panel desplegable «Totales por cola comunicados por Riot», bajo el selector global, muestra snapshots de victorias y derrotas de localPlayer del recurso EOG. La captura verifica cuenta y obtiene la cola desde el detalle de la misma partida; no depende del filtro de captura ARAM. Escucha cambios, lee al conectar y reintenta durante el polling. Sin datos muestra pendiente, nunca el historial local como total histórico. Rechaza valores vacíos, inválidos, regresiones y observaciones antiguas; no incrementa manualmente ni duplica eventos.
+
+SQLite añade queue_lifetime_totals por cuenta/cola, incluido en exportaciones JSON y copias que las utilizan; importaciones anteriores siguen admitidas. Pruebas sintéticas de persistencia, duplicados, cuentas, colas, valores inválidos y exportación/importación correctas. Vista compilada comprobada en Electron con base aislada. Pendiente validar una partida real, cobertura histórica y remakes; el esquema LCU existe pero no había resultados EOG disponibles durante la investigación. Reiniciar desde Quit y terminar una partida para capturar el primer valor. Los contadores no sustituyen las estadísticas ni el winrate del widget.
 
 ## ARAM normal — 2026-09-13
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { QUEUE_LABELS, TRACKED_QUEUE_IDS } from "../../shared/queues";
+import { QUEUE_LABELS, QUEUE_CATALOG } from "../../shared/queues";
 
 export function queueLabel(queueId: number): string {
   return QUEUE_LABELS[queueId] ?? `Queue ${queueId}`;
@@ -24,13 +24,19 @@ export default function QueueSelect({
             setError("No se pudo guardar la cola"),
           );
         }}
-        className="select"
+        className="select max-w-[260px] min-w-0"
       >
-        {TRACKED_QUEUE_IDS.map((q) => (
-          <option key={q} value={q}>
-            {queueLabel(q)}
-          </option>
-        ))}
+        {["Principales", "Otros modos", "Cooperativo y bots", "Personalizadas", "Históricas"].map(
+          (group) => (
+            <optgroup key={group} label={group}>
+              {QUEUE_CATALOG.filter((q) => q.group === group).map((q) => (
+                <option key={q.id} value={q.id}>
+                  {queueLabel(q.id)}
+                </option>
+              ))}
+            </optgroup>
+          ),
+        )}
       </select>
       {error && <span role="alert">{error}</span>}
     </>

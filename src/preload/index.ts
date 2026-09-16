@@ -29,6 +29,7 @@ const api: ElectronAPI = {
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => ipcRenderer.invoke("db:match-filters", filters),
 
+  getQueueLifetimeTotals: () => ipcRenderer.invoke("db:queue-lifetime-totals"),
   getStoredQueues: () => ipcRenderer.invoke("db:stored-queues"),
 
   getMatchDetail: (gameId: number) => ipcRenderer.invoke("db:match-detail", gameId),

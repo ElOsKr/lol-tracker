@@ -5,7 +5,7 @@ let selected = QUEUE_ID_ARAM;
 const listeners = new Set<() => void>();
 
 export function initQueueSelection(value: string | null) {
-  const queue = Number(value);
+  const queue = value == null || value === "" ? NaN : Number(value);
   selected = isTrackedQueue(queue) ? queue : QUEUE_ID_ARAM;
 }
 

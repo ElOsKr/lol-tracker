@@ -1,4 +1,4 @@
-import { TRACKED_QUEUE_IDS, QUEUE_ID_ARAM, isTrackedQueue } from "../shared/queues";
+import { TRACKED_QUEUE_IDS, QUEUE_ID_ARAM, isTrackedQueue, hasAugments } from "../shared/queues";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
 import * as db from "./db";
@@ -89,6 +89,7 @@ export function widgetSnapshot(): WidgetSnapshot {
         gameCreation: row.game_creation,
         queueId: row.queue_id,
         win: !!row.win,
+        placement: row.placement ?? null,
         remake: !!row.is_remake,
         championId: row.champion_id,
         kills: row.kills,
@@ -96,7 +97,7 @@ export function widgetSnapshot(): WidgetSnapshot {
         assists: row.assists,
         items,
         itemIcons: items.map((id) => icon(data?.items[id])),
-        augments: (row.augment_ids ?? "")
+        augments: (hasAugments(row.queue_id) ? (row.augment_ids ?? "") : "")
           .split(",")
           .map(Number)
           .filter((id) => id > 0)

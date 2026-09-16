@@ -15,18 +15,15 @@ export default function LiveScoreboard({
   players: LivePlayer[];
   champData: ChampionData;
 }) {
-  const teams = [100, 200].map((teamId) => players.filter((p) => p.teamId === teamId));
+  const teams = [...new Set(players.map((p) => p.teamId))].map((teamId) =>
+    players.filter((p) => p.teamId === teamId),
+  );
 
   return (
     <div className="space-y-3">
       {teams.map((team, index) =>
         team.length === 0 ? null : (
-          <LiveTeam
-            key={index}
-            teamId={index === 0 ? 100 : 200}
-            players={team}
-            champData={champData}
-          />
+          <LiveTeam key={index} teamId={team[0].teamId} players={team} champData={champData} />
         ),
       )}
     </div>
@@ -55,7 +52,13 @@ function LiveTeam({
         }`}
       >
         <span className={`text-xs font-bold ${ours ? "text-lol-win" : "text-lol-loss"}`}>
-          {teamId === 100 ? "Blue Team" : "Red Team"}
+          {teamId === 100
+            ? "Blue Team"
+            : teamId === 200
+              ? "Red Team"
+              : teamId > 0
+                ? `Equipo ${teamId}`
+                : "Equipo sin identificar"}
           {ours && <span className="text-lol-text font-normal"> · yours</span>}
         </span>
         <span className="ml-auto text-[11px] text-lol-text">

@@ -1,3 +1,4 @@
+import { isArenaQueue } from "../shared/queues";
 import https from "https";
 import type { BrowserWindow } from "electron";
 import * as db from "./db";
@@ -331,7 +332,8 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
   const gameData = session?.gameData;
   if (gameData) {
     snapshot.gameId = Number(gameData.gameId) || snapshot.gameId;
-    snapshot.queueId = Number(gameData.queue?.id) || snapshot.queueId;
+    if (Number.isInteger(gameData.queue?.id) && gameData.queue.id >= 0)
+      snapshot.queueId = gameData.queue.id;
     snapshot.mapId = Number(session.map?.id) || null;
   }
 
@@ -354,15 +356,15 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
   snapshot.inGame = true;
   snapshot.gameTime = Math.floor(Number(data?.gameData?.gameTime) || 0);
   snapshot.mapSkin = data?.gameData?.mapTerrain ?? null;
-  snapshot.mapName = mapNameForSkin(snapshot.mapSkin);
   snapshot.mapId = Number(data?.gameData?.mapNumber) || snapshot.mapId;
+  snapshot.mapName = mapNameForSkin(snapshot.mapSkin, snapshot.mapId);
 
   const roster = buildLcuRoster(session);
   const activeName = String(
     data?.activePlayer?.riotId ?? data?.activePlayer?.summonerName ?? "",
   ).toLowerCase();
 
-  snapshot.players = allPlayers.map((player: any): LivePlayer => {
+  snapshot.players = allPlayers.map((player: any, index: number): LivePlayer => {
     const entry = lookupRoster(roster, player);
     const name = String(player.riotIdGameName || player.summonerName || "").trim();
     const tagLine = String(player.riotIdTagLine || "").trim() || null;
@@ -381,7 +383,14 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
       championId:
         entry?.championId || resolveChampionId(player.rawChampionName, player.championName),
       championName: String(player.championName || ""),
-      teamId: player.team === "CHAOS" ? 200 : 100,
+      teamId:
+        snapshot.queueId != null && isArenaQueue(snapshot.queueId)
+          ? Number.isInteger(player.playerSubteamId) && player.playerSubteamId > 0
+            ? player.playerSubteamId
+            : -(index + 1)
+          : player.team === "CHAOS"
+            ? 200
+            : 100,
       isSelf:
         activeName !== "" &&
         (riotId.toLowerCase() === activeName || name.toLowerCase() === activeName),

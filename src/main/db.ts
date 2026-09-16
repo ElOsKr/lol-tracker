@@ -1,3 +1,5 @@
+import { isSupportedLolMatch, participantModeFields } from "../shared/match-mode";
+import { saveQueueLifetimeTotal } from "./queue-totals";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
@@ -13,6 +15,8 @@ import {
   QUEUE_ID_MAYHEM_CLASSIC,
   QUEUE_ID_ARAM,
   MAYHEM_QUEUE_IDS,
+  hasScore,
+  SCORE_POLICY_VERSION,
   isTrackedQueue,
   CAPTURE_POLICY_VERSION,
 } from "../shared/queues";
@@ -209,6 +213,27 @@ function createTables() {
       updated_at   INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS match_mode_stats (
+      game_id INTEGER NOT NULL REFERENCES games(game_id) ON DELETE CASCADE,
+      participant_id INTEGER NOT NULL,
+      placement INTEGER,
+      cs INTEGER,
+      vision REAL,
+      position TEXT,
+      PRIMARY KEY(game_id, participant_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS queue_lifetime_totals (
+      puuid TEXT NOT NULL,
+      queue_id INTEGER NOT NULL,
+      wins INTEGER NOT NULL,
+      losses INTEGER NOT NULL,
+      game_id INTEGER NOT NULL,
+      game_creation INTEGER NOT NULL,
+      captured_at INTEGER NOT NULL,
+      PRIMARY KEY (puuid, queue_id)
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -355,9 +380,13 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
 
   return participants.map((p: any, i: number): RawParticipantRow => {
     const s = p.stats || p;
-    const player = identities[i]?.player || {};
+    const player =
+      identities.find((identity: any) => identity.participantId === (p.participantId ?? i + 1))
+        ?.player ||
+      identities[i]?.player ||
+      {};
     const augments: { slot: number; augment_id: number }[] = [];
-    for (let slot = 1; slot <= AUGMENT_SLOTS; slot++) {
+    for (let slot = 1; MAYHEM_QUEUE_IDS.includes(raw.queueId) && slot <= AUGMENT_SLOTS; slot++) {
       const augId = s[`playerAugment${slot}`];
       if (augId && augId > 0) augments.push({ slot, augment_id: augId });
     }
@@ -370,7 +399,7 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
         player.gameName || player.summonerName || p.summonerName || p.riotIdGameName || null,
       tag_line: player.tagLine || p.riotIdTagline || null,
       profile_icon: typeof icon === "number" && icon > 0 ? icon : null,
-      team_id: p.teamId ?? s.teamId ?? 100,
+      team_id: participantModeFields(raw, p, i).teamId,
       champion_id: p.championId ?? s.championId ?? 0,
       win: s.win ? 1 : 0,
       kills: s.kills ?? 0,
@@ -933,7 +962,8 @@ export function getStoredQueues(): number[] {
 
 // A missing selection resolves to one queue, never to an aggregate.
 export function selectedQueue(): number {
-  const value = Number(getSetting("selected_queue"));
+  const saved = getSetting("selected_queue");
+  const value = saved == null || saved === "" ? NaN : Number(saved);
   return isTrackedQueue(value) ? value : QUEUE_ID_ARAM;
 }
 
@@ -952,7 +982,7 @@ function hideRemakes(): boolean {
 // stored scores recompute when either changes (new formula, new patch,
 // re-tagged champion).
 function scoreFormulaKey() {
-  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}:mayhem-only`;
+  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}:${SCORE_POLICY_VERSION}`;
 }
 
 // Recompute stored scores from the participant rows. Runs whenever the formula version or
@@ -1027,6 +1057,7 @@ function groupByGame<T extends { game_id: number }>(rows: T[]): Map<number, T[]>
 function computeOwnerScore(
   participants: ScoreRow[],
   ownerPuuid: string | null,
+  queueId: number,
   fallback?: { champion_id: number; kills: number; deaths: number; assists: number },
 ): PlayerScore | null {
   const inputs = scoreInputsFromRows(participants);
@@ -1042,7 +1073,7 @@ function computeOwnerScore(
     );
   }
   if (!owner) return null;
-  return computeMatchScores(inputs, getChampionClasses()).get(owner.participantId) ?? null;
+  return computeMatchScores(inputs, getChampionClasses(), queueId).get(owner.participantId) ?? null;
 }
 
 function backfillScores() {
@@ -1075,11 +1106,16 @@ function backfillScores() {
   );
   const tx = db.transaction(() => {
     for (const row of games) {
-      if (row.is_remake || !MAYHEM_QUEUE_IDS.includes(row.queue_id)) {
+      if (row.is_remake || !hasScore(row.queue_id)) {
         updateStmt.run(null, null, null, row.game_id);
         continue;
       }
-      const result = computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid || null, row);
+      const result = computeOwnerScore(
+        participants.get(row.game_id) ?? [],
+        row.puuid || null,
+        row.queue_id,
+        row,
+      );
       updateStmt.run(
         result?.score ?? null,
         result?.raw ?? null,
@@ -1102,7 +1138,7 @@ function detectRemake(
   rows: { early_surrender: number }[],
   queue?: number,
 ): boolean {
-  if (queue === QUEUE_ID_ARAM)
+  if (queue == null || !MAYHEM_QUEUE_IDS.includes(queue))
     return gameDuration < 300 && rows.some((r) => r.early_surrender === 1);
   // Very short games are always remakes
   if (gameDuration < 300) return true;
@@ -1118,6 +1154,7 @@ function detectRemake(
 // page of 25 games cost a fraction of a millisecond, where the old version
 // parsed 25 raw payloads to find them.
 const GAME_MAX_STATS_SQL = `
+           (SELECT ms.placement FROM match_mode_stats ms JOIN match_participants owner ON owner.game_id=ms.game_id AND owner.participant_id=ms.participant_id WHERE ms.game_id=g.game_id AND owner.puuid=g.puuid LIMIT 1) AS placement,
            MAX(IFNULL((SELECT MAX(mp.total_damage_dealt) FROM match_participants mp
                         WHERE mp.game_id = g.game_id), 0), 1) as game_max_dmg,
            MAX(IFNULL((SELECT MAX(mp.total_damage_taken) FROM match_participants mp
@@ -1456,7 +1493,17 @@ function getMatchParticipants(gameId: number): any[] {
     else augments.set(row.participant_id, [row.augment_id]);
   }
 
+  const modeStats = new Map(
+    (db.prepare("SELECT * FROM match_mode_stats WHERE game_id=?").all(gameId) as any[]).map((m) => [
+      m.participant_id,
+      m,
+    ]),
+  );
   return rows.map((r) => ({
+    placement: modeStats.get(r.participant_id)?.placement ?? null,
+    cs: modeStats.get(r.participant_id)?.cs ?? null,
+    vision: modeStats.get(r.participant_id)?.vision ?? null,
+    position: modeStats.get(r.participant_id)?.position ?? null,
     participantId: r.participant_id,
     puuid: r.puuid,
     gameName: r.game_name,
@@ -1852,7 +1899,7 @@ function findOwnerRow(rows: RawParticipantRow[], puuid: string): RawParticipantR
 }
 
 export function insertGameFull(gameData: any, puuid: string): boolean {
-  if (!isTrackedQueue(gameData?.queueId)) return false;
+  if (!isSupportedLolMatch(gameData)) return false;
   const rows = participantRowsFromRaw(gameData);
   const owner = findOwnerRow(rows, puuid);
   if (!owner) return false;
@@ -1860,8 +1907,8 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
   const isRemake = detectRemake(gameData.gameDuration, rows, gameData.queueId) ? 1 : 0;
 
   let ownerScore: PlayerScore | null = null;
-  if (!isRemake && MAYHEM_QUEUE_IDS.includes(gameData.queueId)) {
-    ownerScore = computeOwnerScore(rows, puuid, {
+  if (!isRemake && hasScore(gameData.queueId)) {
+    ownerScore = computeOwnerScore(rows, puuid, gameData.queueId, {
       champion_id: owner.champion_id,
       kills: owner.kills,
       deaths: owner.deaths,
@@ -1942,6 +1989,13 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       ownerScore?.badge ?? null,
     );
 
+    const modeStmt = db.prepare(
+      "INSERT OR REPLACE INTO match_mode_stats (game_id,participant_id,placement,cs,vision,position) VALUES (?,?,?,?,?,?)",
+    );
+    gameData.participants.forEach((p: any, i: number) => {
+      const m = participantModeFields(gameData, p, i);
+      modeStmt.run(gameData.gameId, m.participantId, m.placement, m.cs, m.vision, m.position);
+    });
     // Augments
     for (const aug of owner.augments) {
       insertAugmentStmt.run(gameData.gameId, aug.slot, aug.augment_id);
@@ -2283,9 +2337,9 @@ ${GAME_MAX_STATS_SQL}
     champ.assists += friend.assists;
 
     const gameRows = scoreRows.get(row.game_id) ?? [];
-    const friendScore = !MAYHEM_QUEUE_IDS.includes(row.queue_id)
+    const friendScore = !hasScore(row.queue_id)
       ? undefined
-      : computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses()).get(
+      : computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses(), row.queue_id).get(
           friend.participant_id,
         );
     const friendStats = gameRows.find((p) => p.participant_id === friend.participant_id);
@@ -2791,10 +2845,10 @@ export function setGameMap(gameId: number, mapId: number | null, mapSkin: string
 }
 
 export function getGameMapName(gameId: number): string | null {
-  const row = db.prepare("SELECT map_skin FROM match_maps WHERE game_id = ?").get(gameId) as
-    | { map_skin: string }
+  const row = db.prepare("SELECT map_skin, map_id FROM match_maps WHERE game_id = ?").get(gameId) as
+    | { map_skin: string; map_id: number | null }
     | undefined;
-  return mapNameForSkin(row?.map_skin);
+  return mapNameForSkin(row?.map_skin, row?.map_id);
 }
 
 // A player to look up, however much of their identity we have. The in-game API
@@ -3447,7 +3501,7 @@ export function getSetting(key: string): string | null {
 }
 
 export function setSetting(key: string, value: string): void {
-  if (key === "selected_queue" && !isTrackedQueue(Number(value)))
+  if (key === "selected_queue" && (value === "" || !isTrackedQueue(Number(value))))
     throw new Error("Invalid queue selection");
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
 }
@@ -3508,7 +3562,9 @@ export async function writeExportTo(filePath: string): Promise<number> {
       await write(chunk);
     }
 
-    await write("]}");
+    await write(
+      `],"queueTotals":${JSON.stringify(db.prepare("SELECT * FROM queue_lifetime_totals").all())}}`,
+    );
   } finally {
     await new Promise<void>((resolve, reject) => {
       out.on("error", reject);
@@ -3520,6 +3576,15 @@ export async function writeExportTo(filePath: string): Promise<number> {
 
 export function importData(data: any): number {
   if (data.version >= 3) {
+    for (const t of Array.isArray(data.queueTotals) ? data.queueTotals : []) {
+      if (!t || typeof t.puuid !== "string") continue;
+      saveQueueLifetimeTotal(
+        { gameId: t.game_id, localPlayer: { puuid: t.puuid, wins: t.wins, losses: t.losses } },
+        { gameId: t.game_id, queueId: t.queue_id, gameCreation: t.game_creation },
+        t.puuid,
+        t.captured_at,
+      );
+    }
     for (const s of data.summoners ?? []) {
       upsertSummoner(s);
     }
@@ -3644,8 +3709,8 @@ function rebuildDerivedStats(): number {
       updateRemake.run(isRemake, row.game_id);
 
       let ownerScore: PlayerScore | null = null;
-      if (!isRemake && MAYHEM_QUEUE_IDS.includes(row.queue_id)) {
-        ownerScore = computeOwnerScore(rows, row.puuid || null, {
+      if (!isRemake && hasScore(row.queue_id)) {
+        ownerScore = computeOwnerScore(rows, row.puuid || null, row.queue_id, {
           champion_id: owner.champion_id,
           kills: owner.kills,
           deaths: owner.deaths,
