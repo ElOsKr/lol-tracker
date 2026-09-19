@@ -51,11 +51,13 @@
     "files": [
       "out/**/*",
       "assets/icon.png",
+      "assets/tray.png",
+      "assets/tray@2x.png",
       "node_modules/better-sqlite3/**/*"
     ],
     "win": {
       "target": "portable",
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "artifactName": "MayhemTracker.exe"
     },
     "portable": {

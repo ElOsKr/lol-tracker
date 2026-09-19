@@ -36,6 +36,19 @@ export function SwordsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** The app's mark: the hourglass below laid on its side, which makes an M. */
+export function MayhemIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      {/* front diagonal: unbroken between the two uprights */}
+      <path d="M5 19V5l14 14V5" />
+      {/* back diagonal: gap where it passes behind the front one */}
+      <path d="M19 5l-4.5 4.5" />
+      <path d="M9.5 14.5 5 19" />
+    </Icon>
+  );
+}
+
 export function HourglassIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

@@ -36,7 +36,8 @@ if (!gotTheLock) {
   });
 }
 
-const iconPath = path.join(app.getAppPath(), "assets/icon.png");
+const asset = (name: string) => path.join(app.getAppPath(), "assets", name);
+const iconPath = asset("icon.png");
 
 // Set by the login item when auto-start is on: come up in the tray only.
 const launchedHidden = process.argv.includes(HIDDEN_FLAG);
@@ -111,8 +112,9 @@ function createWindow(): BrowserWindow {
 }
 
 function createTray() {
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  tray = new Tray(trayIcon);
+  // Drawn at tray sizes rather than scaled down from the window icon. Electron
+  // picks up the @2x file beside it on a HiDPI display.
+  tray = new Tray(nativeImage.createFromPath(asset("tray.png")));
 
   const contextMenu = Menu.buildFromTemplate([
     {
