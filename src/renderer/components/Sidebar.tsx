@@ -215,9 +215,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-between mt-1">
           <button
             onClick={() =>
-              window.api.openUrl(
-                `https://github.com/Yhprum/mayhem-tracker/releases/tag/v${version}`,
-              )
+              window.api.openUrl(`https://github.com/ElOsKr/lol-tracker/releases/tag/v${version}`)
             }
             className="text-[10px] text-lol-text/50 hover:text-lol-text transition-colors cursor-pointer"
           >
