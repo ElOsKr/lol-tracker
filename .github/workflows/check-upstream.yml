@@ -1,0 +1,70 @@
+name: Check upstream for updates
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # todos los días a las 09:00 UTC — ajusta la hora si quieres
+  workflow_dispatch: {}    # también permite lanzarlo manualmente desde la pestaña Actions
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  UPSTREAM_URL: https://github.com/Yhprum/mayhem-tracker.git
+  UPSTREAM_BRANCH: main
+  LOCAL_BRANCH: main
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Añadir el remoto upstream y traer sus cambios
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "$UPSTREAM_BRANCH"
+
+      - name: Comparar con upstream y preparar el reporte
+        id: compare
+        run: |
+          BEHIND=$(git rev-list --count "HEAD..upstream/$UPSTREAM_BRANCH")
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+
+          if [ "$BEHIND" -gt 0 ]; then
+            {
+              echo "El proyecto original ($UPSTREAM_URL) tiene $BEHIND commit(s) nuevo(s) que este fork todavía no tiene."
+              echo ""
+              echo "Comparación completa: ${UPSTREAM_URL%.git}/compare/${UPSTREAM_BRANCH}...${GITHUB_REPOSITORY}:${LOCAL_BRANCH}"
+              echo ""
+              echo "Commits nuevos:"
+              echo '```'
+              git log --oneline "HEAD..upstream/$UPSTREAM_BRANCH"
+              echo '```'
+              echo ""
+              echo "---"
+              echo "Este issue se generó automáticamente. Pídele a Claude Code que revise estos cambios y evalúe si conviene integrarlos, siguiendo una rama separada antes de tocar main."
+            } > upstream-report.md
+          fi
+
+      - name: Revisar si ya hay un issue de sincronización abierto
+        if: steps.compare.outputs.behind != '0'
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh issue list --state open --limit 100 --json title \
+            --jq '[.[] | select(.title | startswith("Upstream sync available"))] | length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Crear el Issue con el resumen
+        if: steps.compare.outputs.behind != '0' && steps.existing.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Upstream sync available: ${{ steps.compare.outputs.behind }} new commit(s)" \
+            --body-file upstream-report.md
