@@ -2,8 +2,8 @@ name: Check upstream for updates
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # todos los días a las 09:00 UTC — ajusta la hora si quieres
-  workflow_dispatch: {}    # también permite lanzarlo manualmente desde la pestaña Actions
+    - cron: "0 9 * * *" # todos los días a las 09:00 UTC — ajusta la hora si quieres
+  workflow_dispatch: {} # también permite lanzarlo manualmente desde la pestaña Actions
 
 permissions:
   issues: write
