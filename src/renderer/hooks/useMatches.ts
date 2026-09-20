@@ -10,7 +10,6 @@ export function useMatches(filters: MatchFilters = {}) {
   // over the array, which keeps every dependency here a primitive.
   const multikillsKey = multikills?.join(",") ?? "";
   const [matches, setMatches] = useState<MatchListItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
 
@@ -41,7 +40,6 @@ export function useMatches(filters: MatchFilters = {}) {
           setMatches((prev) => [...prev, ...result.matches]);
         }
         offsetRef.current = offset + result.matches.length;
-        setTotal(result.total);
         setHasMore(offset + result.matches.length < result.total);
       } finally {
         setLoading(false);
@@ -65,5 +63,5 @@ export function useMatches(filters: MatchFilters = {}) {
 
   const reload = useCallback(() => load(true), [load]);
 
-  return { matches, total, loading, hasMore, loadMore, reload };
+  return { matches, loading, hasMore, loadMore, reload };
 }

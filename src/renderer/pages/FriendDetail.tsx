@@ -11,9 +11,17 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
+import ScoreCell from "../components/ScoreCell";
 import StatBars from "../components/StatBars";
 import WinRateBar from "../components/WinRateBar";
-import { formatDuration, formatTimeAgo, formatKDA, kdaRatio, kdaColor } from "../lib/format";
+import {
+  formatDuration,
+  formatTimeAgo,
+  formatKDA,
+  kdaRatio,
+  kdaColor,
+  kdaHighlight,
+} from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
 
 export default function FriendDetail() {
@@ -256,32 +264,9 @@ function PlayerBlock({
       </div>
       <div className="w-20 shrink-0">
         <div className="text-xs text-lol-text-bright">{formatKDA(kills, deaths, assists)}</div>
-        <div
-          className={`text-[10px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
-        >
-          {kda} KDA
-        </div>
+        <div className={`text-[10px] ${kdaHighlight(kda)}`}>{kda} KDA</div>
       </div>
-      <div className="w-10 shrink-0 text-center">
-        {score != null && (
-          <>
-            <div className={`text-sm font-semibold ${scoreColor(score)}`}>{score.toFixed(1)}</div>
-            {badge ? (
-              <div
-                className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                  badge === "MVP"
-                    ? "bg-amber-400/20 text-amber-300"
-                    : "bg-purple-500/20 text-purple-400"
-                }`}
-              >
-                {badge}
-              </div>
-            ) : (
-              <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-            )}
-          </>
-        )}
-      </div>
+      <ScoreCell score={score} badge={badge} />
       <StatBars damage={damage} taken={taken} heal={heal} max={max} className="w-32" />
     </div>
   );

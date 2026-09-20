@@ -2,6 +2,7 @@ import WidgetSettings from "./pages/WidgetSettings";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import MatchHistory from "./pages/MatchHistory";
+import LiveGame from "./pages/LiveGame";
 import Champions from "./pages/Champions";
 import Augments from "./pages/Augments";
 import Friends from "./pages/Friends";
@@ -11,6 +12,8 @@ import Records from "./pages/Records";
 import GlobalStats from "./pages/GlobalStats";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import Settings from "./pages/Settings";
+import GameCard from "./pages/GameCard";
+import { CARD_ROUTE } from "../shared/card";
 
 export default function App() {
   return (
@@ -18,6 +21,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<MatchHistory />} />
+          <Route path="/live" element={<LiveGame />} />
           <Route path="/champions" element={<Champions />} />
           <Route path="/augments" element={<Augments />} />
           <Route path="/friends" element={<Friends />} />
@@ -29,6 +33,9 @@ export default function App() {
           <Route path="/widget" element={<WidgetSettings />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
+        {/* Outside the layout: this one is drawn to be captured as an image,
+            not to be navigated to, so it carries no sidebar or title bar. */}
+        <Route path={`${CARD_ROUTE}/:gameId`} element={<GameCard />} />
       </Routes>
     </HashRouter>
   );

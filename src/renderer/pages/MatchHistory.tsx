@@ -10,6 +10,7 @@ import type {
   MatchDetail,
   DashboardData,
   MatchFilterOptions,
+  MatchSession,
   MatchSort,
   MatchSortDir,
   MultikillType,
@@ -22,22 +23,41 @@ import ItemIcon from "../components/ItemIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import MultikillBadge from "../components/MultikillBadge";
 import StatBars from "../components/StatBars";
+import ScoreCell from "../components/ScoreCell";
 import StatCard from "../components/StatCard";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
-import { ArrowDownIcon, StarIcon, SwordsIcon, ZapIcon } from "../components/icons";
 import {
+  ArrowDownIcon,
+  CopyIcon,
+  ImageIcon,
+  StarIcon,
+  SwordsIcon,
+  ZapIcon,
+} from "../components/icons";
+import { ExportImageMessage, useGameImageExport } from "../components/ExportImage";
+import {
+  formatDateTime,
   formatDuration,
   formatPlaytime,
   formatTimeAgo,
   formatKDA,
   kdaRatio,
   kdaColor,
+  kdaHighlight,
   formatPatch,
 } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
+import {
+  SESSION_GROUPING_SETTING,
+  parseSessionGrouping,
+  sessionDay,
+  sessionKey,
+  sessionWeek,
+  type SessionGrouping,
+} from "../../shared/session";
 
 // An empty list means something different depending on whether we're still
 // waiting on the client, mid-import, or genuinely out of games.
@@ -68,24 +88,14 @@ const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "healing", label: "Healing" },
 ];
 
-const SELECT_CLASS = "select";
-
-// A session is a day of play, but the day doesn't end at midnight: games before
-// this hour belong to the night that started the evening before.
-const DAY_START_HOUR = 5;
-
-// Local midnight of the session day a game belongs to.
-function sessionDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(d.getHours() - DAY_START_HOUR);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 interface Session {
-  key: number;
-  day: number; // local midnight of the session's day, from sessionDay
+  // Doubles as the React key and as what the database's totals are looked up by
+  key: string;
+  label: string;
   matches: MatchListItem[];
+  // Games in the whole session, which is more than `matches` holds until the
+  // list has been scrolled to the end of the session
+  games: number;
   wins: number;
   losses: number;
   kills: number;
@@ -96,57 +106,65 @@ interface Session {
 
 // Expects a date-ordered list (either direction); remakes count toward the
 // session's size but stay out of its record and averages.
-function groupIntoSessions(matches: MatchListItem[]): Session[] {
-  const sessions: Session[] = [];
-  let current: MatchListItem[] = [];
-  let currentDay = 0;
-
-  const flush = () => {
-    if (current.length === 0) return;
-    let wins = 0;
-    let losses = 0;
-    let kills = 0;
-    let deaths = 0;
-    let assists = 0;
-    let scoreSum = 0;
-    let scored = 0;
-    for (const m of current) {
-      if (m.is_remake) continue;
-      if (m.win) wins++;
-      else losses++;
-      kills += m.kills;
-      deaths += m.deaths;
-      assists += m.assists;
-      if (m.score != null) {
-        scoreSum += m.score;
-        scored++;
-      }
-    }
-    sessions.push({
-      key: current[0].game_id,
-      day: currentDay,
-      matches: current,
-      wins,
-      losses,
-      kills,
-      deaths,
-      assists,
-      avgScore: scored > 0 ? scoreSum / scored : null,
-    });
-    current = [];
-  };
+//
+// Rows are pooled by key rather than by runs of neighbours, so the games from a
+// patch that no longer sit together — an older game missing its version can
+// land between two that have it — still read as the one session the totals
+// below the header describe.
+function groupIntoSessions(matches: MatchListItem[], grouping: SessionGrouping): Session[] {
+  const sessions = new Map<string, Session>();
+  const scores = new Map<string, { sum: number; games: number }>();
 
   for (const m of matches) {
-    const day = sessionDay(m.game_creation);
-    if (current.length > 0 && day !== currentDay) flush();
-    currentDay = day;
-    current.push(m);
+    const key = sessionKey(m, grouping);
+    let session = sessions.get(key);
+    if (!session) {
+      session = {
+        key,
+        label: sessionLabel(m, grouping),
+        matches: [],
+        games: 0,
+        wins: 0,
+        losses: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        avgScore: null,
+      };
+      sessions.set(key, session);
+      scores.set(key, { sum: 0, games: 0 });
+    }
+    session.matches.push(m);
+    session.games++;
+    if (m.is_remake) continue;
+    if (m.win) session.wins++;
+    else session.losses++;
+    session.kills += m.kills;
+    session.deaths += m.deaths;
+    session.assists += m.assists;
+    if (m.score != null) {
+      const score = scores.get(key)!;
+      score.sum += m.score;
+      score.games++;
+    }
   }
-  flush();
-  return sessions;
+
+  for (const session of sessions.values()) {
+    const score = scores.get(session.key)!;
+    if (score.games > 0) session.avgScore = score.sum / score.games;
+  }
+  return [...sessions.values()];
 }
 
-function sessionLabel(day: number): string {
+function sessionLabel(match: MatchListItem, grouping: SessionGrouping): string {
+  if (grouping === "patch") {
+    return match.game_version ? `Patch ${formatPatch(match.game_version)}` : "Unknown patch";
+  }
+  if (grouping === "week") return weekLabel(sessionWeek(match.game_creation));
+  return dayLabel(sessionDay(match.game_creation));
+}
+
+function dayLabel(day: number): string {
   const d = new Date(day);
   const today = new Date(sessionDay(Date.now()));
   const yesterday = new Date(today);
@@ -159,6 +177,22 @@ function sessionLabel(day: number): string {
     day: "numeric",
     ...(d.getFullYear() !== today.getFullYear() && { year: "numeric" }),
   });
+}
+
+// Weeks run Monday to Sunday, and are named by the Monday that opens them.
+function weekLabel(week: number): string {
+  const d = new Date(week);
+  const thisWeek = new Date(sessionWeek(Date.now()));
+  const lastWeek = new Date(thisWeek);
+  lastWeek.setDate(thisWeek.getDate() - 7);
+  if (d.toDateString() === thisWeek.toDateString()) return "This week";
+  if (d.toDateString() === lastWeek.toDateString()) return "Last week";
+  const start = d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(d.getFullYear() !== thisWeek.getFullYear() && { year: "numeric" }),
+  });
+  return `Week of ${start}`;
 }
 
 export default function MatchHistory() {
@@ -205,6 +239,13 @@ export default function MatchHistory() {
     [setMultikillFilter],
   );
   const champData = useChampionData();
+  // Read once on mount, which is every time the page is opened: coming back
+  // from Settings is what changes it.
+  const { data: storedGrouping } = useIpc<string | null>(
+    () => window.api.getSetting(SESSION_GROUPING_SETTING),
+    [],
+  );
+  const grouping = parseSessionGrouping(storedGrouping);
   const { data: dashboard, refetch: refetchDashboard } = useIpc<DashboardData>(
     () =>
       window.api.getDashboard({
@@ -215,6 +256,21 @@ export default function MatchHistory() {
       }),
     [championFilter, patchFilter, queueFilter, accountFilter],
   );
+  // The list arrives a page at a time, so the rows on screen describe the page
+  // rather than the day. These cover every game the filters match.
+  const { data: sessionTotals, refetch: refetchSessions } = useIpc<MatchSession[]>(
+    () =>
+      window.api.getMatchSessions({
+        championId: championFilter,
+        patch: patchFilter,
+        queue: queueFilter,
+        account: accountFilter,
+        multikills: multikillFilter,
+        favorites: favoritesOnly,
+      }),
+    [championFilter, patchFilter, queueFilter, accountFilter, multikillFilter, favoritesOnly],
+  );
+
   const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
     patches: [],
     champions: [],
@@ -230,6 +286,9 @@ export default function MatchHistory() {
   } | null>(null);
   const [detail, setDetail] = useState<MatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // One instance for the page: both of the right-click menu's image items
+  // report through the same message
+  const exporting = useGameImageExport();
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const [profile, setProfile] = useState<{
     name: string | null;
@@ -281,10 +340,11 @@ export default function MatchHistory() {
 
     const unsub = window.api.onGamesUpdated(() => {
       refetchDashboard();
+      refetchSessions();
       fetchOptions();
     });
     return unsub;
-  }, [fetchOptions, refetchDashboard]);
+  }, [fetchOptions, refetchDashboard, refetchSessions]);
 
   // Clear a selection if new data leaves it without any matching games
   useEffect(() => {
@@ -356,10 +416,12 @@ export default function MatchHistory() {
       setContextMenu(null);
       await window.api.toggleFavorite(match.game_id);
       reload();
+      // With the favorites filter on, this changed which games are in the list
+      refetchSessions();
       // The first favorite reveals the toggle button, the last one hides it
       fetchOptions();
     },
-    [reload, fetchOptions],
+    [reload, refetchSessions, fetchOptions],
   );
 
   const avgKills =
@@ -388,12 +450,34 @@ export default function MatchHistory() {
     : profile;
 
   // Session headers only make sense when the list reads in time order; any
-  // other sort interleaves days, so those render flat.
+  // other sort interleaves sessions, so those render flat.
   const isDateSort = !sort || sort === "date";
-  const sessions = useMemo(
-    () => (isDateSort ? groupIntoSessions(matches) : null),
-    [isDateSort, matches],
-  );
+  const sessions = useMemo(() => {
+    if (!isDateSort || grouping === "none") return null;
+    const grouped = groupIntoSessions(matches, grouping);
+    if (!sessionTotals) return grouped;
+
+    // The rows stay as they are; only the header totals come from the database,
+    // so a session that is half-loaded still reports all of itself.
+    const byKey = new Map(sessionTotals.map((total) => [total.key, total]));
+    return grouped.map((session) => {
+      const total = byKey.get(session.key);
+      if (!total) return session;
+      return {
+        ...session,
+        games: total.games,
+        wins: total.wins,
+        losses: total.losses,
+        kills: total.kills,
+        deaths: total.deaths,
+        assists: total.assists,
+        avgScore:
+          total.scored_games > 0 && total.score_sum != null
+            ? total.score_sum / total.scored_games
+            : null,
+      };
+    });
+  }, [isDateSort, grouping, matches, sessionTotals]);
 
   const totalMultikills = dashboard
     ? dashboard.multikills.doubles +
@@ -550,7 +634,7 @@ export default function MatchHistory() {
             <select
               value={accountFilter ?? ""}
               onChange={(e) => setAccountFilter(e.target.value === "" ? undefined : e.target.value)}
-              className={SELECT_CLASS}
+              className="select"
             >
               <option value="">All Accounts</option>
               {filterOptions.accounts.map((a) => (
@@ -565,7 +649,7 @@ export default function MatchHistory() {
             onChange={(e) =>
               setChampionFilter(e.target.value === "" ? undefined : Number(e.target.value))
             }
-            className={SELECT_CLASS}
+            className="select"
           >
             <option value="">All Champions</option>
             {championOptions.map(({ id, name }) => (
@@ -577,7 +661,7 @@ export default function MatchHistory() {
           <select
             value={patchFilter ?? ""}
             onChange={(e) => setPatchFilter(e.target.value === "" ? undefined : e.target.value)}
-            className={SELECT_CLASS}
+            className="select"
           >
             <option value="">All Patches</option>
             {filterOptions.patches.map((p) => (
@@ -592,7 +676,7 @@ export default function MatchHistory() {
               onChange={(e) =>
                 setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
               }
-              className={SELECT_CLASS}
+              className="select"
             >
               <option value="">All Queues</option>
               {filterOptions.queues.map((q) => (
@@ -609,7 +693,7 @@ export default function MatchHistory() {
                 setSort(e.target.value === "" ? undefined : (e.target.value as MatchSort));
                 setSortDir("desc");
               }}
-              className={SELECT_CLASS}
+              className="select"
             >
               <option value="">Sort</option>
               {SORT_OPTIONS.map(({ value, label }) => (
@@ -702,8 +786,32 @@ export default function MatchHistory() {
             </span>
             {contextMenu.match.favorite ? "Remove from Favorites" : "Add to Favorites"}
           </button>
+          <button
+            onClick={() => {
+              const gameId = contextMenu.match.game_id;
+              setContextMenu(null);
+              void exporting.run(gameId, "copy");
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
+          >
+            <CopyIcon className="h-3.5 w-3.5 text-lol-text" />
+            Copy Image
+          </button>
+          <button
+            onClick={() => {
+              const gameId = contextMenu.match.game_id;
+              setContextMenu(null);
+              void exporting.run(gameId, "save");
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
+          >
+            <ImageIcon className="h-3.5 w-3.5 text-lol-text" />
+            Export as PNG
+          </button>
         </ContextMenu>
       )}
+
+      <ExportImageMessage message={exporting.message} />
     </div>
   );
 }
@@ -880,11 +988,9 @@ function SessionHeader({ session }: { session: Session }) {
 
   return (
     <div className="flex items-baseline gap-3 px-1 pb-1.5">
-      <span className="text-sm font-semibold text-lol-text-bright">
-        {sessionLabel(session.day)}
-      </span>
+      <span className="text-sm font-semibold text-lol-text-bright">{session.label}</span>
       <span className="text-xs text-lol-text">
-        {session.matches.length} {session.matches.length === 1 ? "game" : "games"}
+        {session.games} {session.games === 1 ? "game" : "games"}
       </span>
       {played > 0 && (
         <>
@@ -1001,36 +1107,11 @@ function GameRow({
           <div className="text-sm text-lol-text-bright">
             {formatKDA(match.kills, match.deaths, match.assists)}
           </div>
-          <div
-            className={`text-xs ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
-          >
-            {kda} KDA
-          </div>
+          <div className={`text-xs ${kdaHighlight(kda)}`}>{kda} KDA</div>
         </div>
 
-        {/* Score */}
-        <div className="w-10 shrink-0 text-center">
-          {match.score != null && !isRemake && (
-            <>
-              <div className={`text-sm font-semibold ${scoreColor(match.score)}`}>
-                {match.score.toFixed(1)}
-              </div>
-              {match.score_badge ? (
-                <div
-                  className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-                    match.score_badge === "MVP"
-                      ? "bg-amber-400/20 text-amber-300"
-                      : "bg-purple-500/20 text-purple-400"
-                  }`}
-                >
-                  {match.score_badge}
-                </div>
-              ) : (
-                <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-              )}
-            </>
-          )}
-        </div>
+        {/* Score — a remake is scored by nothing, so it shows none */}
+        <ScoreCell score={isRemake ? null : match.score} badge={match.score_badge} />
 
         {/* Stat bars */}
         <StatBars
@@ -1069,7 +1150,9 @@ function GameRow({
         </div>
         <div className="text-xs text-lol-text text-right shrink-0">
           <div>{formatDuration(match.game_duration)}</div>
-          <div>{formatTimeAgo(match.game_creation)}</div>
+          <div className="w-fit ml-auto" title={formatDateTime(match.game_creation)}>
+            {formatTimeAgo(match.game_creation)}
+          </div>
         </div>
       </button>
 

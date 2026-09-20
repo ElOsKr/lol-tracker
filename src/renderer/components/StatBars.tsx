@@ -1,3 +1,5 @@
+import { formatCompact } from "../lib/format";
+
 interface StatBarsProps {
   damage: number;
   taken: number;
@@ -36,7 +38,7 @@ function StatBar({
       <div className="flex-1 h-3.5 bg-white/5 rounded-sm overflow-hidden relative">
         <div className={`h-full rounded-sm ${color}`} style={{ width: `${pct}%` }} />
         <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] font-medium text-white/90 leading-none">
-          {value > 0 ? (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value) : ""}
+          {value > 0 ? formatCompact(value) : ""}
         </span>
       </div>
     </div>

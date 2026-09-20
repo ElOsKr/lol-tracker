@@ -11,7 +11,8 @@ import {
 import { BrowserWindow } from "electron";
 import * as db from "./db";
 import { MAYHEM_QUEUE_IDS } from "../shared/queues";
-import type { LcuStatus } from "../shared/api";
+import { SGP_HISTORY_CAP } from "../shared/api";
+import type { BackfillLimit, BackfillResult, LcuStatus } from "../shared/api";
 
 let credentials: Credentials | null = null;
 let status: LcuStatus = "disconnected";
@@ -19,10 +20,29 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 let connectTimer: ReturnType<typeof setInterval> | null = null;
 let pollingStopped = false;
 
+// Anything in the main process that has to react to the client entering or
+// leaving a match subscribes here. Registered once at startup and never
+// removed, so there is nothing to unsubscribe.
+type StatusListener = (status: LcuStatus) => void;
+const statusListeners = new Set<StatusListener>();
+
+export function onLcuStatusChange(listener: StatusListener) {
+  statusListeners.add(listener);
+}
+
 function setStatus(newStatus: typeof status, win?: BrowserWindow | null) {
+  const changed = status !== newStatus;
   status = newStatus;
   if (win && !win.isDestroyed()) {
     win.webContents.send("lcu:status-changed", status);
+  }
+  if (!changed) return;
+  for (const listener of statusListeners) {
+    try {
+      listener(status);
+    } catch (err) {
+      console.log("Status listener failed:", err);
+    }
   }
 }
 
@@ -63,6 +83,16 @@ async function lcuRequest(url: string, method: HttpRequestOptions["method"] = "G
     throw new Error(`LCU request failed: ${response.status} ${url}`);
   }
   return response.json();
+}
+
+// Same request, for callers that treat an unreachable client as "no answer"
+// rather than as a failure worth reporting.
+export async function lcuJson(url: string): Promise<any | null> {
+  try {
+    return await lcuRequest(url);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchCurrentSummoner(): Promise<any> {
@@ -125,11 +155,31 @@ const SGP_HOST_BY_REGION: Record<string, string> = {
   VN: SGP_HOSTS[3],
 };
 
-const SGP_PAGE_SIZE = 100;
+// The service clamps `count` to 200 rather than rejecting a larger one, so this
+// is the biggest page it will actually serve — asking for 1000 still gets 200.
+const SGP_PAGE_SIZE = 200;
+
+// Whether an account has more history than Riot's window holds. Asking just
+// inside the window costs one request and, unlike the walk itself, gives an
+// unambiguous answer: anything at all coming back means the account fills the
+// window. An account whose real history ends within a few games of the cap is
+// indistinguishable from a capped one, which is a harmless way to be wrong —
+// the message only says older games may not be available.
+const SGP_CAP_PROBE_INDEX = SGP_HISTORY_CAP - 10;
+
 // Safety bound only. Paging normally ends when the service returns a short
-// page; this just stops a runaway loop, and hitting it is reported rather than
-// silently trimming someone's history.
-const SGP_MAX_PAGES = 200;
+// page, and the window above puts that at five pages; this just stops a runaway
+// loop, with enough headroom that a raised cap would still be walked in full.
+// Hitting it is reported rather than silently trimming someone's history.
+const SGP_MAX_PAGES = 25;
+
+// Every match carries its queue in the service's own tag vocabulary, so the
+// filtering can happen there instead of here. Worth doing even though it
+// reaches no further back: without it the hydration loop below pays one LCU
+// request per game the account played in some other queue, only to throw it
+// away. OR because a game is in exactly one queue.
+const SGP_MAYHEM_TAGS = `${MAYHEM_QUEUE_IDS.map((id) => `tag=q_${id}`).join("&")}&tagsQueryType=OR`;
+const SGP_ALL_TAGS = "tagsQueryType=AND";
 
 // How many new games to accumulate before nudging the UI to re-query, so a long
 // import fills the app in as it runs instead of landing all at once.
@@ -138,6 +188,18 @@ const GAMES_UPDATED_BATCH = 25;
 // Wait this long before automatically retrying a backfill that errored, so a
 // transient failure doesn't relaunch a full history walk every poll tick.
 const AUTO_BACKFILL_RETRY_DELAY = 15 * 60 * 1000;
+
+// How many games the LCU's match list holds. Asking for more is accepted and
+// ignored, so this is the whole window the recent-games sync gets to see.
+const LCU_HISTORY_PAGE_SIZE = 20;
+
+// Accounts whose history has been walked end to end this app session. Launch is
+// where the games missed while the app was closed are, and a walk that reads
+// ids only is five requests for Riot's whole window, so the app earns back
+// every gap it could have at a cost it pays once. An account seen for the first
+// time here gets its initial import from the same walk. Kept in memory
+// deliberately: the point is one per launch, not one per interval.
+const sweptThisLaunch = new Set<string>();
 
 // Shard probing walks candidates in turn, so one unresponsive host must not
 // stall the whole search. Paging gets longer, since those requests do real work.
@@ -157,10 +219,16 @@ function notifyGamesUpdated(win?: BrowserWindow | null) {
   }
 }
 
-function sgpMatchIdsUrl(host: string, puuid: string, startIndex: number, count: number) {
+function sgpMatchIdsUrl(
+  host: string,
+  puuid: string,
+  startIndex: number,
+  count: number,
+  tags: string = SGP_ALL_TAGS,
+) {
   return (
     `${host}/match-history-query/v1/products/lol/player/${puuid}` +
-    `?startIndex=${startIndex}&count=${count}&tagsQueryType=AND`
+    `?startIndex=${startIndex}&count=${count}&${tags}`
   );
 }
 
@@ -260,25 +328,35 @@ async function rehomeSgpHost(puuid: string, token: string, failed: string): Prom
   return host;
 }
 
+// Why a walk stopped. "exhausted" is the ambiguous one: the service ran out of
+// results, which is either the end of the account's history or the edge of
+// Riot's window, and the responses are identical. Only that case needs the
+// probe below to tell which.
+type WalkStop = "exhausted" | "known" | "page-limit";
+
 async function fetchAllMatchIds(
   host: string,
   puuid: string,
   token: string,
+  tags: string,
   stopAfterPage: (pageIds: number[]) => boolean,
-): Promise<{ ids: number[]; truncated: boolean }> {
+): Promise<{ ids: number[]; stoppedBy: WalkStop }> {
   const ids: number[] = [];
 
   for (let page = 0; page < SGP_MAX_PAGES; page++) {
-    const response = await fetch(sgpMatchIdsUrl(host, puuid, page * SGP_PAGE_SIZE, SGP_PAGE_SIZE), {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
-    });
+    const response = await fetch(
+      sgpMatchIdsUrl(host, puuid, page * SGP_PAGE_SIZE, SGP_PAGE_SIZE, tags),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
+      },
+    );
     if (!response.ok) {
       throw new SgpHttpError(response.status);
     }
 
     const body = await response.json();
-    if (!Array.isArray(body) || body.length === 0) return { ids, truncated: false };
+    if (!Array.isArray(body) || body.length === 0) return { ids, stoppedBy: "exhausted" };
 
     // Ids arrive platform-prefixed, e.g. "NA1_5616465966"
     const pageIds: number[] = [];
@@ -288,12 +366,50 @@ async function fetchAllMatchIds(
     }
     ids.push(...pageIds);
 
-    // A short page means we've reached the end of the account's history
-    if (body.length < SGP_PAGE_SIZE) return { ids, truncated: false };
-    if (stopAfterPage(pageIds)) return { ids, truncated: false };
+    // A short page means the service has no more to give
+    if (body.length < SGP_PAGE_SIZE) return { ids, stoppedBy: "exhausted" };
+    if (stopAfterPage(pageIds)) return { ids, stoppedBy: "known" };
   }
 
-  return { ids, truncated: true };
+  return { ids, stoppedBy: "page-limit" };
+}
+
+async function sgpPageLength(
+  host: string,
+  puuid: string,
+  token: string,
+  startIndex: number,
+): Promise<number | null> {
+  try {
+    const response = await fetch(sgpMatchIdsUrl(host, puuid, startIndex, SGP_PAGE_SIZE), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(SGP_PAGE_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return Array.isArray(body) ? body.length : null;
+  } catch {
+    return null;
+  }
+}
+
+// Both probes are deliberately unfiltered: the window is applied to games of
+// every queue before any tag filter narrows the result, so a filtered walk's
+// own length says nothing about whether it was cut short.
+//
+// Rather than assume the wall is where it was last measured, this confirms it:
+// history right up to the cap and nothing at all past it is the shape only a
+// hard stop produces. Checking both sides matters if Riot ever moves the cap —
+// finding games beyond it means the account was not truncated at 1000, and
+// claiming otherwise would tell someone their history was lost when it wasn't.
+// Either probe failing answers no, since a cap that could not be confirmed is
+// not one worth reporting.
+async function isHistoryWindowFull(host: string, puuid: string, token: string): Promise<boolean> {
+  const insideWindow = await sgpPageLength(host, puuid, token, SGP_CAP_PROBE_INDEX);
+  if (!insideWindow) return false;
+
+  const pastWindow = await sgpPageLength(host, puuid, token, SGP_HISTORY_CAP);
+  return pastWindow === 0;
 }
 
 export function cancelBackfill(): void {
@@ -304,16 +420,20 @@ export function isBackfillRunning(): boolean {
   return backfillRunning;
 }
 
-export type BackfillResult = {
-  added: number;
-  scanned: number;
-  checked: number;
-  totalGames: number;
-  truncated: boolean;
-  cancelled: boolean;
+export type BackfillOptions = {
+  // Walk every page Riot will serve instead of stopping at the first one we
+  // already know in full. The early exit only ever proves that the games in
+  // front of it are accounted for, so a hole further back stays invisible to
+  // every run that takes it. Ids are cheap: Riot's whole window is five
+  // requests, and only the ids we don't have cost anything to hydrate, so the
+  // runs that exist to find holes can afford to look everywhere.
+  full?: boolean;
 };
 
-export async function backfillHistory(win?: BrowserWindow | null): Promise<BackfillResult> {
+export async function backfillHistory(
+  win?: BrowserWindow | null,
+  { full = false }: BackfillOptions = {},
+): Promise<BackfillResult> {
   if (backfillRunning) {
     throw new Error("A backfill is already running");
   }
@@ -331,38 +451,68 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
 
     const known = db.getKnownGameIds();
 
-    // Once an account has been walked all the way back, a later run only needs
-    // the new games at the front. Results are newest-first, so the first page
-    // we've already fully accounted for means everything older is accounted for
-    // too. Tracked per account, since a newly added one still needs a full walk.
+    // Once an account has been walked all the way back, a run that only wants
+    // the new games at the front can stop early. Results are newest-first, so
+    // the first page we've already fully accounted for means everything in
+    // front of it is too. Tracked per account, since a newly added one has
+    // nothing to stop on.
     const completedKey = `backfill_complete_${summoner.puuid}`;
     const walkedBefore = db.getSetting(completedKey) === "1";
+    const stopAtKnownPage = walkedBefore && !full;
 
-    const walk = (from: string) =>
+    const walk = (from: string, tags: string) =>
       fetchAllMatchIds(
         from,
         summoner.puuid,
         token,
-        (pageIds) => walkedBefore && pageIds.every((id) => known.has(id)),
+        tags,
+        (pageIds) => stopAtKnownPage && pageIds.every((id) => known.has(id)),
       );
 
-    let walked: { ids: number[]; truncated: boolean };
+    let activeHost = host;
+    let walked: { ids: number[]; stoppedBy: WalkStop };
     try {
-      walked = await walk(host);
+      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
     } catch (err) {
       // The remembered shard may simply be the wrong one now. Find the right
       // one and restart the walk there; if none answers, the original failure
       // is the honest one to report.
       if (!(err instanceof SgpHttpError) || !SGP_REHOME_STATUSES.has(err.status)) throw err;
-      const rehomed = await rehomeSgpHost(summoner.puuid, token, host);
+      const rehomed = await rehomeSgpHost(summoner.puuid, token, activeHost);
       if (!rehomed) throw err;
-      walked = await walk(rehomed);
+      activeHost = rehomed;
+      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
     }
-    const { ids, truncated } = walked;
 
-    if (truncated) {
+    // The queue filter is Riot's vocabulary, not ours, and a filtered walk that
+    // came back with nothing looks identical whether the account has no Mayhem
+    // games or the tag names changed under us. Only one of those is worth
+    // being wrong about, so confirm it the slow way before believing it.
+    if (walked.ids.length === 0) {
+      walked = await walk(activeHost, SGP_ALL_TAGS);
+    }
+
+    const { ids, stoppedBy } = walked;
+
+    // A walk that stopped on known games or on our own page bound says nothing
+    // about Riot's window, and probing for it would be a wasted request.
+    let limit: BackfillLimit = null;
+    if (stoppedBy === "page-limit") {
+      limit = "paging";
+    } else if (
+      stoppedBy === "exhausted" &&
+      (await isHistoryWindowFull(activeHost, summoner.puuid, token))
+    ) {
+      limit = "service";
+    }
+
+    if (limit === "paging") {
       console.warn(
         `Backfill stopped at the ${SGP_MAX_PAGES}-page limit (${ids.length} games); older games were not checked`,
+      );
+    } else if (limit === "service") {
+      console.log(
+        `Riot's ${SGP_HISTORY_CAP}-match window is full for this account; nothing older than the ${ids.length} games found can be fetched`,
       );
     }
 
@@ -373,7 +523,10 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
         win.webContents.send("lcu:backfill-progress", { current, total: pending.length, added });
       }
     };
-    progress(0, 0);
+    // A periodic check that finds nothing has no progress to report, and
+    // announcing one anyway would flash an import bar at the user every few
+    // hours for work that never happened.
+    if (pending.length > 0) progress(0, 0);
 
     let added = 0;
     let announced = 0;
@@ -410,7 +563,11 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
     // Only claim the account is fully walked once every id has actually been
     // resolved. Marking it earlier would let a later run early-exit on the first
     // fully-known page and never reach the older games we skipped.
-    if (!truncated && !cancelled) {
+    //
+    // Running into Riot's window still counts as walked: it is as deep as the
+    // account will ever go, so there is nothing to come back for, and refusing
+    // to mark it would re-walk the same window on every launch forever.
+    if (limit !== "paging" && !cancelled) {
       db.setSetting(completedKey, "1");
     } else {
       // Neither outcome sets the completion flag, so without this the poll would
@@ -427,7 +584,7 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
       scanned: ids.length,
       checked: pending.length,
       totalGames: dashboard.totalGames,
-      truncated,
+      limit,
       cancelled,
     };
 
@@ -446,10 +603,18 @@ export async function backfillHistory(win?: BrowserWindow | null): Promise<Backf
   }
 }
 
+export type RecentSyncResult = {
+  newGames: number;
+  totalGames: number;
+  // Whether the window came back with nothing we had already accounted for.
+  // See syncRecentGames below for what that means and what it costs to ignore.
+  rolledOver: boolean;
+};
+
 export async function fetchNewGames(
   win?: BrowserWindow | null,
   knownSummoner?: any,
-): Promise<{ newGames: number; totalGames: number }> {
+): Promise<RecentSyncResult> {
   await connect();
 
   const summoner = knownSummoner ?? (await fetchCurrentSummoner());
@@ -459,20 +624,36 @@ export async function fetchNewGames(
 
   let historyResponse: any;
   try {
-    historyResponse = await fetchMatchHistoryByPuuid(summoner.puuid, 0, 19);
+    historyResponse = await fetchMatchHistoryByPuuid(summoner.puuid, 0, LCU_HISTORY_PAGE_SIZE - 1);
   } catch {
     try {
-      historyResponse = await fetchMatchHistory(0, 19);
+      historyResponse = await fetchMatchHistory(0, LCU_HISTORY_PAGE_SIZE - 1);
     } catch {
-      return { newGames: 0, totalGames: 0 };
+      return { newGames: 0, totalGames: 0, rolledOver: false };
     }
   }
 
   const games = historyResponse.games?.games || historyResponse.games || [];
 
+  // A game we've already decided about anchors this window to the history we
+  // hold: everything older than it was seen by an earlier sync. Without one,
+  // the window may have rolled clean past games we never got.
+  let sawKnownGame = false;
+
   for (const game of games) {
-    if (db.gameExists(game.gameId)) continue;
-    if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) continue;
+    if (db.isGameKnown(game.gameId)) {
+      sawKnownGame = true;
+      continue;
+    }
+
+    // Recorded rather than skipped, so the next window has this game as an
+    // anchor too. Otherwise a run of games in other queues looks exactly like
+    // the gap below and would send us off on a deep walk to rediscover that
+    // they still aren't Mayhem games.
+    if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) {
+      db.markIgnoredGame(game.gameId);
+      continue;
+    }
 
     let fullGame: any;
     try {
@@ -493,7 +674,45 @@ export async function fetchNewGames(
   }
 
   const dashboard = db.getDashboardData();
-  return { newGames: newGamesCount, totalGames: dashboard.totalGames };
+  return {
+    newGames: newGamesCount,
+    totalGames: dashboard.totalGames,
+    // A window shorter than the cap is the account's whole recent history, so
+    // there is nothing behind it to have missed.
+    rolledOver: games.length >= LCU_HISTORY_PAGE_SIZE && !sawKnownGame,
+  };
+}
+
+// The recent-games sync sees twenty games and no further, so a session where
+// more than twenty were played while the app was closed leaves the older ones
+// with nothing to find them: the window has rolled over completely, and every
+// later poll sees only games it has already stored. The shape is recognisable,
+// a full window without one game we had accounted for, and the deep walk is
+// what can still reach behind it, so escalate instead of accepting the hole.
+// On an account that has been walked before, the walk stops at the first page
+// it recognises, so closing a small gap costs little more than the poll it
+// follows.
+export async function syncRecentGames(
+  win?: BrowserWindow | null,
+  knownSummoner?: any,
+): Promise<{ newGames: number; totalGames: number }> {
+  const recent = await fetchNewGames(win, knownSummoner);
+  if (!recent.rolledOver || backfillRunning || Date.now() < autoBackfillPausedUntil) {
+    return recent;
+  }
+
+  console.log("Recent games contained nothing already known; walking history for missed games");
+  try {
+    const deep = await backfillHistory(win);
+    return { newGames: recent.newGames + deep.added, totalGames: deep.totalGames };
+  } catch (err) {
+    // The recent games did land, so this reports what it got rather than
+    // failing the sync outright. backfillHistory has already told the UI why
+    // the walk didn't finish.
+    console.log("History walk after a rolled-over window failed:", err);
+    autoBackfillPausedUntil = Date.now() + AUTO_BACKFILL_RETRY_DELAY;
+    return recent;
+  }
 }
 
 // --- Instant capture from the post-game screen ----------------------------
@@ -531,6 +750,13 @@ const GAMEFLOW_PHASE_PATH = "lol-gameflow/v1/gameflow-phase";
 // Game id and queue of the match currently being played, remembered from the
 // gameflow session so the phase change has something to act on.
 let liveGame: { gameId: number; queueId: number } | null = null;
+
+// The match being played, or the last one played this client session. Never
+// cleared, which is what lets the Live Game tab keep showing a game after it
+// has ended.
+export function getLiveGameRef(): { gameId: number; queueId: number } | null {
+  return liveGame;
+}
 
 // Reconnect is the phase for rejoining a match already underway, so it counts
 // as being in a game just as much as InProgress does.
@@ -805,12 +1031,17 @@ async function isInGame(): Promise<boolean> {
   return phase !== null && IN_GAME_PHASES.has(phase);
 }
 
-// An account that has never been walked gets the full history on its first
-// connect — that import is the whole point of the app, and it's a superset of
-// the recent-games sync. Every later tick takes the cheap LCU path instead: the
-// pvp.net service is only touched while an account still needs its first walk.
-// Deferred while a game is in progress so we aren't hammering the client
-// mid-match; a later poll picks it up.
+// The first sync an account gets in a session walks its whole history, and
+// every later tick takes the cheap LCU path. That first walk is the app's
+// answer to everything the twenty-game window cannot see: the games played
+// while it was closed, however many, and any hole an earlier version of it
+// left behind. It is also the initial import for an account being seen for the
+// first time, which is the same walk with nothing to skip.
+//
+// Marked only once the walk finishes, so a session that starts before the
+// client has finished signing in retries on a later tick rather than going the
+// rest of its life without one. Deferred while a game is in progress so we
+// aren't hammering the client mid-match; a later poll picks it up.
 async function syncGames(win: BrowserWindow) {
   let summoner: any = null;
   try {
@@ -819,14 +1050,13 @@ async function syncGames(win: BrowserWindow) {
     // Fall through to the recent-games sync, which reports its own errors
   }
 
-  const wantsBackfill =
-    summoner &&
-    Date.now() >= autoBackfillPausedUntil &&
-    db.getSetting(`backfill_complete_${summoner.puuid}`) !== "1";
+  const wantsSweep =
+    summoner && Date.now() >= autoBackfillPausedUntil && !sweptThisLaunch.has(summoner.puuid);
 
-  if (wantsBackfill && !(await isInGame())) {
+  if (wantsSweep && !(await isInGame())) {
     try {
-      await backfillHistory(win);
+      await backfillHistory(win, { full: true });
+      sweptThisLaunch.add(summoner.puuid);
       return;
     } catch (err) {
       console.log("Automatic backfill failed, falling back to recent games:", err);
@@ -834,7 +1064,7 @@ async function syncGames(win: BrowserWindow) {
     }
   }
 
-  await fetchNewGames(win, summoner ?? undefined);
+  await syncRecentGames(win, summoner ?? undefined);
 }
 
 // Both timers are cleared before the connect loop starts again, so a restart
@@ -927,10 +1157,8 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
     // Installed before the first sync runs, never after. The client answers
     // authenticate() from its command line the moment it starts, seconds before
     // its HTTP server is listening, so the first sync of a session is the one
-    // most likely to fail — and a failure that happened before this line left
-    // the app with no connect timer and no poll timer at all: still showing
-    // "connected", never noticing another game, and never retrying the
-    // post-game socket, until it was restarted by hand.
+    // most likely to fail. The connect timer has already been cleared above, so
+    // this is the only thing left that will retry it.
     pollTimer = setInterval(() => {
       void pollTick(win);
     }, POLL_INTERVAL_MS);

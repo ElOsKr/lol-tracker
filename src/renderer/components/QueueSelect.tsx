@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useFilterOptions } from "../hooks/useFilterOptions";
 import { QUEUE_LABELS } from "../../shared/queues";
 
 export function queueLabel(queueId: number): string {
@@ -12,14 +13,7 @@ export default function QueueSelect({
   value: number | undefined;
   onChange: (queue: number | undefined) => void;
 }) {
-  const [queues, setQueues] = useState<number[]>([]);
-
-  useEffect(() => {
-    const fetchQueues = () => window.api.getMatchFilterOptions().then((o) => setQueues(o.queues));
-    fetchQueues();
-    const unsub = window.api.onGamesUpdated(fetchQueues);
-    return unsub;
-  }, []);
+  const { queues } = useFilterOptions();
 
   // Clear the selection if new data leaves it without any matching games
   useEffect(() => {

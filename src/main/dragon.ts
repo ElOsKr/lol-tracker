@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getDataDir } from "./paths";
 import augmentDescriptions from "./augment-descriptions.json";
+import { cdragonAssetUrl, cherryAugmentsUrl } from "../shared/cdragon";
 
 // Every one of these requests gates something the UI waits on: champion data
 // blocks dragon:champions, db:teammate-detail and data:repair-puuids, and a
@@ -16,8 +17,6 @@ let championDataVersion = "none";
 
 let championReady: Promise<void> | null = null;
 
-// fetch follows redirects itself, with its own cap — the hand-rolled version
-// this replaces recursed on Location with no limit and no timeout.
 async function fetchJson(url: string): Promise<any> {
   const res = await fetch(url, {
     headers: { "User-Agent": "MayhemTracker/1.0" },
@@ -87,9 +86,6 @@ export type AugmentInfo = {
 const augmentCaches = new Map<string, Record<number, AugmentInfo>>();
 const augmentPromises = new Map<string, Promise<Record<number, AugmentInfo>>>();
 
-const cherryAugmentsUrl = (branch: string) =>
-  `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`;
-
 // Tooltip text, bundled rather than fetched: cherry-augments.json carries an
 // augment's name, rarity and art but no description at all, and the game data
 // that does is 44MB per patch. See scripts/generate-augment-descriptions.mjs.
@@ -150,7 +146,13 @@ export function loadAugmentData(patch?: string): Promise<Record<number, AugmentI
         data = await fetchJson(cherryAugmentsUrl("latest"));
       }
       const augments = parseAugments(data, resolved);
-      augmentCaches.set(key, augments);
+      // Current data stands in for an archived branch that wouldn't load, but
+      // it isn't what the game was played with: serve it once and let the next
+      // request try the patch's own branch again. Memoizing it would report an
+      // old game against today's augments — and blank the art of every augment
+      // retired since — for the rest of the session.
+      if (resolved === branch) augmentCaches.set(key, augments);
+      else augmentPromises.delete(key);
       console.log(
         `Loaded ${Object.keys(augments).length} augments from CommunityDragon (${resolved})`,
       );
@@ -326,10 +328,23 @@ let archivedBranches: string[] | null = null;
 
 const augmentIconCacheFile = () => path.join(getDataDir(), "augment-icon-cache.json");
 
+// A hit is good for every patch — it's the branch that still has the art — so
+// it's filed under the augment id alone. A miss only means "not on any branch
+// this lookup walked", which depends on the patch it started from, so it's
+// filed under both.
+const missKey = (id: number, patch?: string) => `${id}|${patch ?? "latest"}`;
+
 function readAugmentIconCache(): AugmentIconCache {
   if (!augmentIconCache) {
     try {
-      augmentIconCache = JSON.parse(fs.readFileSync(augmentIconCacheFile(), "utf8"));
+      const parsed = JSON.parse(fs.readFileSync(augmentIconCacheFile(), "utf8"));
+      // Misses written before they carried a patch claimed to be the last word
+      // on an augment for every patch, including ones the walk never reached.
+      augmentIconCache = Object.fromEntries(
+        Object.entries(parsed as AugmentIconCache).filter(
+          ([key, url]) => url !== null || key.includes("|"),
+        ),
+      );
     } catch {
       augmentIconCache = {};
     }
@@ -337,9 +352,9 @@ function readAugmentIconCache(): AugmentIconCache {
   return augmentIconCache!;
 }
 
-function writeAugmentIconCache(id: number, url: string | null) {
+function writeAugmentIconCache(key: string, url: string | null) {
   const cache = readAugmentIconCache();
-  cache[String(id)] = url;
+  cache[key] = url;
   try {
     fs.writeFileSync(augmentIconCacheFile(), JSON.stringify(cache));
   } catch (err) {
@@ -383,9 +398,7 @@ async function getBranchAugmentIcons(branch: string): Promise<Record<number, str
   if (cached) return cached;
   const icons: Record<number, string> = {};
   try {
-    const data = await fetchJson(
-      `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`,
-    );
+    const data = await fetchJson(cherryAugmentsUrl(branch));
     const entries = Array.isArray(data) ? data : Object.values(data ?? {});
     for (const aug of entries as any[]) {
       const iconPath = aug?.augmentSmallIconPath || aug?.iconSmall || aug?.iconLarge;
@@ -398,13 +411,6 @@ async function getBranchAugmentIcons(branch: string): Promise<Record<number, str
   }
   branchAugmentIcons.set(branch, icons);
   return icons;
-}
-
-// Mirrors the renderer's CDRAGON_ASSET_URL so a resolved URL can be used as-is.
-function assetUrl(branch: string, iconPath: string): string {
-  return `https://raw.communitydragon.org/${branch}/game/${iconPath
-    .replace("/lol-game-data/assets/", "")
-    .toLowerCase()}`;
 }
 
 // The UI prefers the large art; the data names the small path, and a few
@@ -440,7 +446,7 @@ type BranchIcon = { url: string | null; conclusive: boolean };
 async function findIconOnBranch(branch: string, iconPath: string): Promise<BranchIcon> {
   let conclusive = true;
   for (const variant of iconVariants(iconPath)) {
-    const url = assetUrl(branch, variant);
+    const url = cdragonAssetUrl(branch, variant);
     const probe = await probeUrl(url);
     if (probe === "ok") return { url, conclusive: true };
     if (probe === "error") conclusive = false;
@@ -466,7 +472,9 @@ async function findIconOnBranch(branch: string, iconPath: string): Promise<Branc
  */
 export function resolveAugmentIcon(id: number, patch?: string): Promise<string | null> {
   const cache = readAugmentIconCache();
-  const key = String(id);
+  const hitKey = String(id);
+  if (hitKey in cache) return Promise.resolve(cache[hitKey]);
+  const key = missKey(id, patch);
   if (key in cache) return Promise.resolve(cache[key]);
 
   let pending = augmentIconPending.get(key);
@@ -497,13 +505,16 @@ export function resolveAugmentIcon(id: number, patch?: string): Promise<string |
         const found = await findIconOnBranch(branch, iconPath);
         if (found.url) {
           console.log(`Resolved augment ${id} icon from CommunityDragon ${branch}`);
-          if (liveIsGone) writeAugmentIconCache(id, found.url);
+          if (liveIsGone) writeAugmentIconCache(hitKey, found.url);
           return found.url;
         }
         if (!found.conclusive) walkComplete = false;
       }
-      // Only remember "no art anywhere" if every branch actually said so.
-      if (liveIsGone && walkComplete) writeAugmentIconCache(id, null);
+      // Only remember "no art anywhere" if every branch actually said so. The
+      // walk stops at MAX_ICON_BRANCH_LOOKBACK, so it speaks for the patch it
+      // started from and no other — an augment retired before that window still
+      // has art on the branch the game that used it was played on.
+      if (liveIsGone && walkComplete) writeAugmentIconCache(key, null);
       return null;
     });
     // Drop the in-flight entry either way: a resolved lookup is either cached

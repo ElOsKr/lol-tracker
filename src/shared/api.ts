@@ -13,6 +13,10 @@ export interface GameRecord {
   game_duration: number;
   puuid?: string;
   game_version?: string | null;
+  // Both come back from getMatchDetail; optional because the export format and
+  // the older callers here predate them.
+  is_remake?: number;
+  favorite?: number;
 }
 
 export interface PlayerStatsRecord {
@@ -108,6 +112,27 @@ export interface MatchFilters {
   favorites?: boolean;
 }
 
+// One session of play under the current match-list filters. The list is paged,
+// so the rows on screen only ever describe part of a session; these totals
+// cover all of it.
+export interface MatchSession {
+  // What the session is grouped under, as sessionKey spells it: a YYYY-MM-DD
+  // date for days and weeks, a patch for patches, empty for games missing one
+  key: string;
+  // Every game, remakes included
+  games: number;
+  // Everything below counts only games that are not remakes
+  wins: number;
+  losses: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  // Null when no game in the session has a stored score; scored_games is the
+  // denominator, so the average stays honest when only some of them do
+  score_sum: number | null;
+  scored_games: number;
+}
+
 export interface TrackedAccount {
   puuid: string;
   name: string | null;
@@ -122,8 +147,7 @@ export interface MatchFilterOptions {
   hasFavorites: boolean;
 }
 
-// One row per player, straight from match_participants — the scoreboard no
-// longer reconstructs these from a raw match payload.
+// One row per player, straight from match_participants.
 export interface MatchParticipantRecord {
   participantId: number;
   puuid: string | null;
@@ -466,12 +490,23 @@ export interface BackfillProgress {
   added: number;
 }
 
+// Riot's match history service holds only this many matches per account, and
+// reports the end of that window as an empty page — exactly what a genuine end
+// of history looks like. Anything older is unreachable, by any route.
+export const SGP_HISTORY_CAP = 1000;
+
+// What stopped a backfill short of an account's full history, if anything.
+// The two are not the same kind of problem: "service" is Riot's window and is
+// permanent, so there is nothing to retry; "paging" is our own safety bound,
+// which means the run gave up early and should simply be repeated.
+export type BackfillLimit = "service" | "paging" | null;
+
 export interface BackfillResult {
   added: number;
   scanned: number;
   checked: number;
   totalGames: number;
-  truncated: boolean;
+  limit: BackfillLimit;
   cancelled: boolean;
 }
 
@@ -489,9 +524,12 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // Every release newer than the installed version, newest first
+  // Every release newer than the installed version, newest first, so someone who
+  // skipped a few versions sees the notes they missed rather than only the last
+  // set. Empty when already up to date.
   releases?: ReleaseNote[];
-  // True when there are skipped releases beyond the page the check fetched
+  // True when the fetched page never reached back to the installed version, so
+  // there are skipped releases the dialog cannot show.
   moreVersions?: boolean;
   error?: string;
 }
@@ -512,6 +550,199 @@ export interface RecoveryReport {
   detail?: string;
 }
 
+// ---- Live game ----
+
+// How often a player has played one champion, as far as this app has seen.
+// Null wherever we have never recorded a game with them, which is every
+// stranger in a random lobby.
+export interface PlayerRecord {
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  lastPlayed: number;
+}
+
+export interface LivePlayer {
+  // Stable across polls, so React keys and the record cache both hold: the
+  // puuid when the client gives us one, otherwise the riot id.
+  key: string;
+  name: string;
+  tagLine: string | null;
+  puuid: string | null;
+  // 0 when the champion could not be resolved to an id, which only leaves the
+  // name to go on
+  championId: number;
+  championName: string;
+  teamId: number;
+  isSelf: boolean;
+  isBot: boolean;
+  level: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  creepScore: number;
+  // Seven slots, trinket last; 0 for an empty one
+  items: number[];
+  isDead: boolean;
+  respawnTimer: number;
+  spell1Id: number | null;
+  spell2Id: number | null;
+  // Their history on the champion they're playing, and across every champion
+  championRecord: PlayerRecord | null;
+  overallRecord: PlayerRecord | null;
+  // Games played on our own team, and the Friends route key for them once
+  // there are enough of those to have earned a profile
+  gamesWithUs: number;
+  friendKey: string | null;
+}
+
+export type LiveEventTone = "kill" | "objective" | "special";
+
+export interface LiveEvent {
+  id: number;
+  // Seconds into the game
+  time: number;
+  text: string;
+  tone: LiveEventTone;
+}
+
+export interface LiveGameSnapshot {
+  // A match is running and its own API is serving stats
+  inGame: boolean;
+  // A match exists but isn't serving stats yet: champion select is over and
+  // the loading screen is up, so the roster is known and nothing else is
+  starting: boolean;
+  gameId: number | null;
+  queueId: number | null;
+  mapId: number | null;
+  // "Howling Abyss", "Butcher's Bridge" or "Koeshin's Crossing"
+  mapName: string | null;
+  // The map skin the game reported, which is what mapName is derived from
+  mapSkin: string | null;
+  gameTime: number;
+  players: LivePlayer[];
+  // Newest last, trimmed to the recent past
+  events: LiveEvent[];
+}
+
+// ---- Post-game recap ----
+
+export type RecapFormat = "int" | "score" | "compact" | "duration" | "kda";
+
+// Where one of the game's stats lands among every game we've stored.
+export interface RecapPlacement {
+  key: string;
+  label: string;
+  value: number;
+  // 1 is the best there has ever been
+  rank: number;
+  total: number;
+  // False for the placements nobody brags about, so the UI can stop short of
+  // congratulating someone on dying more than ever before
+  good: boolean;
+  format: RecapFormat;
+}
+
+export interface RecapMilestone {
+  key: string;
+  label: string;
+  detail: string;
+}
+
+export interface RecapSessionGame {
+  game_id: number;
+  game_creation: number;
+  game_duration: number;
+  champion_id: number;
+  win: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  score: number | null;
+}
+
+// The day's play around this game, under the same "day starts at 5am" rule the
+// match list uses for a day. Always a day, however the match list is grouped:
+// what a game sat among is a question about that night's play.
+export interface RecapSession {
+  day: number;
+  // Where this game sits in games, 0-based
+  index: number;
+  games: RecapSessionGame[];
+  wins: number;
+  losses: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  avgScore: number | null;
+  // Seconds of game time
+  duration: number;
+}
+
+export interface RecapStreak {
+  kind: "win" | "loss";
+  length: number;
+  // Longest streak of the same kind on record
+  best: number;
+  isRecord: boolean;
+}
+
+export interface RecapChampion {
+  championId: number;
+  games: number;
+  wins: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  avgScore: number | null;
+  // Best score on this champion before this game, so a new one reads as news
+  previousBest: number | null;
+  firstTime: boolean;
+}
+
+export interface RecapCareer {
+  games: number;
+  wins: number;
+  avgScore: number | null;
+  avgKills: number;
+  avgDeaths: number;
+  avgAssists: number;
+  avgDamage: number;
+  avgTaken: number;
+  avgHeal: number;
+  avgGold: number;
+}
+
+export interface GameRecap {
+  detail: MatchDetail;
+  // Only known for games the app watched live, since nothing in the stored
+  // match says which of the three ARAM maps it was played on
+  mapName: string | null;
+  score: number | null;
+  scoreBadge: "MVP" | "ACE" | null;
+  // Empty for a remake, which sets no records and crosses no milestones
+  placements: RecapPlacement[];
+  milestones: RecapMilestone[];
+  session: RecapSession;
+  streak: RecapStreak | null;
+  champion: RecapChampion;
+  career: RecapCareer;
+}
+
+// What the exported image is drawn from: the scoreboard and the line above it.
+// Deliberately not the recap — a card is about the game, not about where it
+// lands in a career.
+export interface GameCardData {
+  detail: MatchDetail;
+  // Only known for games the app watched live, since nothing in the stored
+  // match says which of the three ARAM maps it was played on
+  mapName: string | null;
+  // The icon of the account that played it, as it was at the time
+  profileIcon: number | null;
+}
+
 export interface ElectronAPI {
   getWidgetState(): Promise<WidgetState>;
   openWidget(): Promise<WidgetState>;
@@ -522,6 +753,7 @@ export interface ElectronAPI {
     offset: number,
     filters?: MatchFilters,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
+  getMatchSessions: (filters?: MatchFilters) => Promise<MatchSession[]>;
   getMatchFilterOptions: (
     filters?: Pick<MatchFilters, "championId" | "patch" | "queue" | "account">,
   ) => Promise<MatchFilterOptions>;
@@ -550,13 +782,16 @@ export interface ElectronAPI {
   getTeammateDetail: (key: string) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getTrends: (queue?: number) => Promise<TrendsData>;
-  getRecords: (queue?: number) => Promise<RecordsData>;
+  getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
+  getLiveGame: () => Promise<LiveGameSnapshot>;
+  onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => () => void;
+  getGameRecap: (gameId?: number) => Promise<GameRecap | null>;
+  getGameCard: (gameId: number) => Promise<GameCardData | null>;
   getGlobalChampionDetail: (
     championId: number,
     patch?: string,
     queue?: number,
   ) => Promise<GlobalChampionDetail>;
-  getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
@@ -576,6 +811,15 @@ export interface ElectronAPI {
   getSetting: (key: string) => Promise<string | null>;
   isAutoStartSupported: () => Promise<boolean>;
   setSetting: (key: string, value: string) => Promise<void>;
+  // No error alongside success: false means the save dialog was dismissed
+  exportGameImage: (gameId: number) => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
+  }>;
+  // Nothing to report on success beyond that it worked: the image is on the
+  // clipboard, not anywhere on disk
+  copyGameImage: (gameId: number) => Promise<{ success: boolean; error?: string }>;
   exportData: () => Promise<{
     success: boolean;
     path?: string;

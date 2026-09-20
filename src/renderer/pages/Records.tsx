@@ -13,6 +13,7 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import QueueSelect, { queueLabel } from "../components/QueueSelect";
+import AccountSelect from "../components/AccountSelect";
 import { ACCENTS, type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
@@ -315,19 +316,25 @@ export default function Records() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queueParam = searchParams.get("queue");
   const queue = queueParam ? Number(queueParam) : undefined;
-  const setQueue = (q: number | undefined) => {
+  const account = searchParams.get("account") ?? undefined;
+  const setParam = (key: string, value: string | undefined) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (q == null) next.delete("queue");
-        else next.set("queue", String(q));
+        if (value == null) next.delete(key);
+        else next.set(key, value);
         return next;
       },
       { replace: true },
     );
   };
+  const setQueue = (q: number | undefined) => setParam("queue", q == null ? undefined : String(q));
+  const setAccount = (a: string | undefined) => setParam("account", a);
 
-  const { data, refetch } = useIpc<RecordsData>(() => window.api.getRecords(queue), [queue]);
+  const { data, refetch } = useIpc<RecordsData>(
+    () => window.api.getRecords(queue, account),
+    [queue, account],
+  );
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const [openMatch, setOpenMatch] = useState<RecordMatchRef | null>(null);
@@ -345,12 +352,29 @@ export default function Records() {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
 
+  // The filters stay on screen even with nothing to show, so a selection that
+  // happens to hold no games can be undone
+  const header = (
+    <div className="flex items-center justify-between">
+      <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-lol-text">
+          personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
+        </span>
+        <AccountSelect value={account} onChange={setAccount} />
+        <QueueSelect value={queue} onChange={setQueue} />
+      </div>
+    </div>
+  );
+
   if (data.totalGames === 0) {
     return (
       <div className="max-w-7xl space-y-4">
-        <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
+        {header}
         <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          No games recorded yet — sync your match history to start setting records.
+          {account || queue != null
+            ? "No games match this filter."
+            : "No games recorded yet — sync your match history to start setting records."}
         </div>
       </div>
     );
@@ -366,15 +390,7 @@ export default function Records() {
 
   return (
     <div className="max-w-7xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-lol-text">
-            personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
-          </span>
-          <QueueSelect value={queue} onChange={setQueue} />
-        </div>
-      </div>
+      {header}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
         {cards.map(({ key, ...card }) => (

@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 export function useIpc<T>(fetcher: () => Promise<T>, deps: any[] = []) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Callers pass an inline arrow, which is a new function every render. Reading
   // it through a ref keeps refetch tied to the caller's deps instead — those
@@ -23,14 +22,12 @@ export function useIpc<T>(fetcher: () => Promise<T>, deps: any[] = []) {
     async () => {
       const id = ++requestId.current;
       setLoading(true);
-      setError(null);
       try {
         const result = await fetcherRef.current();
         if (id !== requestId.current) return;
         setData(result);
-      } catch (err: any) {
-        if (id !== requestId.current) return;
-        setError(err.message || "Unknown error");
+      } catch (err) {
+        console.error("IPC request failed:", err);
       } finally {
         if (id === requestId.current) setLoading(false);
       }
@@ -46,5 +43,5 @@ export function useIpc<T>(fetcher: () => Promise<T>, deps: any[] = []) {
     refetch();
   }, [refetch]);
 
-  return { data, loading, error, refetch };
+  return { data, loading, refetch };
 }

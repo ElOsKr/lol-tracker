@@ -2,37 +2,29 @@ import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
+import { useSort } from "../hooks/useSort";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type { TeammateStats } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import SummonerIcon from "../components/SummonerIcon";
 import WinRateBar from "../components/WinRateBar";
+import SortHeader from "../components/SortHeader";
 import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 
 type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
-type SortDir = "asc" | "desc";
 
 export default function Friends() {
   const navigate = useNavigate();
   const champData = useChampionData();
   const { data, loading, refetch } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats());
   const [search, setSearch] = useViewState("friends.search", "");
-  const [sortKey, setSortKey] = useViewState<SortKey>("friends.sortKey", "games");
-  const [sortDir, setSortDir] = useViewState<SortDir>("friends.sortDir", "desc");
+  const sort = useSort<SortKey>("friends", "games");
+  const { sortKey, sortDir } = sort;
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
     return unsub;
   }, [refetch]);
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === "desc" ? "asc" : "desc");
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
 
   const sorted = useMemo(() => {
     if (!data) return [];
@@ -66,23 +58,6 @@ export default function Friends() {
   if (loading || !data) {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
-
-  const SortHeader = ({
-    label,
-    field,
-    className,
-  }: {
-    label: string;
-    field: SortKey;
-    className?: string;
-  }) => (
-    <th
-      onClick={() => handleSort(field)}
-      className={`px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
-    >
-      {label} {sortKey === field ? (sortDir === "desc" ? "▼" : "▲") : ""}
-    </th>
-  );
 
   return (
     <div className="max-w-7xl space-y-4">
@@ -131,13 +106,13 @@ export default function Friends() {
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
                 Player
               </th>
-              <SortHeader label="Games" field="games" />
-              <SortHeader label="Win Rate" field="winRate" />
-              <SortHeader label="Their KDA" field="kda" />
+              <SortHeader {...sort} label="Games" field="games" />
+              <SortHeader {...sort} label="Win Rate" field="winRate" />
+              <SortHeader {...sort} label="Their KDA" field="kda" />
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
                 Top Champions
               </th>
-              <SortHeader label="Last Played" field="lastPlayed" />
+              <SortHeader {...sort} label="Last Played" field="lastPlayed" />
             </tr>
           </thead>
           <tbody>

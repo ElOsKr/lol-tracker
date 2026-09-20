@@ -18,10 +18,11 @@ import StatCard from "../components/StatCard";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import RarityFilter, { type Rarity } from "../components/RarityFilter";
+import SortHeader from "../components/SortHeader";
+import { useSort, type SortDir } from "../hooks/useSort";
 import { kdaRatio } from "../lib/format";
 
 type SortKey = "picks" | "winRate" | "name";
-type SortDir = "asc" | "desc";
 
 function percent(ratio: number): string {
   return `${(ratio * 100).toFixed(1)}%`;
@@ -65,51 +66,6 @@ function MultikillCounts({
   );
 }
 
-function SortHeader({
-  label,
-  field,
-  sortKey,
-  sortDir,
-  onSort,
-  className,
-}: {
-  label: string;
-  field: SortKey;
-  sortKey: SortKey;
-  sortDir: SortDir;
-  onSort: (field: SortKey) => void;
-  className?: string;
-}) {
-  return (
-    <th
-      onClick={() => onSort(field)}
-      className={`px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
-    >
-      {label} {sortKey === field ? (sortDir === "desc" ? "▼" : "▲") : ""}
-    </th>
-  );
-}
-
-// Sort state shared by the item and augment tables — both rank rows by pick
-// count, win rate, or name. The key keeps the two tables apart when the choice
-// is remembered across launches.
-function useSort(key: string, initial: SortKey) {
-  const [sortKey, setSortKey] = useViewState<SortKey>(`${key}.sortKey`, initial);
-  const [sortDir, setSortDir] = useViewState<SortDir>(`${key}.sortDir`, "desc");
-  const onSort = useCallback(
-    (key: SortKey) => {
-      if (key === sortKey) {
-        setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-      } else {
-        setSortKey(key);
-        setSortDir(key === "name" ? "asc" : "desc");
-      }
-    },
-    [sortKey, setSortKey, setSortDir],
-  );
-  return { sortKey, sortDir, onSort };
-}
-
 function sortRows<T extends { picks: number; wins: number }>(
   rows: T[],
   sortKey: SortKey,
@@ -137,11 +93,16 @@ function ItemSection({
   patch?: string;
 }) {
   const itemData = useItemData(patch);
-  const { sortKey, sortDir, onSort } = useSort("globalChampion.items", "picks");
+  const sort = useSort<SortKey>("globalChampion.items", "picks");
   const sorted = useMemo(
     () =>
-      sortRows(items, sortKey, sortDir, (i) => itemData[i.item_id]?.name ?? `Item ${i.item_id}`),
-    [items, sortKey, sortDir, itemData],
+      sortRows(
+        items,
+        sort.sortKey,
+        sort.sortDir,
+        (i) => itemData[i.item_id]?.name ?? `Item ${i.item_id}`,
+      ),
+    [items, sort.sortKey, sort.sortDir, itemData],
   );
 
   return (
@@ -156,31 +117,12 @@ function ItemSection({
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
-              <SortHeader
-                label="Item"
-                field="name"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onSort}
-              />
-              <SortHeader
-                label="Picks"
-                field="picks"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onSort}
-              />
+              <SortHeader {...sort} label="Item" field="name" compact />
+              <SortHeader {...sort} label="Picks" field="picks" compact />
               <th className="px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider">
                 Build
               </th>
-              <SortHeader
-                label="Win Rate"
-                field="winRate"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onSort}
-                className="w-28"
-              />
+              <SortHeader {...sort} label="Win Rate" field="winRate" compact className="w-28" />
             </tr>
           </thead>
           <tbody>
@@ -215,15 +157,17 @@ function ItemSection({
 
 function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: number }) {
   const augmentData = useAugmentData();
-  const { sortKey, sortDir, onSort } = useSort("globalChampion.augments", "picks");
+  const sort = useSort<SortKey>("globalChampion.augments", "picks");
   const [rarity, setRarity] = useViewState<Rarity>("globalChampion.augRarity", "all");
 
   const sorted = useMemo(() => {
     const filtered = augments.filter(
       (a) => rarity === "all" || augmentData[a.augment_id]?.rarity === rarity,
     );
-    return sortRows(filtered, sortKey, sortDir, (a) => getAugmentName(augmentData, a.augment_id));
-  }, [augments, sortKey, sortDir, augmentData, rarity]);
+    return sortRows(filtered, sort.sortKey, sort.sortDir, (a) =>
+      getAugmentName(augmentData, a.augment_id),
+    );
+  }, [augments, sort.sortKey, sort.sortDir, augmentData, rarity]);
 
   return (
     <section className="space-y-2">
@@ -238,31 +182,12 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
-              <SortHeader
-                label="Augment"
-                field="name"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onSort}
-              />
-              <SortHeader
-                label="Picks"
-                field="picks"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onSort}
-              />
+              <SortHeader {...sort} label="Augment" field="name" compact />
+              <SortHeader {...sort} label="Picks" field="picks" compact />
               <th className="px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider">
                 Pick
               </th>
-              <SortHeader
-                label="Win Rate"
-                field="winRate"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onSort}
-                className="w-28"
-              />
+              <SortHeader {...sort} label="Win Rate" field="winRate" compact className="w-28" />
             </tr>
           </thead>
           <tbody>

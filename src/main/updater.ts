@@ -4,10 +4,10 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import type { ReleaseNote, UpdateInfo } from "../shared/api";
 
 const CHECK_TIMEOUT_MS = 10_000;
-// One page covers any realistic gap between installs, and costs the same single
-// request the old /releases/latest check did.
+// One page covers any realistic gap between installs, for a single request.
 const RELEASE_PAGE_SIZE = 20;
 // Release bodies are hand-written, but they still arrive over the network, so
 // cap what the dialog is asked to lay out.
@@ -16,30 +16,6 @@ const MAX_BODY_CHARS = 4_000;
 // a total-duration cap would abort a slow but perfectly healthy connection.
 // What we actually want to catch is a transfer that has stopped moving.
 const DOWNLOAD_STALL_TIMEOUT_MS = 30_000;
-
-export interface ReleaseNote {
-  version: string;
-  publishedAt: string;
-  body: string;
-  url: string;
-}
-
-export interface UpdateInfo {
-  hasUpdate: boolean;
-  latest?: string;
-  current?: string;
-  url?: string;
-  assetUrl?: string;
-  assetSize?: number;
-  // Every release newer than the installed version, newest first, so someone who
-  // skipped a few versions sees the notes they missed rather than only the last
-  // set. Empty when already up to date.
-  releases?: ReleaseNote[];
-  // True when the fetched page never reached back to the installed version, so
-  // there are skipped releases the dialog cannot show.
-  moreVersions?: boolean;
-  error?: string;
-}
 
 // The expected hash never leaves the main process: the renderer only echoes
 // back an asset URL, so trusting a digest it supplied would verify nothing.
