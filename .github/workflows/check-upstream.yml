@@ -38,7 +38,10 @@ jobs:
             {
               echo "El proyecto original ($UPSTREAM_URL) tiene $BEHIND commit(s) nuevo(s) que este fork todavía no tiene."
               echo ""
-              echo "Comparación completa: ${UPSTREAM_URL%.git}/compare/${UPSTREAM_BRANCH}...${GITHUB_REPOSITORY}:${LOCAL_BRANCH}"
+              # GITHUB_REPOSITORY es "dueño/repo", pero la comparación entre forks
+              # de GitHub separa el repo con dos puntos, no con barra: con la barra
+              # el enlace responde 404.
+              echo "Comparación completa: ${UPSTREAM_URL%.git}/compare/${UPSTREAM_BRANCH}...${GITHUB_REPOSITORY/\//:}:${LOCAL_BRANCH}"
               echo ""
               echo "Commits nuevos:"
               echo '```'
