@@ -1,11 +1,11 @@
-# League Companion
+# Riftally
 
 ## Alcance y fase actual
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-10): integración del widget autorizada por el usuario. El soporte de nuevas colas LoL y TFT sigue pendiente.
-- League Companion es el nombre de trabajo. La identidad técnica del paquete, ejecutable y actualizador sigue siendo la de Mayhem Tracker; su adaptación queda pendiente.
+- Fase actual (2026-09-20): widget integrado y publicado en `main`; sincronización con el proyecto original al día. La ampliación a las demás colas de LoL está implementada en `codex/lol-all-queues` y sin integrar. TFT sigue pendiente.
+- Riftally es el nombre elegido; League Companion se descartó por estar ya en uso. La identidad técnica del paquete, ejecutable e identificador sigue siendo la de Mayhem Tracker; su adaptación queda pendiente.
 - Conservar la licencia MIT y la atribución originales.
 
 ## Memoria compartida
@@ -19,12 +19,19 @@
 - No guardar secretos, historiales personales ni conversaciones completas. Si Notion falla, continuar con lo conocido, indicar la limitación y enumerar al cierre las actualizaciones pendientes; no crear otra memoria canónica.
 - Al cerrar, enlazar cualquier actualización realizada; no escribir por rutina.
 
+## Documentación técnica
+
+- Página canónica: https://app.notion.com/p/3e16b7c64fe5812fa221e3e47770e591 («Riftally — Documentación técnica de la aplicación»), subpágina de la memoria compartida. Describe arquitectura, fuentes de datos, esquema SQLite, mapa del código, interfaz, widget, seguridad, puntuación, copias de seguridad y circuito de publicación.
+- No se actualiza sola. Al terminar una tarea que deje desfasado algo de lo que describe, actualizar las secciones afectadas y la cabecera de estado con la rama y el commit nuevos, antes de cerrar; indicarlo al usuario. Si el cambio no toca nada documentado, no escribir por rutina.
+- Editar lo mínimo y conservar el resto, igual que con la memoria. Releer la página antes de escribir.
+
 ## Repositorio y trabajo local
 
 - Verificar al empezar `git rev-parse --show-toplevel`, `git status --short --branch` y `git remote -v`; las rutas pueden variar entre equipos.
-- Referencia comprobada el 2026-09-08: carpeta `league-companion`, rama `feat/lol-all-queues`, base `f20e47a`.
-- `origin`: https://github.com/ElOsKr/mayhem-tracker-widget.git.
+- `origin`: https://github.com/ElOsKr/lol-tracker.git, fork público de `upstream`. El repositorio privado anterior, `ElOsKr/mayhem-tracker-widget`, está archivado y solo sirve de referencia histórica.
 - `upstream`: https://github.com/Yhprum/mayhem-tracker.git.
+- `main` está protegida: exige pull request y CI en verde, también para el administrador, y rechaza force-push y borrado. No intentar empujar directamente; abrir una rama y un pull request.
+- Ramas con prefijo por tipo de cambio (`fix/`, `feat/`, `ci/`, `docs/`) y descripción corta. Nunca un prefijo con el nombre de la herramienta.
 - Trabajar en una rama antes de modificar código. Continuar la rama actual si corresponde a la petición; no cambiarla ni publicar cambios por rutina.
 - Conservar cambios del usuario y distinguir estado local de estado remoto; no asumir que una rama está publicada porque existe localmente.
 
@@ -46,4 +53,4 @@
 - Controles existentes: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`.
 - `npm run test:widget` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
 - Evitar `npm run format` sobre todo el proyecto para un cambio localizado. No actualizar dependencias ni regenerar recursos por rutina.
-- Revisar identidad y destino del actualizador antes de una futura distribución de League Companion.
+- Revisar identidad y destino del actualizador antes de una futura distribución de Riftally.
