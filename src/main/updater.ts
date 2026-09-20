@@ -68,7 +68,7 @@ function parseDigest(digest: unknown): string | null {
 export async function checkForUpdate(): Promise<UpdateInfo> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/Yhprum/mayhem-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
+      `https://api.github.com/repos/ElOsKr/lol-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
       {
         headers: { "User-Agent": "mayhem-tracker" },
         signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
@@ -130,7 +130,10 @@ export async function downloadAndInstall(
   if (!portableExe) {
     return { success: false, error: "In-app update only works in the portable exe build" };
   }
-  if (!assetUrl.startsWith("https://github.com/Yhprum/mayhem-tracker/")) {
+  // Must track whichever repository checkForUpdate reads releases from: the
+  // renderer only echoes an asset URL back, so this is what stops it pointing
+  // the installer at anything else.
+  if (!assetUrl.startsWith("https://github.com/ElOsKr/lol-tracker/")) {
     return { success: false, error: "Unexpected download URL" };
   }
 
