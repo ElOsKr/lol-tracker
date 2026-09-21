@@ -10,6 +10,7 @@ import {
 } from "../shared/opScore";
 import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
 import { mapNameForSkin } from "../shared/maps";
+import { ARAM_S_GRADE_CHALLENGE_ID } from "../shared/challenges";
 import {
   DAY_START_HOUR,
   SESSION_GROUPING_SETTING,
@@ -22,6 +23,7 @@ import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
 import type {
   PlayerRecord,
+  RecapChallenge,
   RecapMilestone,
   RecapPlacement,
   RecapSessionGame,
@@ -231,6 +233,50 @@ function createTables() {
       game_id  INTEGER PRIMARY KEY,
       map_id   INTEGER,
       map_skin TEXT NOT NULL
+    );
+
+    -- The last challenge payload the client answered with, so the tab has
+    -- something to draw when the client isn't running. One row, always id 1.
+    -- Stored as JSON rather than columns because it's Riot's shape, not ours,
+    -- and nothing here queries into it.
+    CREATE TABLE IF NOT EXISTS challenge_state (
+      id         INTEGER PRIMARY KEY CHECK (id = 1),
+      payload    TEXT NOT NULL,
+      fetched_at INTEGER NOT NULL
+    );
+
+    -- One value per challenge per day. The client only ever reports where a
+    -- challenge stands right now, so this is the only place a "+312 this week"
+    -- can come from, and the one thing the tab can show that the client
+    -- itself can't. Outside the export for the same reason match_maps is: it
+    -- rebuilds itself from the client, and no stat depends on it.
+    CREATE TABLE IF NOT EXISTS challenge_history (
+      day          TEXT NOT NULL,
+      challenge_id INTEGER NOT NULL,
+      value        REAL NOT NULL,
+      level        TEXT NOT NULL,
+      PRIMARY KEY (day, challenge_id)
+    );
+
+    -- What one game moved, captured from the client's post-game answer. That
+    -- answer covers the most recent game only, so a row not written while the
+    -- game was still current can never be recovered. The name and art ride
+    -- along with the numbers because the client is the only place they live,
+    -- and a recap has to draw months later with it closed. Outside the export
+    -- like the other two: opportunistic, and no stat depends on it.
+    CREATE TABLE IF NOT EXISTS challenge_game_progress (
+      game_id        INTEGER NOT NULL,
+      challenge_id   INTEGER NOT NULL,
+      name           TEXT NOT NULL,
+      description    TEXT NOT NULL,
+      previous_value REAL NOT NULL,
+      current_value  REAL NOT NULL,
+      previous_level TEXT NOT NULL,
+      current_level  TEXT NOT NULL,
+      next_level     TEXT,
+      next_threshold REAL,
+      icon_path      TEXT NOT NULL,
+      PRIMARY KEY (game_id, challenge_id)
     );
   `);
 }
@@ -2789,6 +2835,113 @@ export function getRecords(queue?: number, account?: string): any {
   return { totalGames: rows.length, bests, winStreak, lossStreak };
 }
 
+// ---- Challenges ----
+
+// The whole payload plus one history row per challenge, in a single
+// transaction: a snapshot that recorded half its challenges would show up later
+// as a week of progress that never happened.
+export function saveChallenges(
+  day: string,
+  payload: string,
+  values: { id: number; value: number; level: string }[],
+): void {
+  const writeState = db.prepare(
+    "INSERT OR REPLACE INTO challenge_state (id, payload, fetched_at) VALUES (1, ?, ?)",
+  );
+  // Last read of the day wins, so today's row keeps pace with the live numbers
+  // while older days stay as they were.
+  const writeHistory = db.prepare(
+    "INSERT OR REPLACE INTO challenge_history (day, challenge_id, value, level) VALUES (?, ?, ?, ?)",
+  );
+  db.transaction(() => {
+    writeState.run(payload, Date.now());
+    for (const entry of values) writeHistory.run(day, entry.id, entry.value, entry.level);
+  })();
+}
+
+export function getStoredChallenges(): { payload: string; fetched_at: number } | null {
+  const row = db.prepare("SELECT payload, fetched_at FROM challenge_state WHERE id = 1").get() as
+    | { payload: string; fetched_at: number }
+    | undefined;
+  return row ?? null;
+}
+
+/**
+ * The newest snapshot taken on or before `cutoff`, as a value per challenge.
+ *
+ * Deltas all measure from one day rather than from each challenge's own last
+ * reading, so "+312 since Tuesday" means the same thing on every row. Until the
+ * history reaches back as far as `cutoff` this falls back to the oldest day
+ * recorded, so the first week of tracking still says something; only `today`
+ * itself is refused, since measuring progress from now is measuring nothing.
+ */
+export function getChallengeBaseline(
+  cutoff: string,
+  today: string,
+): { day: string; values: Record<number, number> } | null {
+  const dayRow = (db
+    .prepare("SELECT day FROM challenge_history WHERE day <= ? ORDER BY day DESC LIMIT 1")
+    .get(cutoff) ??
+    db.prepare("SELECT MIN(day) as day FROM challenge_history WHERE day < ?").get(today)) as
+    | { day: string | null }
+    | undefined;
+  if (!dayRow?.day) return null;
+
+  const rows = db
+    .prepare("SELECT challenge_id, value FROM challenge_history WHERE day = ?")
+    .all(dayRow.day) as { challenge_id: number; value: number }[];
+  const values: Record<number, number> = {};
+  for (const row of rows) values[row.challenge_id] = row.value;
+  return { day: dayRow.day, values };
+}
+
+export function saveGameChallenges(gameId: number, rows: RecapChallenge[]): void {
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO challenge_game_progress
+      (game_id, challenge_id, name, description, previous_value, current_value,
+       previous_level, current_level, next_level, next_threshold, icon_path)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  db.transaction(() => {
+    for (const row of rows) {
+      insert.run(
+        gameId,
+        row.id,
+        row.name,
+        row.description,
+        row.previousValue,
+        row.currentValue,
+        row.previousLevel,
+        row.currentLevel,
+        row.nextLevel,
+        row.nextThreshold,
+        row.iconPath,
+      );
+    }
+  })();
+}
+
+export function hasGameChallenges(gameId: number): boolean {
+  return (
+    db.prepare("SELECT 1 FROM challenge_game_progress WHERE game_id = ? LIMIT 1").get(gameId) !=
+    null
+  );
+}
+
+// A tier earned is the headline, so those come first; the rest keep the order
+// the client listed them in.
+function getGameChallenges(gameId: number): any[] {
+  return db
+    .prepare(`
+      SELECT challenge_id, name, description, previous_value, current_value,
+             previous_level, current_level, next_level, next_threshold, icon_path
+      FROM challenge_game_progress
+      WHERE game_id = ?
+      ORDER BY (previous_level = current_level), challenge_id
+    `)
+    .all(gameId);
+}
+
 // ---- Live game support ----
 
 // Which ARAM map a game was rolled onto, learned from the running game and
@@ -3439,17 +3592,47 @@ export function getGameRecap(gameId?: number): any {
   }
   if (careerScored > 0) career.avgScore = careerScore / careerScored;
 
+  const challenges = getGameChallenges(id).map(
+    (c): RecapChallenge => ({
+      id: c.challenge_id,
+      name: c.name,
+      description: c.description,
+      previousValue: c.previous_value,
+      currentValue: c.current_value,
+      previousLevel: c.previous_level,
+      currentLevel: c.current_level,
+      nextLevel: c.next_level,
+      nextThreshold: c.next_threshold,
+      iconPath: c.icon_path,
+    }),
+  );
+
+  const milestones = row ? buildMilestones(rows, index) : [];
+  // The S- challenge counts champions, not grades, so it only moves on one a
+  // champion has never earned before. A game that moved it is that game.
+  const firstSGrade = challenges.find(
+    (c) => c.id === ARAM_S_GRADE_CHALLENGE_ID && c.currentValue > c.previousValue,
+  );
+  if (firstSGrade) {
+    milestones.push({
+      key: "challenge-s-grade",
+      label: "First S on this champion",
+      detail: `${firstSGrade.name}: ${firstSGrade.currentValue} champions`,
+    });
+  }
+
   return {
     detail,
     mapName: getGameMapName(id),
     score: detail.stats?.score ?? null,
     scoreBadge: detail.stats?.score_badge ?? null,
     placements: row ? buildPlacements(rows, row) : [],
-    milestones: row ? buildMilestones(rows, index) : [],
+    milestones,
     session,
     streak: row ? buildStreak(rows, index) : null,
     champion,
     career,
+    challenges,
   };
 }
 

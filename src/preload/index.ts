@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   BackfillProgress,
   BackfillResult,
+  ChallengesResult,
   ElectronAPI,
   LcuStatus,
   LiveGameSnapshot,
@@ -113,6 +114,14 @@ const api: ElectronAPI = {
 
   getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),
+
+  getChallenges: () => ipcRenderer.invoke("challenges:get"),
+
+  onChallengesChanged: (callback: (result: ChallengesResult) => void) => {
+    const handler = (_event: unknown, result: ChallengesResult) => callback(result);
+    ipcRenderer.on("challenges:changed", handler);
+    return () => ipcRenderer.removeListener("challenges:changed", handler);
+  },
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
 

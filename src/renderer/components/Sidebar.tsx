@@ -16,6 +16,7 @@ import {
   SettingsIcon,
   RefreshIcon,
   RadioIcon,
+  AwardIcon,
 } from "./icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -28,6 +29,7 @@ const links: { to: string; label: string; icon: IconComponent }[] = [
   { to: "/friends", label: "Friends", icon: UsersIcon },
   { to: "/trends", label: "Trends", icon: TrendingUpIcon },
   { to: "/records", label: "Records", icon: MedalIcon },
+  { to: "/challenges", label: "Challenges", icon: AwardIcon },
   { to: "/global", label: "Total Stats", icon: GlobeIcon },
 ];
 

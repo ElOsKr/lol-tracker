@@ -3,6 +3,7 @@ import fs from "fs";
 import * as db from "./db";
 import * as lcu from "./lcu";
 import * as live from "./live";
+import * as challenges from "./challenges";
 import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
@@ -261,6 +262,10 @@ export function registerIpcHandlers() {
       return db.getGlobalChampionDetail(championId, patch, queue);
     },
   );
+
+  ipcMain.handle("challenges:get", () => {
+    return challenges.getChallenges();
+  });
 
   ipcMain.handle("db:all-summoner-puuids", () => {
     return db.getAllPuuids();

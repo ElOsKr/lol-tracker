@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import type {
   ChampionData,
   GameRecap as GameRecapData,
+  RecapChallenge,
   RecapPlacement,
   RecapSessionGame,
 } from "../lib/types";
@@ -16,9 +17,15 @@ import {
   kdaRatio,
   winRatePercent,
 } from "../lib/format";
+import {
+  CHALLENGE_LEVEL_COLORS,
+  challengeLevelName,
+  formatChallengeValue,
+} from "../lib/challenges";
 import { ordinal } from "../../shared/text";
 import { scoreColor } from "../../shared/opScore";
 import { queueLabel } from "./QueueSelect";
+import ChallengeToken from "./ChallengeToken";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
 import AugmentIcon from "./AugmentIcon";
@@ -28,6 +35,7 @@ import { ScoreBadge } from "./ScoreCell";
 import WinRateBar from "./WinRateBar";
 import { ACCENTS, type StatAccent } from "./StatCard";
 import {
+  AwardIcon,
   FlameIcon,
   MapPinIcon,
   MedalIcon,
@@ -263,6 +271,21 @@ export default function GameRecap({
         </Panel>
       )}
 
+      {recap.challenges.length > 0 && (
+        <Panel
+          title="Challenge progress"
+          subtitle={`${recap.challenges.length} moved by this game`}
+          icon={<AwardIcon className="h-3 w-3" />}
+          accent="purple"
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {recap.challenges.map((challenge) => (
+              <ChallengeCard key={challenge.id} challenge={challenge} />
+            ))}
+          </div>
+        </Panel>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Panel
           title="This session"
@@ -483,6 +506,53 @@ function PlacementCard({ placement, recap }: { placement: RecapPlacement; recap:
             ? "Best ever"
             : "Most ever"
           : `${ordinal(placement.rank)} of ${placement.total.toLocaleString()}`}
+      </div>
+    </div>
+  );
+}
+
+// What this one game moved. The client hands over the before and after itself,
+// so the gain is exact rather than inferred from a daily snapshot.
+function ChallengeCard({ challenge }: { challenge: RecapChallenge }) {
+  const gain = challenge.currentValue - challenge.previousValue;
+  const tierUp = challenge.previousLevel !== challenge.currentLevel;
+
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 ${
+        tierUp ? "border-lol-gold/50 bg-lol-gold/10" : "border-lol-border/60 bg-white/[0.02]"
+      }`}
+      title={challenge.description}
+    >
+      <div className="flex items-center gap-2.5">
+        <ChallengeToken iconPath={challenge.iconPath} size={28} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="truncate text-xs font-medium text-lol-text-bright">
+              {challenge.name}
+            </span>
+            <span className="ml-auto shrink-0 text-xs font-semibold text-lol-win">
+              +{formatChallengeValue(gain)}
+            </span>
+          </div>
+          <div className="truncate text-[11px] text-lol-text">
+            {tierUp ? (
+              <span
+                className="font-semibold"
+                style={{ color: CHALLENGE_LEVEL_COLORS[challenge.currentLevel] }}
+              >
+                {challengeLevelName(challenge.previousLevel)} to{" "}
+                {challengeLevelName(challenge.currentLevel)}
+              </span>
+            ) : challenge.nextThreshold == null ? (
+              `${formatChallengeValue(challenge.currentValue)} · complete`
+            ) : (
+              `${formatChallengeValue(challenge.currentValue)} / ${formatChallengeValue(
+                challenge.nextThreshold,
+              )} to ${challengeLevelName(challenge.nextLevel)}`
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
