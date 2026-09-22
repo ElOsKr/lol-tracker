@@ -5,7 +5,7 @@
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
 - Fase actual (2026-09-20): widget integrado y publicado en `main`, sincronización con el proyecto original al día y canal de releases propio desde 0.1.0. La ampliación a todas las colas de LoL se integra en esta rama; TFT sigue pendiente. Diez colas verificadas con muestras reales sobre copia; Arena y Enjambre siguen sin validación real. Los contadores de fin de partida son instantáneas de Riot y pueden reiniciarse: no equivalen al histórico completo.
-- Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo a League Companion por estar ya en uso. El renombrado del paquete, ejecutable e identificador, todavía Mayhem Tracker, queda para una entrega aparte. El actualizador ya lee las releases de este repositorio, así que la desactivación provisional de actualizaciones oficiales deja de ser necesaria.
+- Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo a League Companion por estar ya en uso. El paquete es `riftally`, el ejecutable `Riftally.exe` y el identificador `com.riftally.app`; las instalaciones anteriores migran sus datos desde `%APPDATA%\mayhem-tracker` al arrancar (`migrateLegacyUserData` en `src/main/paths.ts`). El actualizador ya lee las releases de este repositorio, así que la desactivación provisional de actualizaciones oficiales deja de ser necesaria.
 - Conservar la licencia MIT y la atribución originales.
 
 ## Memoria compartida
@@ -54,4 +54,4 @@
 - `npm run test:widget` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
 - `npm run test:aram` usa el Node de Electron y SQLite real con datos sintéticos aislados para captura ARAM, separación de colas, persistencia y compatibilidad.
 - Evitar `npm run format` sobre todo el proyecto para un cambio localizado. No actualizar dependencias ni regenerar recursos por rutina.
-- Revisar identidad y destino del actualizador antes de una futura distribución de Riftally.
+- El actualizador lee las releases de ElOsKr/lol-tracker y solo acepta descargas de ese repositorio.
