@@ -7,7 +7,7 @@ import { useBackfill } from "../hooks/useBackfill";
 import type { LcuStatus, UpdateInfo } from "../lib/types";
 import UpdateDialog from "./UpdateDialog";
 import {
-  MayhemIcon,
+  RiftallyIcon,
   SwordsIcon,
   TrophyIcon,
   CrosshairIcon,
@@ -154,11 +154,11 @@ export default function Sidebar() {
     <nav className="w-56 bg-lol-card/60 border-r border-lol-border/60 flex flex-col shrink-0">
       <div className="titlebar-drag h-14 shrink-0 flex items-center gap-2.5 px-4 border-b border-lol-border/40">
         <div className="w-7 h-7 rounded-lg border border-lol-gold/40 bg-lol-gold/10 flex items-center justify-center shrink-0">
-          <MayhemIcon className="w-5 h-5 text-lol-gold" />
+          <RiftallyIcon className="w-5 h-5 text-lol-gold" />
         </div>
         <div className="flex flex-col justify-center leading-none">
           <span className="font-bold text-[15px] tracking-[0.02em] text-lol-text-bright">
-            Mayhem
+            Riftally
           </span>
           <span className="text-[8px] font-semibold uppercase tracking-[0.35em] text-lol-text/80 mt-1">
             Tracker

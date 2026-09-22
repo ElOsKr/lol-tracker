@@ -4,7 +4,7 @@ import path from "path";
 // Windows groups taskbar entries and attributes notifications by this id, and
 // only substitutes a pinned shortcut for the running exe when the shortcut
 // carries the same one — so the app and the shortcut below must agree.
-export const APP_USER_MODEL_ID = "com.mayhem-tracker.app";
+export const APP_USER_MODEL_ID = "com.riftally.app";
 
 // The portable build runs from a temp copy that its launcher extracts on start
 // and deletes on exit, so pinning the running window would pin a path that no

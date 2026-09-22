@@ -2,6 +2,7 @@ import { app, BrowserWindow, Tray, Menu, nativeImage } from "electron";
 import path from "path";
 import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
+import { migrateLegacyUserData } from "./paths";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
 import { startLiveTracking, stopLiveTracking } from "./live";
@@ -138,7 +139,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("Mayhem Tracker");
+  tray.setToolTip("Riftally");
   tray.setContextMenu(contextMenu);
   tray.on("double-click", () => {
     mainWindow?.show();
@@ -160,6 +161,9 @@ app.whenReady().then(async () => {
   // Initialize the database first. Through the backup module rather than
   // directly: a database that has been deleted or damaged since the last launch
   // is restored from the newest good snapshot here, before anything reads it.
+  // Before the database opens: an install from before the rename still has
+  // its games under the old folder name.
+  migrateLegacyUserData();
   initDatabaseWithRecovery();
 
   // Needs the database, which holds the answer. Keeps the login item pointing at

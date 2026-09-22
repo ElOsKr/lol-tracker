@@ -50,7 +50,7 @@ function slug(name: string): string {
 
 function defaultFileName(gameId: number): string {
   const detail = db.getMatchDetail(gameId);
-  if (!detail) return `mayhem-game-${gameId}.png`;
+  if (!detail) return `riftally-game-${gameId}.png`;
   const champion = dragon.getChampionData()[detail.stats?.champion_id]?.name;
   const date = new Date(detail.game.game_creation);
   const day = [
@@ -60,7 +60,7 @@ function defaultFileName(gameId: number): string {
   ].join("-");
   // The game id rides along so two games on the same champion on the same day
   // are offered different names rather than one overwriting the other
-  return `mayhem-${champion ? `${slug(champion)}-` : ""}${day}-${gameId}.png`;
+  return `riftally-${champion ? `${slug(champion)}-` : ""}${day}-${gameId}.png`;
 }
 
 function createCardWindow(): BrowserWindow {

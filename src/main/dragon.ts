@@ -19,7 +19,7 @@ let championReady: Promise<void> | null = null;
 
 async function fetchJson(url: string): Promise<any> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "MayhemTracker/1.0" },
+    headers: { "User-Agent": "Riftally/1.0" },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
@@ -428,7 +428,7 @@ async function probeUrl(url: string): Promise<IconProbe> {
   try {
     const res = await fetch(url, {
       method: "HEAD",
-      headers: { "User-Agent": "MayhemTracker/1.0" },
+      headers: { "User-Agent": "Riftally/1.0" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (res.ok) return "ok";

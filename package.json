@@ -1,7 +1,7 @@
 {
-  "name": "mayhem-tracker",
+  "name": "riftally",
   "version": "0.1.0",
-  "description": "ARAM Mayhem match history tracker",
+  "description": "League of Legends match history tracker for every queue, born from ARAM Mayhem",
   "license": "MIT",
   "main": "./out/main/index.js",
   "scripts": {
@@ -50,8 +50,8 @@
     "vite": "^7.3.1"
   },
   "build": {
-    "appId": "com.mayhem-tracker.app",
-    "productName": "Mayhem Tracker",
+    "appId": "com.riftally.app",
+    "productName": "Riftally",
     "directories": {
       "output": "dist"
     },
@@ -66,7 +66,7 @@
     "win": {
       "target": "portable",
       "icon": "assets/icon.ico",
-      "artifactName": "MayhemTracker.exe"
+      "artifactName": "Riftally.exe"
     },
     "portable": {
       "unpackDirName": true

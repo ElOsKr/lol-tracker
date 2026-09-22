@@ -84,7 +84,7 @@ test("queue selection persists in order and never clears to all queues", async (
 // origen es lo unico que impide apuntar el instalador a otro sitio.
 test("an installer can only be fed a download from this project's own releases", async () => {
   const previous = process.env.PORTABLE_EXECUTABLE_FILE;
-  process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\MayhemTracker.exe";
+  process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\Riftally.exe";
   const originalFetch = global.fetch;
   global.fetch = async () => {
     assert.fail("A rejected URL must not reach the network");
@@ -347,5 +347,72 @@ test("widget shares account/queue filters, excludes remakes from streak and expo
       () => handlers.get("widget:preferences")(event, { ...appearance, ...change }),
       /Invalid widget selection/,
     );
+  }
+});
+
+// El paquete se llamó mayhem-tracker hasta la 0.2.0, y Electron deriva la
+// carpeta userData del nombre: las instalaciones anteriores guardan sus
+// partidas bajo el nombre viejo. Se mueven solo data y backups, nunca la
+// carpeta entera, porque Chromium ya ha creado la nueva cuando esto corre.
+test("legacy data and backups move to the renamed userData folder exactly once", () => {
+  const os = require("node:os");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "riftally-migrate-"));
+  const oldRoot = path.join(root, "mayhem-tracker");
+  const newRoot = path.join(root, "riftally");
+  fs.mkdirSync(path.join(oldRoot, "data"), { recursive: true });
+  fs.mkdirSync(path.join(oldRoot, "backups"), { recursive: true });
+  fs.mkdirSync(path.join(oldRoot, "Cache"), { recursive: true });
+  fs.writeFileSync(path.join(oldRoot, "data", "matches.db"), "db");
+  fs.writeFileSync(path.join(oldRoot, "backups", "a.db"), "bak");
+  fs.writeFileSync(path.join(oldRoot, "Cache", "x"), "cache");
+  // Chromium creates the new folder before the app gets a turn
+  fs.mkdirSync(newRoot, { recursive: true });
+  try {
+    const paths = load("src/main/paths.ts", { electron: { app: {} } });
+
+    assert.deepEqual(paths.migrateLegacyRoot(oldRoot, newRoot), ["data", "backups"]);
+    assert.equal(fs.readFileSync(path.join(newRoot, "data", "matches.db"), "utf8"), "db");
+    assert.equal(fs.readFileSync(path.join(newRoot, "backups", "a.db"), "utf8"), "bak");
+    assert.ok(!fs.existsSync(path.join(oldRoot, "data")), "old data folder is gone");
+    assert.ok(fs.existsSync(path.join(oldRoot, "Cache")), "unrelated old folders stay put");
+
+    // Second launch: nothing left to move
+    assert.deepEqual(paths.migrateLegacyRoot(oldRoot, newRoot), []);
+
+    // A new install that already has its own data never gets overwritten
+    fs.mkdirSync(path.join(oldRoot, "data"), { recursive: true });
+    fs.writeFileSync(path.join(oldRoot, "data", "matches.db"), "stale");
+    assert.deepEqual(paths.migrateLegacyRoot(oldRoot, newRoot), []);
+    assert.equal(fs.readFileSync(path.join(newRoot, "data", "matches.db"), "utf8"), "db");
+
+    // No old folder at all, and same folder twice: both are no-ops
+    assert.deepEqual(paths.migrateLegacyRoot(path.join(root, "nope"), newRoot), []);
+    assert.deepEqual(paths.migrateLegacyRoot(newRoot, newRoot), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("migrateLegacyUserData resolves the old folder next to the new one and only when packaged", () => {
+  const os = require("node:os");
+  const appData = fs.mkdtempSync(path.join(os.tmpdir(), "riftally-appdata-"));
+  const oldRoot = path.join(appData, "mayhem-tracker");
+  const newRoot = path.join(appData, "riftally");
+  fs.mkdirSync(path.join(oldRoot, "data"), { recursive: true });
+  fs.writeFileSync(path.join(oldRoot, "data", "matches.db"), "db");
+  const app = (packaged) => ({
+    isPackaged: packaged,
+    getPath: (name) => (name === "appData" ? appData : newRoot),
+  });
+  try {
+    // Development runs keep their data in the project folder; nothing to touch
+    load("src/main/paths.ts", { electron: { app: app(false) } }).migrateLegacyUserData();
+    assert.ok(fs.existsSync(path.join(oldRoot, "data")), "dev leaves the old folder alone");
+
+    load("src/main/paths.ts", { electron: { app: app(true) } }).migrateLegacyUserData();
+    assert.equal(fs.readFileSync(path.join(newRoot, "data", "matches.db"), "utf8"), "db");
+    assert.ok(!fs.existsSync(path.join(oldRoot, "data")));
+  } finally {
+    fs.rmSync(appData, { recursive: true, force: true });
   }
 });
