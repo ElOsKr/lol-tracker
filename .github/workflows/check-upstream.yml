@@ -68,6 +68,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create \
-            --title "Upstream sync available: ${{ steps.compare.outputs.behind }} new commit(s)" \
-            --body-file upstream-report.md
+          # Por REST y no por "gh issue create": ese comando usa la mutación GraphQL
+          # createIssue, que rechaza el GITHUB_TOKEN de este repositorio aunque el
+          # runner confirme que tiene issues:write. El endpoint REST acepta el mismo token.
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues" \
+            -f title="Upstream sync available: ${{ steps.compare.outputs.behind }} new commit(s)" \
+            -F body=@upstream-report.md
