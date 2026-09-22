@@ -78,27 +78,40 @@ test("queue selection persists in order and never clears to all queues", async (
   }
 });
 
-test("official updates cannot replace the custom app, including portable builds", async () => {
+// El proyecto ya publica sus propias releases, asi que comprobar
+// actualizaciones es legitimo. Lo que sigue sin poder ocurrir es instalar un
+// ejecutable ajeno: el renderer solo devuelve una URL, y la validacion del
+// origen es lo unico que impide apuntar el instalador a otro sitio.
+test("an installer can only be fed a download from this project's own releases", async () => {
   const previous = process.env.PORTABLE_EXECUTABLE_FILE;
   process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\MayhemTracker.exe";
   const originalFetch = global.fetch;
   global.fetch = async () => {
-    assert.fail("Disabled updates must not access the network");
+    assert.fail("A rejected URL must not reach the network");
   };
   try {
     const updater = load("src/main/updater.ts", {
       electron: { app: { quit: () => assert.fail("Must not quit") } },
       child_process: { spawn: () => assert.fail("Must not launch an installer") },
     });
-    const check = await updater.checkForUpdate();
-    assert.equal(check.hasUpdate, false);
-    assert.match(check.error, /disabled/);
-    const install = await updater.downloadAndInstall(
+    // La release del proyecto original, que es justo la que no debe instalarse
+    const upstream = await updater.downloadAndInstall(
       {},
       "https://github.com/Yhprum/mayhem-tracker/releases/download/v1.11.0/MayhemTracker.exe",
     );
-    assert.equal(install.success, false);
-    assert.match(install.error, /disabled/);
+    assert.equal(upstream.success, false);
+    assert.match(upstream.error, /Unexpected download URL/);
+
+    // Cualquier otro anfitrion, incluido uno que solo se le parezca
+    for (const url of [
+      "https://github.com/ElOsKr-evil/lol-tracker/releases/download/v1/x.exe",
+      "https://example.com/lol-tracker/x.exe",
+      "https://github.com/ElOsKr/otro-repo/releases/download/v1/x.exe",
+    ]) {
+      const bad = await updater.downloadAndInstall({}, url);
+      assert.equal(bad.success, false, url);
+      assert.match(bad.error, /Unexpected download URL/, url);
+    }
   } finally {
     global.fetch = originalFetch;
     if (previous === undefined) delete process.env.PORTABLE_EXECUTABLE_FILE;

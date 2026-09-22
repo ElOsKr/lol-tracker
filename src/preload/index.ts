@@ -101,7 +101,8 @@ const api: ElectronAPI = {
 
   getTrends: (queue?: number) => ipcRenderer.invoke("db:trends", queue),
 
-  getRecords: (queue?: number) => ipcRenderer.invoke("db:records", queue),
+  getRecords: (queue?: number, account?: string) =>
+    ipcRenderer.invoke("db:records", queue, account),
 
   getLiveGame: () => ipcRenderer.invoke("live:snapshot"),
 
@@ -113,10 +114,10 @@ const api: ElectronAPI = {
 
   getGameRecap: (gameId?: number) => ipcRenderer.invoke("db:game-recap", gameId),
 
+  getGameCard: (gameId: number) => ipcRenderer.invoke("db:game-card", gameId),
+
   getGlobalChampionDetail: (championId: number, patch?: string, queue?: number) =>
     ipcRenderer.invoke("db:global-champion-detail", championId, patch, queue),
-
-  getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 
   getAllSummonerPuuids: () => ipcRenderer.invoke("db:all-summoner-puuids"),
 
@@ -139,6 +140,10 @@ const api: ElectronAPI = {
   isAutoStartSupported: () => ipcRenderer.invoke("autostart:supported"),
 
   setSetting: (key: string, value: string) => ipcRenderer.invoke("settings:set", key, value),
+
+  exportGameImage: (gameId: number) => ipcRenderer.invoke("export:game-image", gameId),
+
+  copyGameImage: (gameId: number) => ipcRenderer.invoke("export:copy-game-image", gameId),
 
   exportData: () => ipcRenderer.invoke("data:export"),
 

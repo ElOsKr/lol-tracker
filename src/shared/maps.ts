@@ -3,7 +3,7 @@
 // "Random Map", and there is no separate map id for them. The only thing that
 // names the one that was rolled is the map skin, which the game logs as
 // "mapskin = ..." and the in-game API serves as gameData.mapTerrain.
-export const MAP_SKIN_NAMES: Record<string, string> = {
+const MAP_SKIN_NAMES: Record<string, string> = {
   Default: "Howling Abyss",
   Bilgewater: "Butcher's Bridge",
   Bloom: "Koeshin's Crossing",

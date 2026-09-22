@@ -7,7 +7,7 @@ import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./l
 import { startLiveTracking, stopLiveTracking } from "./live";
 import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
 import { applySecurityPolicy } from "./security";
-import { ensureStartMenuShortcut } from "./shortcut";
+import { APP_USER_MODEL_ID, ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 
 import { openWidget, registerWidgetHandlers, stopWidget } from "./widget";
@@ -38,7 +38,8 @@ if (!gotTheLock) {
   });
 }
 
-const iconPath = path.join(app.getAppPath(), "assets/icon.png");
+const asset = (name: string) => path.join(app.getAppPath(), "assets", name);
+const iconPath = asset("icon.png");
 
 // Set by the login item when auto-start is on: come up in the tray only.
 const launchedHidden = process.argv.includes(HIDDEN_FLAG);
@@ -113,8 +114,9 @@ function createWindow(): BrowserWindow {
 }
 
 function createTray() {
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  tray = new Tray(trayIcon);
+  // Drawn at tray sizes rather than scaled down from the window icon. Electron
+  // picks up the @2x file beside it on a HiDPI display.
+  tray = new Tray(nativeImage.createFromPath(asset("tray.png")));
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -144,9 +146,8 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
-  // Windows groups taskbar entries and attributes notifications by this id;
-  // without it the app is identified by the Electron executable instead.
-  app.setAppUserModelId("com.mayhem-tracker.app");
+  // Without this the app is identified by the Electron executable instead.
+  app.setAppUserModelId(APP_USER_MODEL_ID);
 
   // Pairs with that id: gives the taskbar a durable shortcut to pin in place of
   // the temp exe the portable launcher runs from.

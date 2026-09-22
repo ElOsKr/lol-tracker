@@ -1,0 +1,30 @@
+# Agrupa las notas que `gh release create --generate-notes` escribe en cada
+# release. Sin este archivo todos los pull requests salen en una sola lista
+# plana; con él se reparten por la etiqueta que lleve cada uno.
+#
+# Un pull request sin etiqueta cae en "Otros cambios", así que conviene
+# etiquetarlos con `enhancement` o `bug` antes de fusionarlos.
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+      - question
+  categories:
+    - title: Nuevas funciones
+      labels:
+        - enhancement
+    - title: Correcciones
+      labels:
+        - bug
+    - title: Accesibilidad
+      labels:
+        - accessibility
+    - title: Documentación
+      labels:
+        - documentation
+    # Comodín: recoge todo lo que no encaje arriba, y por eso va el último.
+    - title: Otros cambios
+      labels:
+        - "*"

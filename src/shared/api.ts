@@ -122,12 +122,13 @@ export interface MatchFilters {
   favorites?: boolean;
 }
 
-// One day of play under the current match-list filters. The list is paged, so
-// the rows on screen only ever describe part of a session; these totals cover
-// all of it.
+// One session of play under the current match-list filters. The list is paged,
+// so the rows on screen only ever describe part of a session; these totals
+// cover all of it.
 export interface MatchSession {
-  // Local calendar date of the session day, YYYY-MM-DD
-  day: string;
+  // What the session is grouped under, as sessionKey spells it: a YYYY-MM-DD
+  // date for days and weeks, a patch for patches, empty for games missing one
+  key: string;
   // Every game, remakes included
   games: number;
   // Everything below counts only games that are not remakes
@@ -136,7 +137,7 @@ export interface MatchSession {
   kills: number;
   deaths: number;
   assists: number;
-  // Null when no game that day has a stored score; scored_games is the
+  // Null when no game in the session has a stored score; scored_games is the
   // denominator, so the average stays honest when only some of them do
   score_sum: number | null;
   scored_games: number;
@@ -156,8 +157,7 @@ export interface MatchFilterOptions {
   hasFavorites: boolean;
 }
 
-// One row per player, straight from match_participants — the scoreboard no
-// longer reconstructs these from a raw match payload.
+// One row per player, straight from match_participants.
 export interface MatchParticipantRecord {
   placement?: number | null;
   cs?: number | null;
@@ -542,9 +542,12 @@ export interface UpdateInfo {
   url?: string;
   assetUrl?: string;
   assetSize?: number;
-  // Every release newer than the installed version, newest first
+  // Every release newer than the installed version, newest first, so someone who
+  // skipped a few versions sees the notes they missed rather than only the last
+  // set. Empty when already up to date.
   releases?: ReleaseNote[];
-  // True when there are skipped releases beyond the page the check fetched
+  // True when the fetched page never reached back to the installed version, so
+  // there are skipped releases the dialog cannot show.
   moreVersions?: boolean;
   error?: string;
 }
@@ -678,8 +681,9 @@ export interface RecapSessionGame {
   score: number | null;
 }
 
-// The day's play around this game, by the same "day starts at 5am" rule the
-// match list groups sessions with.
+// The day's play around this game, under the same "day starts at 5am" rule the
+// match list uses for a day. Always a day, however the match list is grouped:
+// what a game sat among is a question about that night's play.
 export interface RecapSession {
   day: number;
   // Where this game sits in games, 0-based
@@ -745,6 +749,18 @@ export interface GameRecap {
   career: RecapCareer;
 }
 
+// What the exported image is drawn from: the scoreboard and the line above it.
+// Deliberately not the recap — a card is about the game, not about where it
+// lands in a career.
+export interface GameCardData {
+  detail: MatchDetail;
+  // Only known for games the app watched live, since nothing in the stored
+  // match says which of the three ARAM maps it was played on
+  mapName: string | null;
+  // The icon of the account that played it, as it was at the time
+  profileIcon: number | null;
+}
+
 export interface ElectronAPI {
   getWidgetState(): Promise<WidgetState>;
   openWidget(): Promise<WidgetState>;
@@ -785,16 +801,16 @@ export interface ElectronAPI {
   getTeammateDetail: (key: string) => Promise<TeammateDetail | null>;
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getTrends: (queue?: number) => Promise<TrendsData>;
-  getRecords: (queue?: number) => Promise<RecordsData>;
+  getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
   getLiveGame: () => Promise<LiveGameSnapshot>;
   onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => () => void;
   getGameRecap: (gameId?: number) => Promise<GameRecap | null>;
+  getGameCard: (gameId: number) => Promise<GameCardData | null>;
   getGlobalChampionDetail: (
     championId: number,
     patch?: string,
     queue?: number,
   ) => Promise<GlobalChampionDetail>;
-  getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   getProfile: () => Promise<{ name: string | null; profileIcon: number | null }>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number } | { error: string }>;
@@ -814,6 +830,15 @@ export interface ElectronAPI {
   getSetting: (key: string) => Promise<string | null>;
   isAutoStartSupported: () => Promise<boolean>;
   setSetting: (key: string, value: string) => Promise<void>;
+  // No error alongside success: false means the save dialog was dismissed
+  exportGameImage: (gameId: number) => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
+  }>;
+  // Nothing to report on success beyond that it worked: the image is on the
+  // clipboard, not anywhere on disk
+  copyGameImage: (gameId: number) => Promise<{ success: boolean; error?: string }>;
   exportData: () => Promise<{
     success: boolean;
     path?: string;

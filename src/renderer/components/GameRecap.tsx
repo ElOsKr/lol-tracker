@@ -7,6 +7,7 @@ import type {
 } from "../lib/types";
 import { getChampionName } from "../hooks/useChampions";
 import {
+  formatCompact,
   formatDuration,
   formatKDA,
   formatPlaytime,
@@ -23,6 +24,7 @@ import ItemIcon from "./ItemIcon";
 import AugmentIcon from "./AugmentIcon";
 import MatchScoreboard from "./MatchScoreboard";
 import MultikillBadge from "./MultikillBadge";
+import { ScoreBadge } from "./ScoreCell";
 import WinRateBar from "./WinRateBar";
 import { ACCENTS, type StatAccent } from "./StatCard";
 import {
@@ -37,16 +39,13 @@ import {
   TrendingUpIcon,
 } from "./icons";
 
-const compact = (value: number) =>
-  value >= 1000 ? `${(value / 1000).toFixed(1)}k` : Math.round(value).toString();
-
 // A stat against the average of every game on record. Small differences aren't
 // worth colouring, so anything inside a tenth of the average reads as neutral.
 function Delta({ value, average, format }: { value: number; average: number; format?: "compact" }) {
   if (average <= 0) return null;
   const diff = value - average;
   const meaningful = Math.abs(diff) > average * 0.1;
-  const text = format === "compact" ? compact(Math.abs(diff)) : Math.abs(diff).toFixed(1);
+  const text = format === "compact" ? formatCompact(Math.abs(diff)) : Math.abs(diff).toFixed(1);
 
   return (
     <span
@@ -121,17 +120,7 @@ export default function GameRecap({
               >
                 {isRemake ? "REMAKE" : isWin ? "VICTORY" : "DEFEAT"}
               </span>
-              {recap.scoreBadge && (
-                <span
-                  className={`rounded px-1.5 text-[11px] font-bold leading-[18px] ${
-                    recap.scoreBadge === "MVP"
-                      ? "bg-amber-400/20 text-amber-300"
-                      : "bg-purple-500/20 text-purple-400"
-                  }`}
-                >
-                  {recap.scoreBadge}
-                </span>
-              )}
+              {recap.scoreBadge && <ScoreBadge badge={recap.scoreBadge} large />}
             </div>
             <div className="mt-1 text-sm text-lol-text-bright">
               {getChampionName(champData, stats?.champion_id ?? 0)}
@@ -195,7 +184,7 @@ export default function GameRecap({
         <div className="relative mt-4 flex flex-wrap items-start gap-4">
           <HeadlineStat
             label="Damage"
-            value={compact(stats?.total_damage_dealt ?? 0)}
+            value={formatCompact(stats?.total_damage_dealt ?? 0)}
             delta={
               <Delta
                 value={stats?.total_damage_dealt ?? 0}
@@ -206,7 +195,7 @@ export default function GameRecap({
           />
           <HeadlineStat
             label="Taken"
-            value={compact(stats?.total_damage_taken ?? 0)}
+            value={formatCompact(stats?.total_damage_taken ?? 0)}
             delta={
               <Delta
                 value={stats?.total_damage_taken ?? 0}
@@ -217,14 +206,14 @@ export default function GameRecap({
           />
           <HeadlineStat
             label="Healing"
-            value={compact(stats?.total_heal ?? 0)}
+            value={formatCompact(stats?.total_heal ?? 0)}
             delta={
               <Delta value={stats?.total_heal ?? 0} average={career.avgHeal} format="compact" />
             }
           />
           <HeadlineStat
             label="Gold"
-            value={compact(stats?.gold_earned ?? 0)}
+            value={formatCompact(stats?.gold_earned ?? 0)}
             delta={
               <Delta value={stats?.gold_earned ?? 0} average={career.avgGold} format="compact" />
             }
@@ -452,7 +441,7 @@ function placementValue(placement: RecapPlacement, recap: GameRecapData): string
     case "score":
       return placement.value.toFixed(1);
     case "compact":
-      return compact(placement.value);
+      return formatCompact(placement.value);
     case "duration":
       return formatDuration(placement.value);
     case "kda":

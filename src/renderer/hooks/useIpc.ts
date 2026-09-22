@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 export function useIpc<T>(fetcher: () => Promise<T>, deps: any[] = []) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
+  // Expuesto porque hay vistas que muestran el fallo en vez de quedarse en
+  // blanco; sin esto, un error solo deja rastro en la consola.
   const [error, setError] = useState<string | null>(null);
 
   // Callers pass an inline arrow, which is a new function every render. Reading
@@ -30,7 +32,8 @@ export function useIpc<T>(fetcher: () => Promise<T>, deps: any[] = []) {
         setData(result);
       } catch (err: any) {
         if (id !== requestId.current) return;
-        setError(err.message || "Unknown error");
+        console.error("IPC request failed:", err);
+        setError(err?.message || "Unknown error");
       } finally {
         if (id === requestId.current) setLoading(false);
       }

@@ -4,8 +4,8 @@
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-14): widget integrado y validado previamente en OBS; base oficial v1.11.1 integrada. Catálogo LoL ampliado e importación por política lol-v1, con selección global de una sola cola; TFT excluido. Diez colas verificadas con muestras reales sobre copia; Arena/Enjambre con validación real pendiente. Contadores EOG son snapshots de Riot y pueden reiniciarse; no equivalen al histórico completo.
-- Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo League Companion. El renombrado visual/técnico del paquete y ejecutable, todavía Mayhem Tracker, se realizará en una entrega separada. Consulta e instalación de actualizaciones oficiales desactivadas para preservar las funciones propias hasta disponer de un canal propio.
+- Fase actual (2026-09-20): widget integrado y publicado en `main`, sincronización con el proyecto original al día y canal de releases propio desde 0.1.0. La ampliación a todas las colas de LoL se integra en esta rama; TFT sigue pendiente. Diez colas verificadas con muestras reales sobre copia; Arena y Enjambre siguen sin validación real. Los contadores de fin de partida son instantáneas de Riot y pueden reiniciarse: no equivalen al histórico completo.
+- Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo a League Companion por estar ya en uso. El renombrado del paquete, ejecutable e identificador, todavía Mayhem Tracker, queda para una entrega aparte. El actualizador ya lee las releases de este repositorio, así que la desactivación provisional de actualizaciones oficiales deja de ser necesaria.
 - Conservar la licencia MIT y la atribución originales.
 
 ## Memoria compartida
@@ -19,12 +19,19 @@
 - No guardar secretos, historiales personales ni conversaciones completas. Si Notion falla, continuar con lo conocido, indicar la limitación y enumerar al cierre las actualizaciones pendientes; no crear otra memoria canónica.
 - Al cerrar, enlazar cualquier actualización realizada; no escribir por rutina.
 
+## Documentación técnica
+
+- Página canónica: https://app.notion.com/p/3e16b7c64fe5812fa221e3e47770e591 («Riftally — Documentación técnica de la aplicación»), subpágina de la memoria compartida. Describe arquitectura, fuentes de datos, esquema SQLite, mapa del código, interfaz, widget, seguridad, puntuación, copias de seguridad y circuito de publicación.
+- No se actualiza sola. Al terminar una tarea que deje desfasado algo de lo que describe, actualizar las secciones afectadas y la cabecera de estado con la rama y el commit nuevos, antes de cerrar; indicarlo al usuario. Si el cambio no toca nada documentado, no escribir por rutina.
+- Editar lo mínimo y conservar el resto, igual que con la memoria. Releer la página antes de escribir.
+
 ## Repositorio y trabajo local
 
 - Verificar al empezar `git rev-parse --show-toplevel`, `git status --short --branch` y `git remote -v`; las rutas pueden variar entre equipos.
-- Referencia comprobada el 2026-09-08: carpeta `league-companion`, rama `feat/lol-all-queues`, base `f20e47a`.
-- `origin`: https://github.com/ElOsKr/mayhem-tracker-widget.git.
+- `origin`: https://github.com/ElOsKr/lol-tracker.git, fork público de `upstream`. El repositorio privado anterior, `ElOsKr/mayhem-tracker-widget`, está archivado y solo sirve de referencia histórica.
 - `upstream`: https://github.com/Yhprum/mayhem-tracker.git.
+- `main` está protegida: exige pull request y CI en verde, también para el administrador, y rechaza force-push y borrado. No intentar empujar directamente; abrir una rama y un pull request.
+- Ramas con prefijo por tipo de cambio (`fix/`, `feat/`, `ci/`, `docs/`) y descripción corta. Nunca un prefijo con el nombre de la herramienta.
 - Trabajar en una rama antes de modificar código. Continuar la rama actual si corresponde a la petición; no cambiarla ni publicar cambios por rutina.
 - Conservar cambios del usuario y distinguir estado local de estado remoto; no asumir que una rama está publicada porque existe localmente.
 
@@ -47,4 +54,4 @@
 - `npm run test:widget` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
 - `npm run test:aram` usa el Node de Electron y SQLite real con datos sintéticos aislados para captura ARAM, separación de colas, persistencia y compatibilidad.
 - Evitar `npm run format` sobre todo el proyecto para un cambio localizado. No actualizar dependencias ni regenerar recursos por rutina.
-- Revisar identidad y destino del actualizador antes de una futura distribución de League Companion.
+- Revisar identidad y destino del actualizador antes de una futura distribución de Riftally.

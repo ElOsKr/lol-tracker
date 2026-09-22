@@ -13,7 +13,7 @@ import { BrowserWindow } from "electron";
 import * as db from "./db";
 import { TRACKED_QUEUE_IDS, CAPTURE_POLICY_VERSION } from "../shared/queues";
 import { SGP_HISTORY_CAP } from "../shared/api";
-import type { BackfillLimit, LcuStatus } from "../shared/api";
+import type { BackfillLimit, BackfillResult, LcuStatus } from "../shared/api";
 
 let credentials: Credentials | null = null;
 let status: LcuStatus = "disconnected";
@@ -420,15 +420,6 @@ export function cancelBackfill(): void {
 export function isBackfillRunning(): boolean {
   return backfillRunning;
 }
-
-export type BackfillResult = {
-  added: number;
-  scanned: number;
-  checked: number;
-  totalGames: number;
-  limit: BackfillLimit;
-  cancelled: boolean;
-};
 
 export type BackfillOptions = {
   // Walk every page Riot will serve instead of stopping at the first one we
@@ -1197,10 +1188,8 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
     // Installed before the first sync runs, never after. The client answers
     // authenticate() from its command line the moment it starts, seconds before
     // its HTTP server is listening, so the first sync of a session is the one
-    // most likely to fail — and a failure that happened before this line left
-    // the app with no connect timer and no poll timer at all: still showing
-    // "connected", never noticing another game, and never retrying the
-    // post-game socket, until it was restarted by hand.
+    // most likely to fail. The connect timer has already been cleared above, so
+    // this is the only thing left that will retry it.
     pollTimer = setInterval(() => {
       void pollTick(win);
     }, POLL_INTERVAL_MS);

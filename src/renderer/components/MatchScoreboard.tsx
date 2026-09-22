@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
 import { getChampionName } from "../hooks/useChampions";
-import { formatKDA, kdaRatio } from "../lib/format";
+import { formatCompact, formatKDA, kdaHighlight, kdaRatio } from "../lib/format";
 import {
   computeMatchScoreBreakdowns,
   scoreColor,
@@ -15,17 +15,27 @@ import ChampionIcon from "./ChampionIcon";
 import AugmentIcon from "./AugmentIcon";
 import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
+import MultikillBadge from "./MultikillBadge";
+import { ScoreBadge } from "./ScoreCell";
 
 const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px]";
+// An eleventh column is only affordable where the rows are laid out wider than
+// the app lays them out: at the app's own window size every column above is
+// already at its floor, so the extra would come out of the player name.
+const GRID_COLS_MULTIKILLS =
+  "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px_92px]";
 
 export default function MatchScoreboard({
   detail,
   champData,
   puuids,
+  multikills = false,
 }: {
   detail: MatchDetail;
   champData: any;
   puuids: string[] | null;
+  // Off by default: only a caller that knows its rows are wide should ask
+  multikills?: boolean;
 }) {
   const participants = useMemo(
     () =>
@@ -75,6 +85,7 @@ export default function MatchScoreboard({
           champData={champData}
           scores={scores}
           patch={detail.game.game_version}
+          multikills={multikills}
         />
       ))}
     </div>
@@ -88,6 +99,7 @@ function TeamScoreboard({
   champData,
   scores,
   patch,
+  multikills,
 }: {
   teamId: number;
   players: ParsedParticipant[];
@@ -95,12 +107,16 @@ function TeamScoreboard({
   champData: any;
   scores: Map<number, ScoreBreakdown>;
   patch?: string | null;
+  multikills: boolean;
 }) {
   const isWin = players[0]?.win ?? false;
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
+  // The team panel paints its own background rather than borrowing whatever is
+  // behind it: inside the app that's the panel it sits in, but an exported card
+  // has the page's gradient back there.
   return (
-    <div className="rounded-lg border border-lol-border overflow-hidden">
+    <div className="rounded-lg border border-lol-border bg-lol-card overflow-hidden">
       {/* Team header: name on the left, team totals filling the rest of the bar */}
       <div
         className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
@@ -124,23 +140,25 @@ function TeamScoreboard({
             </span>
           </TeamStat>
           <TeamStat label="Damage">
-            <span className="text-red-400">{compact(totals.dmg)}</span>
+            <span className="text-red-400">{formatCompact(totals.dmg)}</span>
           </TeamStat>
           <TeamStat label="Taken">
-            <span className="text-sky-400">{compact(totals.taken)}</span>
+            <span className="text-sky-400">{formatCompact(totals.taken)}</span>
           </TeamStat>
           <TeamStat label="Gold">
-            <span className="text-lol-gold">{compact(totals.gold)}</span>
+            <span className="text-lol-gold">{formatCompact(totals.gold)}</span>
           </TeamStat>
           <TeamStat label="Heal">
-            <span className="text-emerald-400">{compact(totals.heal)}</span>
+            <span className="text-emerald-400">{formatCompact(totals.heal)}</span>
           </TeamStat>
         </div>
       </div>
 
       {/* Column headers */}
       <div
-        className={`px-3 py-1 border-b border-lol-border/50 grid ${GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
+        className={`px-3 py-1 border-b border-lol-border/50 grid ${
+          multikills ? GRID_COLS_MULTIKILLS : GRID_COLS
+        } gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
       >
         <span></span>
         <span>Player</span>
@@ -152,6 +170,7 @@ function TeamScoreboard({
         <span className="text-right">Heal</span>
         <span>Items</span>
         <span>Augments</span>
+        {multikills && <span>Multis</span>}
       </div>
 
       {/* Player rows */}
@@ -163,6 +182,7 @@ function TeamScoreboard({
           champData={champData}
           score={scores.get(p.participantId)}
           patch={patch}
+          multikills={multikills}
         />
       ))}
     </div>
@@ -216,7 +236,7 @@ function ScoreboardBar({ value, max, color }: { value: number; max: number; colo
     <div className="h-4 bg-white/5 rounded-sm overflow-hidden relative">
       <div className={`h-full rounded-sm ${color}`} style={{ width: `${pct}%` }} />
       <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] font-medium text-white/90 leading-none">
-        {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+        {formatCompact(value)}
       </span>
     </div>
   );
@@ -228,20 +248,22 @@ function PlayerRow({
   champData,
   score,
   patch,
+  multikills,
 }: {
   player: ParsedParticipant;
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
   champData: any;
   score?: ScoreBreakdown;
   patch?: string | null;
+  multikills: boolean;
 }) {
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
 
   return (
     <div
-      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${GRID_COLS} gap-2 items-center ${
-        p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""
-      }`}
+      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${
+        multikills ? GRID_COLS_MULTIKILLS : GRID_COLS
+      } gap-2 items-center ${p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""}`}
     >
       {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
       <div className="flex items-center gap-0.5">
@@ -275,11 +297,7 @@ function PlayerRow({
         <div className="text-[11px] text-lol-text-bright">
           {formatKDA(p.kills, p.deaths, p.assists)}
         </div>
-        <div
-          className={`text-[10px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
-        >
-          {kda}
-        </div>
+        <div className={`text-[10px] ${kdaHighlight(kda)}`}>{kda}</div>
       </div>
 
       {/* Damage dealt */}
@@ -293,14 +311,10 @@ function PlayerRow({
       <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-sky-400/50" />
 
       {/* Gold */}
-      <div className="text-right text-[11px] text-lol-gold">
-        {p.goldEarned >= 1000 ? `${(p.goldEarned / 1000).toFixed(1)}k` : p.goldEarned}
-      </div>
+      <div className="text-right text-[11px] text-lol-gold">{formatCompact(p.goldEarned)}</div>
 
       {/* Heal */}
-      <div className="text-right text-[11px] text-emerald-400">
-        {p.totalHeal >= 1000 ? `${(p.totalHeal / 1000).toFixed(1)}k` : p.totalHeal}
-      </div>
+      <div className="text-right text-[11px] text-emerald-400">{formatCompact(p.totalHeal)}</div>
 
       {/* Items */}
       <div className="flex gap-0.5">
@@ -318,6 +332,19 @@ function PlayerRow({
           <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
         ))}
       </div>
+
+      {/* Multikills */}
+      {multikills && (
+        <div className="flex">
+          <MultikillBadge
+            compact
+            doubles={p.doubleKills}
+            triples={p.tripleKills}
+            quadras={p.quadraKills}
+            pentas={p.pentaKills}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -336,17 +363,7 @@ function ScoreCell({ score }: { score?: ScoreBreakdown }) {
       >
         {score ? score.score.toFixed(1) : "-"}
       </div>
-      {score?.badge && (
-        <div
-          className={`text-[9px] font-bold leading-[15px] px-1 rounded w-fit mx-auto ${
-            score.badge === "MVP"
-              ? "bg-amber-400/20 text-amber-300"
-              : "bg-purple-500/20 text-purple-400"
-          }`}
-        >
-          {score.badge}
-        </div>
-      )}
+      {score?.badge && <ScoreBadge badge={score.badge} />}
       {score && anchor && <ScoreBreakdownTooltip breakdown={score} anchor={anchor} />}
     </div>
   );
@@ -361,14 +378,12 @@ const COMPONENT_LABELS: Record<ScoreComponentKey, string> = {
   gold: "Gold earned",
 };
 
-const compact = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : Math.round(v).toString());
-
 // How the player's stat and its full-credit reference read in the tooltip:
 // kda/kp are graded against fixed caps, the rest against the lobby's best.
 function componentValue(c: ScoreComponent): string {
   if (c.key === "kda") return `${c.value.toFixed(1)} (full at 8)`;
   if (c.key === "kp") return `${Math.round(c.value * 100)}% (full at 90%)`;
-  return `${compact(c.value)} / ${compact(c.reference)}`;
+  return `${formatCompact(c.value)} / ${formatCompact(c.reference)}`;
 }
 
 function ScoreBreakdownTooltip({

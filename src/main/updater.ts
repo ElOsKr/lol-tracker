@@ -4,15 +4,10 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import type { ReleaseNote, UpdateInfo } from "../shared/api";
 
 const CHECK_TIMEOUT_MS = 10_000;
-// Official binaries do not contain League Companion's widget. Keep both
-// entry points disabled until this project has its own release channel.
-const OFFICIAL_UPDATES_ENABLED = false;
-const UPDATE_DISABLED_REASON =
-  "Official updates are disabled in League Companion to preserve its custom features.";
-// One page covers any realistic gap between installs, and costs the same single
-// request the old /releases/latest check did.
+// One page covers any realistic gap between installs, for a single request.
 const RELEASE_PAGE_SIZE = 20;
 // Release bodies are hand-written, but they still arrive over the network, so
 // cap what the dialog is asked to lay out.
@@ -21,30 +16,6 @@ const MAX_BODY_CHARS = 4_000;
 // a total-duration cap would abort a slow but perfectly healthy connection.
 // What we actually want to catch is a transfer that has stopped moving.
 const DOWNLOAD_STALL_TIMEOUT_MS = 30_000;
-
-export interface ReleaseNote {
-  version: string;
-  publishedAt: string;
-  body: string;
-  url: string;
-}
-
-export interface UpdateInfo {
-  hasUpdate: boolean;
-  latest?: string;
-  current?: string;
-  url?: string;
-  assetUrl?: string;
-  assetSize?: number;
-  // Every release newer than the installed version, newest first, so someone who
-  // skipped a few versions sees the notes they missed rather than only the last
-  // set. Empty when already up to date.
-  releases?: ReleaseNote[];
-  // True when the fetched page never reached back to the installed version, so
-  // there are skipped releases the dialog cannot show.
-  moreVersions?: boolean;
-  error?: string;
-}
 
 // The expected hash never leaves the main process: the renderer only echoes
 // back an asset URL, so trusting a digest it supplied would verify nothing.
@@ -95,12 +66,9 @@ function parseDigest(digest: unknown): string | null {
 }
 
 export async function checkForUpdate(): Promise<UpdateInfo> {
-  if (!OFFICIAL_UPDATES_ENABLED) {
-    return { hasUpdate: false, error: UPDATE_DISABLED_REASON };
-  }
   try {
     const res = await fetch(
-      `https://api.github.com/repos/Yhprum/mayhem-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
+      `https://api.github.com/repos/ElOsKr/lol-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
       {
         headers: { "User-Agent": "mayhem-tracker" },
         signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
@@ -157,15 +125,15 @@ export async function downloadAndInstall(
   win: BrowserWindow,
   assetUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
-  if (!OFFICIAL_UPDATES_ENABLED) {
-    return { success: false, error: UPDATE_DISABLED_REASON };
-  }
   // Set by electron-builder's portable launcher; absent in dev and non-portable builds
   const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
   if (!portableExe) {
     return { success: false, error: "In-app update only works in the portable exe build" };
   }
-  if (!assetUrl.startsWith("https://github.com/Yhprum/mayhem-tracker/")) {
+  // Must track whichever repository checkForUpdate reads releases from: the
+  // renderer only echoes an asset URL back, so this is what stops it pointing
+  // the installer at anything else.
+  if (!assetUrl.startsWith("https://github.com/ElOsKr/lol-tracker/")) {
     return { success: false, error: "Unexpected download URL" };
   }
 

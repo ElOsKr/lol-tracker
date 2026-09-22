@@ -36,6 +36,19 @@ export function SwordsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** The app's mark: the hourglass below laid on its side, which makes an M. */
+export function MayhemIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      {/* front diagonal: unbroken between the two uprights */}
+      <path d="M5 19V5l14 14V5" />
+      {/* back diagonal: gap where it passes behind the front one */}
+      <path d="M19 5l-4.5 4.5" />
+      <path d="M9.5 14.5 5 19" />
+    </Icon>
+  );
+}
+
 export function HourglassIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
@@ -125,15 +138,6 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function SearchIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <Icon {...props}>
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </Icon>
-  );
-}
-
 export function MinusIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
@@ -173,16 +177,6 @@ export function XIcon(props: SVGProps<SVGSVGElement>) {
     <Icon {...props}>
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
-    </Icon>
-  );
-}
-
-export function XCircleIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6" />
-      <path d="m9 9 6 6" />
     </Icon>
   );
 }
@@ -318,6 +312,25 @@ export function SparklesIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M20 5h-4" />
       <path d="M18 17v4" />
       <path d="M20 19h-4" />
+    </Icon>
+  );
+}
+
+export function ImageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </Icon>
+  );
+}
+
+export function CopyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
     </Icon>
   );
 }

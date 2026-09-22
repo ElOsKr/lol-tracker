@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useIpc } from "../hooks/useIpc";
@@ -14,6 +15,7 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import MatchScoreboard from "../components/MatchScoreboard";
 import QueueSelect, { queueLabel } from "../components/QueueSelect";
+import AccountSelect from "../components/AccountSelect";
 import { ACCENTS, type StatAccent } from "../components/StatCard";
 import {
   CoinsIcon,
@@ -313,9 +315,28 @@ function streakCard(streak: StreakRecord, win: boolean): CardDef {
 }
 
 export default function Records() {
+  // La cola viene de la seleccion global de la aplicacion, compartida con el
+  // resto de paginas. La cuenta es propia de esta vista, asi que viaja en la
+  // URL como la dejo el proyecto original.
   const [queue, setQueue] = useQueueSelection();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const account = searchParams.get("account") ?? undefined;
+  const setAccount = (a: string | undefined) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (a == null) next.delete("account");
+        else next.set("account", a);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
-  const { data, refetch } = useIpc<RecordsData>(() => window.api.getRecords(queue), [queue]);
+  const { data, refetch } = useIpc<RecordsData>(
+    () => window.api.getRecords(queue, account),
+    [queue, account],
+  );
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
   const [openMatch, setOpenMatch] = useState<RecordMatchRef | null>(null);
@@ -333,12 +354,29 @@ export default function Records() {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
 
+  // The filters stay on screen even with nothing to show, so a selection that
+  // happens to hold no games can be undone
+  const header = (
+    <div className="flex items-center justify-between">
+      <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-lol-text">
+          personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
+        </span>
+        <AccountSelect value={account} onChange={setAccount} />
+        <QueueSelect value={queue} onChange={setQueue} />
+      </div>
+    </div>
+  );
+
   if (data.totalGames === 0) {
     return (
       <div className="max-w-7xl space-y-4">
-        <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
+        {header}
         <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          No games recorded yet — sync your match history to start setting records.
+          {account || queue != null
+            ? "No games match this filter."
+            : "No games recorded yet — sync your match history to start setting records."}
         </div>
       </div>
     );
@@ -354,15 +392,7 @@ export default function Records() {
 
   return (
     <div className="max-w-7xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-lol-text">
-            personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
-          </span>
-          <QueueSelect value={queue} onChange={setQueue} />
-        </div>
-      </div>
+      {header}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
         {cards.map(({ key, ...card }) => (

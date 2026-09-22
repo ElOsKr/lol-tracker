@@ -1,6 +1,6 @@
 {
   "name": "mayhem-tracker",
-  "version": "1.11.1",
+  "version": "0.1.0",
   "description": "ARAM Mayhem match history tracker",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -57,12 +57,14 @@
     "files": [
       "out/**/*",
       "assets/icon.png",
+      "assets/tray.png",
+      "assets/tray@2x.png",
       "node_modules/better-sqlite3/**/*",
       "public-widget/**/*"
     ],
     "win": {
       "target": "portable",
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "artifactName": "MayhemTracker.exe"
     },
     "portable": {

@@ -20,12 +20,13 @@ import WinRateBar from "../components/WinRateBar";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import RarityFilter, { type Rarity } from "../components/RarityFilter";
+import SortHeader from "../components/SortHeader";
+import { useSort } from "../hooks/useSort";
 
 type Tab = "champions" | "augments" | "items";
 type ChampSortKey = "games" | "winRate" | "pickRate" | "name";
 type AugSortKey = "picks" | "winRate" | "pickRate" | "name";
 type ItemSortKey = "picks" | "winRate" | "name";
-type SortDir = "asc" | "desc";
 
 function SearchInput({
   value,
@@ -132,23 +133,20 @@ export default function GlobalStats() {
 
   // Champion tab state
   const [champSearch, setChampSearch] = useViewState("global.champSearch", "");
-  const [champSortKey, setChampSortKey] = useViewState<ChampSortKey>(
-    "global.champSortKey",
-    "games",
-  );
-  const [champSortDir, setChampSortDir] = useViewState<SortDir>("global.champSortDir", "desc");
+  const champSort = useSort<ChampSortKey>("global.champ", "games");
+  const { sortKey: champSortKey, sortDir: champSortDir } = champSort;
 
   // Augment tab state
   const [augSearch, setAugSearch] = useViewState("global.augSearch", "");
-  const [augSortKey, setAugSortKey] = useViewState<AugSortKey>("global.augSortKey", "picks");
-  const [augSortDir, setAugSortDir] = useViewState<SortDir>("global.augSortDir", "desc");
+  const augSort = useSort<AugSortKey>("global.aug", "picks");
+  const { sortKey: augSortKey, sortDir: augSortDir } = augSort;
   const [rarityFilter, setRarityFilter] = useViewState<Rarity>("global.augRarity", "all");
 
   // Item tab state
   const itemData = useItemData(patch);
   const [itemSearch, setItemSearch] = useViewState("global.itemSearch", "");
-  const [itemSortKey, setItemSortKey] = useViewState<ItemSortKey>("global.itemSortKey", "picks");
-  const [itemSortDir, setItemSortDir] = useViewState<SortDir>("global.itemSortDir", "desc");
+  const itemSort = useSort<ItemSortKey>("global.item", "picks");
+  const { sortKey: itemSortKey, sortDir: itemSortDir } = itemSort;
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -156,33 +154,6 @@ export default function GlobalStats() {
   }, [refetch]);
 
   const totalGames = data ? Math.round(data.totalParticipantSlots / 10) : 0;
-
-  const handleChampSort = (key: ChampSortKey) => {
-    if (champSortKey === key) {
-      setChampSortDir(champSortDir === "desc" ? "asc" : "desc");
-    } else {
-      setChampSortKey(key);
-      setChampSortDir(key === "name" ? "asc" : "desc");
-    }
-  };
-
-  const handleAugSort = (key: AugSortKey) => {
-    if (augSortKey === key) {
-      setAugSortDir(augSortDir === "desc" ? "asc" : "desc");
-    } else {
-      setAugSortKey(key);
-      setAugSortDir(key === "name" ? "asc" : "desc");
-    }
-  };
-
-  const handleItemSort = (key: ItemSortKey) => {
-    if (itemSortKey === key) {
-      setItemSortDir(itemSortDir === "desc" ? "asc" : "desc");
-    } else {
-      setItemSortKey(key);
-      setItemSortDir(key === "name" ? "asc" : "desc");
-    }
-  };
 
   const sortedChampions = useMemo(() => {
     if (!data) return [];
@@ -278,57 +249,6 @@ export default function GlobalStats() {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
 
-  const ChampSortHeader = ({
-    label,
-    field,
-    className,
-  }: {
-    label: string;
-    field: ChampSortKey;
-    className?: string;
-  }) => (
-    <th
-      onClick={() => handleChampSort(field)}
-      className={`px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
-    >
-      {label} {champSortKey === field ? (champSortDir === "desc" ? "\u25BC" : "\u25B2") : ""}
-    </th>
-  );
-
-  const AugSortHeader = ({
-    label,
-    field,
-    className,
-  }: {
-    label: string;
-    field: AugSortKey;
-    className?: string;
-  }) => (
-    <th
-      onClick={() => handleAugSort(field)}
-      className={`px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
-    >
-      {label} {augSortKey === field ? (augSortDir === "desc" ? "\u25BC" : "\u25B2") : ""}
-    </th>
-  );
-
-  const ItemSortHeader = ({
-    label,
-    field,
-    className,
-  }: {
-    label: string;
-    field: ItemSortKey;
-    className?: string;
-  }) => (
-    <th
-      onClick={() => handleItemSort(field)}
-      className={`px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
-    >
-      {label} {itemSortKey === field ? (itemSortDir === "desc" ? "\u25BC" : "\u25B2") : ""}
-    </th>
-  );
-
   return (
     <div className="max-w-7xl space-y-4">
       <div className="flex items-center justify-between">
@@ -396,10 +316,10 @@ export default function GlobalStats() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-12">
                     #
                   </th>
-                  <ChampSortHeader label="Champion" field="name" />
-                  <ChampSortHeader label="Games" field="games" />
-                  <ChampSortHeader label="Pick Rate" field="pickRate" />
-                  <ChampSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  <SortHeader {...champSort} label="Champion" field="name" />
+                  <SortHeader {...champSort} label="Games" field="games" />
+                  <SortHeader {...champSort} label="Pick Rate" field="pickRate" />
+                  <SortHeader {...champSort} label="Win Rate" field="winRate" className="w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -451,12 +371,12 @@ export default function GlobalStats() {
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
-                  <ItemSortHeader label="Item" field="name" />
-                  <ItemSortHeader label="Picks" field="picks" />
+                  <SortHeader {...itemSort} label="Item" field="name" />
+                  <SortHeader {...itemSort} label="Picks" field="picks" />
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
                     Pick Rate
                   </th>
-                  <ItemSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  <SortHeader {...itemSort} label="Win Rate" field="winRate" className="w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -515,12 +435,12 @@ export default function GlobalStats() {
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
-                  <AugSortHeader label="Augment" field="name" />
-                  <AugSortHeader label="Picks" field="picks" />
+                  <SortHeader {...augSort} label="Augment" field="name" />
+                  <SortHeader {...augSort} label="Picks" field="picks" />
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
                     Pick Rate
                   </th>
-                  <AugSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  <SortHeader {...augSort} label="Win Rate" field="winRate" className="w-32" />
                 </tr>
               </thead>
               <tbody>

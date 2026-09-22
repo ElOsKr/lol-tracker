@@ -21,7 +21,13 @@ import {
   CAPTURE_POLICY_VERSION,
 } from "../shared/queues";
 import { mapNameForSkin } from "../shared/maps";
-import { DAY_START_HOUR, sessionDay } from "../shared/session";
+import {
+  DAY_START_HOUR,
+  SESSION_GROUPING_SETTING,
+  parseSessionGrouping,
+  sessionDay,
+  type SessionGrouping,
+} from "../shared/session";
 import { ordinal } from "../shared/text";
 import { getDataDir } from "./paths";
 import { getChampionClasses, getChampionDataVersion } from "./dragon";
@@ -35,6 +41,10 @@ import type {
 
 // Poro-Snax (base and upgraded) is handed out for free, so it skews item stats
 const EXCLUDED_ITEM_IDS = [2052, 220013];
+const EXCLUDED_ITEMS_SQL = EXCLUDED_ITEM_IDS.join(", ");
+
+// item0..item6 on both player_stats and match_participants; slot 6 is the trinket
+const ITEM_SLOTS = [0, 1, 2, 3, 4, 5, 6];
 
 let db: Database.Database;
 
@@ -117,9 +127,8 @@ function createTables() {
     );
 
     -- Every player in every game, which is what separates this from
-    -- player_stats (only ever our own row). Stats over all ten players used to
-    -- mean parsing raw_json for every game in the main process; now they're
-    -- ordinary aggregates.
+    -- player_stats (only ever our own row). Stats over all ten players are
+    -- ordinary aggregates against this table.
     CREATE TABLE IF NOT EXISTS match_participants (
       game_id        INTEGER NOT NULL REFERENCES games(game_id),
       participant_id INTEGER NOT NULL,
@@ -559,8 +568,8 @@ function runMigrations() {
 }
 
 // Brings pre-versioning databases up to the schema createTables now declares.
-// Each column is added only if absent, so this is a no-op on both new databases
-// and ones already carried forward by the old try/catch migrations.
+// Each column is added only if absent, so this is a no-op on a database that
+// already has the column, however it got there.
 function migrateToV1() {
   const games = tableColumns("games");
 
@@ -600,8 +609,8 @@ function migrateToV1() {
   }
 }
 // Payloads are read a page at a time wherever they're read in bulk: a library
-// of a few thousand is a hundred megabytes-plus of JSON, and holding it all at
-// once is what this whole change exists to stop doing.
+// of a few thousand is a hundred megabytes-plus of JSON, far too much to hold
+// in memory at once.
 const PAYLOAD_PAGE_SIZE = 200;
 
 interface NormalizeResult {
@@ -1151,8 +1160,7 @@ function detectRemake(
 
 // The per-game maxima the match list scales its stat bars against. Selected
 // alongside the row rather than derived in JS: three correlated MAX()es over a
-// page of 25 games cost a fraction of a millisecond, where the old version
-// parsed 25 raw payloads to find them.
+// page of 25 games cost a fraction of a millisecond.
 const GAME_MAX_STATS_SQL = `
            (SELECT ms.placement FROM match_mode_stats ms JOIN match_participants owner ON owner.game_id=ms.game_id AND owner.participant_id=ms.participant_id WHERE ms.game_id=g.game_id AND owner.puuid=g.puuid LIMIT 1) AS placement,
            MAX(IFNULL((SELECT MAX(mp.total_damage_dealt) FROM match_participants mp
@@ -1161,6 +1169,21 @@ const GAME_MAX_STATS_SQL = `
                         WHERE mp.game_id = g.game_id), 0), 1) as game_max_taken,
            MAX(IFNULL((SELECT MAX(mp.total_heal) FROM match_participants mp
                         WHERE mp.game_id = g.game_id), 0), 1) as game_max_heal`;
+
+// Everything MatchListItem promises, for the three queries that return a row
+// per game to the match list. Shared so a column added for one of them can't
+// leave the other two handing back a row the renderer's type says is complete.
+const MATCH_ROW_SQL = `
+      g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
+      g.puuid, g.game_version,
+      ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
+      ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
+      ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
+      ps.score, ps.score_badge, ps.spell1, ps.spell2,
+      ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
+      (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga
+        WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
+${GAME_MAX_STATS_SQL}`;
 
 // ---- Query functions ----
 
@@ -1243,25 +1266,37 @@ function matchListWhere(filters?: MatchListFilters): { whereSql: string; params:
   return { whereSql: where.length > 0 ? `WHERE ${where.join(" AND ")}` : "", params };
 }
 
+// What a session is grouped by, in the same terms sessionKey uses in the
+// renderer so a group there lines up with a row here. Day and week both start
+// at the hour a day of play does, and 'weekday 0' then '-6 days' walks back to
+// that week's Monday.
+const LOCAL_SESSION_DATE = `g.game_creation / 1000, 'unixepoch', 'localtime', '-${DAY_START_HOUR} hours'`;
+const SESSION_KEY_SQL: Record<Exclude<SessionGrouping, "none">, string> = {
+  day: `date(${LOCAL_SESSION_DATE})`,
+  week: `date(${LOCAL_SESSION_DATE}, 'weekday 0', '-6 days')`,
+  patch: "COALESCE(g.game_version, '')",
+};
+
 /**
- * One row per day of play, over every game the current filters match.
+ * One row per session of play, over every game the current filters match.
  *
  * The list itself arrives a page at a time, so counting the rows on screen
- * describes the page rather than the day: a twenty-five game session read as
- * twenty until it was scrolled. These totals don't depend on how far anyone has
- * scrolled.
+ * describes the page rather than the session: a twenty-five game session read
+ * as twenty until it was scrolled. These totals don't depend on how far anyone
+ * has scrolled.
  *
  * Remakes are in the game count and out of everything else, matching how the
  * rest of the app treats them.
  */
 export function getMatchSessions(filters?: MatchListFilters): any[] {
+  const grouping = parseSessionGrouping(getSetting(SESSION_GROUPING_SETTING));
+  // Nothing to total up when the list runs flat.
+  if (grouping === "none") return [];
   const { whereSql, params } = matchListWhere(filters);
 
-  // The same "a day starts at 5am" rule the renderer groups rows by, applied
-  // after the timestamp is in local time so both sides land on the same date.
   return db
     .prepare(`
-      SELECT date(g.game_creation / 1000, 'unixepoch', 'localtime', '-${DAY_START_HOUR} hours') AS day,
+      SELECT ${SESSION_KEY_SQL[grouping]} AS key,
              COUNT(*) AS games,
              SUM(CASE WHEN g.is_remake = 0 AND ps.win = 1 THEN 1 ELSE 0 END) AS wins,
              SUM(CASE WHEN g.is_remake = 0 AND ps.win = 0 THEN 1 ELSE 0 END) AS losses,
@@ -1273,8 +1308,8 @@ export function getMatchSessions(filters?: MatchListFilters): any[] {
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
       ${whereSql}
-      GROUP BY day
-      ORDER BY day DESC
+      GROUP BY key
+      ORDER BY MAX(g.game_creation) DESC
     `)
     .all(...params);
 }
@@ -1297,14 +1332,7 @@ export function getMatchHistory(
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, g.puuid, g.game_version,
-           ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
-           ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-           ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-           ps.score, ps.score_badge, ps.spell1, ps.spell2,
-           ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-           (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
-${GAME_MAX_STATS_SQL}
+    SELECT ${MATCH_ROW_SQL}
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
     ${whereSql}
@@ -1461,8 +1489,8 @@ export function getMatchFilterOptions(filters?: {
 }
 
 // The full ten-player scoreboard for one game, in the shape the renderer draws.
-// This is what the match detail view used to reconstruct by parsing raw_json in
-// the renderer; the payload is now a few kilobytes instead of thirty.
+// Columns are listed rather than starred so the IPC message stays a few
+// kilobytes instead of carrying the stored payload with it.
 function getMatchParticipants(gameId: number): any[] {
   const rows = db
     .prepare(`
@@ -1830,14 +1858,7 @@ export function getChampionMatchHistory(
     .get(...params) as any;
   const matches = db
     .prepare(`
-    SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.favorite, g.puuid,
-           ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
-           ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-           ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-           ps.score, ps.score_badge, ps.spell1, ps.spell2,
-           ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-           (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
-${GAME_MAX_STATS_SQL}
+    SELECT ${MATCH_ROW_SQL}
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
     ${whereSql}
@@ -2121,10 +2142,9 @@ interface TeammateRow {
 //
 // Which (game, team) pairs are ours is resolved up front in a CTE rather than
 // as an EXISTS against each candidate row: the CTE is a single indexed lookup
-// per account, where the correlated form made SQLite build a throwaway index
-// on every call — 2.8 ms against 46 ms on a 580-game library, and it doesn't
-// swing on whether ANALYZE has ever run. DISTINCT is what keeps the row count
-// honest when two of our own accounts played the same game on the same side.
+// per account, where the correlated form makes SQLite build a throwaway index
+// on every call. DISTINCT is what keeps the row count honest when two of our
+// own accounts played the same game on the same side.
 function teammateRows(puuids: string[]): TeammateRow[] {
   const ours = puuids.map(() => "?").join(", ");
   const where = ["o.is_remake = 0", `(o.puuid IS NULL OR o.puuid NOT IN (${ours}))`];
@@ -2263,15 +2283,7 @@ export function getTeammateDetail(key: string): { player: any; matches: any[] } 
   // Our own row for each shared game — the same columns the match list shows.
   const ourMatches = db
     .prepare(`
-      SELECT g.game_id, g.queue_id, g.game_creation, g.game_duration, g.is_remake, g.favorite,
-             g.puuid, g.game_version,
-             ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
-             ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
-             ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-             ps.score, ps.score_badge, ps.spell1, ps.spell2,
-             ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
-             (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,
-${GAME_MAX_STATS_SQL}
+      SELECT ${MATCH_ROW_SQL}
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
       WHERE g.game_id IN (${idList})
@@ -2382,21 +2394,28 @@ export function getChampionItemStats(
   }
   applyQueueFilter(extraWhere, extraParams, queue);
   const extraSql = extraWhere.length > 0 ? ` AND ${extraWhere.join(" AND ")}` : "";
-  const itemCols = ["item0", "item1", "item2", "item3", "item4", "item5", "item6"];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
-  const subquery = (col: string) =>
-    `SELECT ps.${col} as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.${col} IS NOT NULL AND ps.${col} > 0 AND ps.${col} NOT IN (${excludedList}) AND g.is_remake = 0${extraSql}`;
-  const params = itemCols.flatMap(() => [championId, ...extraParams]);
+  const params = ITEM_SLOTS.flatMap(() => [championId, ...extraParams]);
   return db
     .prepare(`
     SELECT item_id, COUNT(*) as picks, SUM(win) as wins
     FROM (
-      ${itemCols.map(subquery).join("\n      UNION ALL\n      ")}
+        ${itemSlotUnion(
+          (i) => `SELECT ps.item${i} as item_id, ps.win
+                FROM player_stats ps JOIN games g ON ps.game_id = g.game_id
+                WHERE ps.champion_id = ? AND g.is_remake = 0${extraSql}
+                  AND ps.item${i} > 0 AND ps.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
     )
     GROUP BY item_id
     ORDER BY picks DESC
   `)
     .all(...params) as any[];
+}
+
+// The seven item slots are columns, and every item stat wants them as rows.
+// `row` builds one slot's SELECT; the caller's params repeat once per slot.
+function itemSlotUnion(row: (slot: number) => string): string {
+  return ITEM_SLOTS.map(row).join("\n        UNION ALL\n        ");
 }
 
 // Filters for a query over match_participants. is_remake, queue_id and
@@ -2445,25 +2464,21 @@ export function getGlobalStats(
     `)
     .all(...mpa.params) as { augment_id: number; picks: number; wins: number }[];
 
-  const itemCols = [0, 1, 2, 3, 4, 5, 6];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
   const items = db
     .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
-        ${itemCols
-          .map(
-            (i) => `SELECT mp.item${i} as item_id, mp.win as win
+        ${itemSlotUnion(
+          (i) => `SELECT mp.item${i} as item_id, mp.win as win
                 FROM match_participants mp
                 WHERE ${mp.sql}
-                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
-          )
-          .join("\n        UNION ALL\n        ")}
+                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
       )
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(...itemCols.flatMap(() => mp.params)) as {
+    .all(...ITEM_SLOTS.flatMap(() => mp.params)) as {
     item_id: number;
     picks: number;
     wins: number;
@@ -2556,25 +2571,21 @@ export function getGlobalChampionDetail(
     `)
     .get(...mp.params) as { count: number };
 
-  const itemCols = [0, 1, 2, 3, 4, 5, 6];
-  const excludedList = EXCLUDED_ITEM_IDS.join(", ");
   const items = db
     .prepare(`
       SELECT item_id, COUNT(*) as picks, SUM(win) as wins
       FROM (
-        ${itemCols
-          .map(
-            (i) => `SELECT mp.item${i} as item_id, mp.win as win
+        ${itemSlotUnion(
+          (i) => `SELECT mp.item${i} as item_id, mp.win as win
                 FROM match_participants mp
                 WHERE ${mp.sql} AND mp.champion_id = ?
-                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${excludedList})`,
-          )
-          .join("\n        UNION ALL\n        ")}
+                  AND mp.item${i} > 0 AND mp.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
       )
       GROUP BY item_id
       ORDER BY picks DESC
     `)
-    .all(...itemCols.flatMap(() => [...mp.params, championId])) as {
+    .all(...ITEM_SLOTS.flatMap(() => [...mp.params, championId])) as {
     item_id: number;
     picks: number;
     wins: number;
@@ -2695,10 +2706,6 @@ export function getTrendsData(queue?: number): any {
   return { daily, patches, hours, weekdays };
 }
 
-// The trophy case: best single-game marks and longest streaks, from one
-// chronological pass over our own rows — streaks need the ordering anyway, and
-// the maxima fall out of the same loop. On ties the earliest game keeps the
-// record, so a mark has to be strictly beaten to change hands.
 // One row per counted game, oldest first: everything a whole-career walk needs
 // and nothing it doesn't. Records and the post-game recap both read the library
 // this way, and both depend on the order, since a streak and a milestone are
@@ -2719,6 +2726,7 @@ interface CareerRow {
   total_heal: number;
   largest_killing_spree: number;
   score: number | null;
+  score_raw: number | null;
   score_badge: "MVP" | "ACE" | null;
   double_kills: number;
   triple_kills: number;
@@ -2726,10 +2734,14 @@ interface CareerRow {
   penta_kills: number;
 }
 
-function careerRows(queue?: number): CareerRow[] {
+function careerRows(queue?: number, account?: string): CareerRow[] {
   const where = ["g.is_remake = 0"];
   const params: any[] = [];
   applyQueueFilter(where, params, queue);
+  if (account) {
+    where.push("g.puuid = ?");
+    params.push(account);
+  }
 
   return db
     .prepare(`
@@ -2737,7 +2749,7 @@ function careerRows(queue?: number): CareerRow[] {
              ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
              ps.total_damage_dealt, ps.total_damage_taken,
              ps.gold_earned, ps.total_heal, ps.largest_killing_spree,
-             ps.score, ps.score_badge,
+             ps.score, ps.score_raw, ps.score_badge,
              ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
@@ -2747,8 +2759,12 @@ function careerRows(queue?: number): CareerRow[] {
     .all(...params) as CareerRow[];
 }
 
-export function getRecords(queue?: number): any {
-  const rows = careerRows(queue);
+// The trophy case: best single-game marks and longest streaks, from one
+// chronological pass over our own rows — streaks need the ordering anyway, and
+// the maxima fall out of the same loop. On ties the earliest game keeps the
+// record, so a mark has to be strictly beaten to change hands.
+export function getRecords(queue?: number, account?: string): any {
+  const rows = careerRows(queue, account);
 
   // Just enough of the game to render a record's context and open its match
   const matchOf = (r: any) => ({
@@ -2777,12 +2793,21 @@ export function getRecords(queue?: number): any {
     fastestWin: null,
     longestGame: null,
   };
-  const higher = (a: number, b: number) => a > b;
-  const lower = (a: number, b: number) => a < b;
-  const track = (key: string, value: number | null, row: any, better = higher) => {
-    if (value == null) return;
-    const current = bests[key];
-    if (!current || better(value, current.value)) bests[key] = { value, match: matchOf(row) };
+  // What each record is ranked on, where that differs from the value the card
+  // shows: the score displays the clamped 1-10 number and ranks on the raw one.
+  const ranks: Record<string, number> = {};
+  const track = (
+    key: string,
+    value: number | null,
+    row: any,
+    better = higher,
+    rank: number | null = value,
+  ) => {
+    if (value == null || rank == null) return;
+    if (!bests[key] || better(rank, ranks[key])) {
+      bests[key] = { value, match: matchOf(row) };
+      ranks[key] = rank;
+    }
   };
 
   interface Streak {
@@ -2802,7 +2827,7 @@ export function getRecords(queue?: number): any {
     // Deathless games rank by kills+assists rather than dividing by zero; the
     // renderer still labels them "Perfect"
     track("kda", (r.kills + r.assists) / Math.max(r.deaths, 1), r);
-    track("score", r.score, r);
+    track("score", r.score, r, higher, r.score_raw ?? r.score);
     track("killingSpree", r.largest_killing_spree, r);
     track("damage", r.total_damage_dealt, r);
     track("damageTaken", r.total_damage_taken, r);
@@ -2849,6 +2874,26 @@ export function getGameMapName(gameId: number): string | null {
     | { map_skin: string; map_id: number | null }
     | undefined;
   return mapNameForSkin(row?.map_skin, row?.map_id);
+}
+
+// The icon the account who played a game was wearing at the time, which is what
+// a picture of that game should carry. Games imported before the participant
+// rows recorded one fall back to the account's icon as it stands now.
+export function getGameProfileIcon(gameId: number): number | null {
+  const game = db.prepare("SELECT puuid FROM games WHERE game_id = ?").get(gameId) as
+    | { puuid: string }
+    | undefined;
+  if (!game?.puuid) return null;
+
+  const played = db
+    .prepare("SELECT profile_icon FROM match_participants WHERE game_id = ? AND puuid = ?")
+    .get(gameId, game.puuid) as { profile_icon: number | null } | undefined;
+  if (played?.profile_icon != null) return played.profile_icon;
+
+  const account = db.prepare("SELECT profile_icon FROM summoner WHERE puuid = ?").get(game.puuid) as
+    | { profile_icon: number | null }
+    | undefined;
+  return account?.profile_icon ?? null;
 }
 
 // A player to look up, however much of their identity we have. The in-game API
@@ -3509,10 +3554,10 @@ export function setSetting(key: string, value: string): void {
 // ---- Export / Import ----
 
 // Games are read a page at a time and written straight to disk, rather than
-// building the whole backup in memory and handing one huge string to
-// writeFileSync. Two reasons: a library of a few thousand games is a hundred
-// megabytes-plus of JSON to hold twice over, and every await here returns the
-// main process to the event loop, so exporting no longer freezes the window.
+// building the whole backup in memory. Two reasons: a library of a few thousand
+// games is a hundred megabytes-plus of JSON to hold twice over, and every await
+// here returns the main process to the event loop, so the window keeps painting
+// while the export runs.
 const EXPORT_PAGE_SIZE = 200;
 
 export async function writeExportTo(filePath: string): Promise<number> {

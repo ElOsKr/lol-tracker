@@ -7,9 +7,11 @@ import * as live from "./live";
 import * as dragon from "./dragon";
 import * as updater from "./updater";
 import * as backup from "./backup";
+import { copyGameImage, exportGameImage } from "./export-image";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
+import { SESSION_GROUPING_SETTING } from "../shared/session";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
 // per-account backfill_complete_* flags, score_formula_version — none of which
@@ -23,6 +25,7 @@ const RENDERER_SETTINGS = new Set([
   "hide_remakes",
   "auto_backup",
   "remember_filters",
+  SESSION_GROUPING_SETTING,
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a
@@ -224,8 +227,8 @@ export function registerIpcHandlers() {
     return db.getTrendsData(queue);
   });
 
-  ipcMain.handle("db:records", (_event, queue?: number) => {
-    return db.getRecords(queue);
+  ipcMain.handle("db:records", (_event, queue?: number, account?: string) => {
+    return db.getRecords(queue, account);
   });
 
   // A fresh look rather than the cached snapshot: the page can be opened in
@@ -242,6 +245,19 @@ export function registerIpcHandlers() {
     return db.getGameRecap(gameId);
   });
 
+  // Backs the exported image: the scoreboard scores every player, which reads
+  // champion classes
+  ipcMain.handle("db:game-card", async (_event, gameId: number) => {
+    await dragon.waitForChampionData();
+    const detail = db.getMatchDetail(gameId);
+    if (!detail) return null;
+    return {
+      detail,
+      mapName: db.getGameMapName(gameId),
+      profileIcon: db.getGameProfileIcon(gameId),
+    };
+  });
+
   ipcMain.handle(
     "db:global-champion-detail",
     (_event, championId: number, patch?: string, queue?: number) => {
@@ -251,11 +267,6 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("db:all-summoner-puuids", () => {
     return db.getAllPuuids();
-  });
-
-  ipcMain.handle("db:summoner-puuid", () => {
-    const s = db.getSummoner();
-    return s?.puuid ?? null;
   });
 
   ipcMain.handle("db:profile", () => {
@@ -350,6 +361,21 @@ export function registerIpcHandlers() {
       }
       return { success: false, error: `Export failed: ${err.message}` };
     }
+  });
+
+  // One game as a PNG, drawn by the renderer in a window of its own. Separate
+  // from data:export, which is the whole database as JSON.
+  ipcMain.handle("export:game-image", async (event, gameId: number) => {
+    // The card carries the scoreboard, which scores every player from their
+    // champion's class
+    await dragon.waitForChampionData();
+    return exportGameImage(senderWindow(event), gameId);
+  });
+
+  // The same card, onto the clipboard instead of into a file
+  ipcMain.handle("export:copy-game-image", async (_event, gameId: number) => {
+    await dragon.waitForChampionData();
+    return copyGameImage(gameId);
   });
 
   ipcMain.handle("data:import", async (event) => {

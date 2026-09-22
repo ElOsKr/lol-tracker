@@ -2,6 +2,7 @@ import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useMemo, useEffect } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
+import { useSort } from "../hooks/useSort";
 import {
   useChampionData,
   getChampionName,
@@ -14,9 +15,9 @@ import ChampionIcon from "../components/ChampionIcon";
 import WinRateBar from "../components/WinRateBar";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
+import SortHeader from "../components/SortHeader";
 
 type SortKey = "picks" | "winRate" | "name";
-type SortDir = "asc" | "desc";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
 const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] = [
@@ -56,8 +57,8 @@ export default function Augments() {
     [patch, queue],
   );
   const [search, setSearch] = useViewState("augments.search", "");
-  const [sortKey, setSortKey] = useViewState<SortKey>("augments.sortKey", "picks");
-  const [sortDir, setSortDir] = useViewState<SortDir>("augments.sortDir", "desc");
+  const sort = useSort<SortKey>("augments", "picks");
+  const { sortKey, sortDir } = sort;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [rarityFilter, setRarityFilter] = useViewState<RarityFilter>("augments.rarity", "all");
 
@@ -67,15 +68,6 @@ export default function Augments() {
   }, [refetch]);
 
   const totalGames = data?.totalGames ?? 0;
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === "desc" ? "asc" : "desc");
-    } else {
-      setSortKey(key);
-      setSortDir(key === "name" ? "asc" : "desc");
-    }
-  };
 
   const toggleExpand = (augmentId: number) => {
     setExpanded((prev) => {
@@ -119,23 +111,6 @@ export default function Augments() {
   if (!data) {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
-
-  const SortHeader = ({
-    label,
-    field,
-    className,
-  }: {
-    label: string;
-    field: SortKey;
-    className?: string;
-  }) => (
-    <th
-      onClick={() => handleSort(field)}
-      className={`px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider cursor-pointer hover:text-lol-gold select-none ${className ?? ""}`}
-    >
-      {label} {sortKey === field ? (sortDir === "desc" ? "▼" : "▲") : ""}
-    </th>
-  );
 
   return (
     <div className="max-w-7xl space-y-4">
@@ -196,12 +171,12 @@ export default function Augments() {
           <thead className="bg-lol-dark/50">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-8"></th>
-              <SortHeader label="Augment" field="name" />
-              <SortHeader label="Picks" field="picks" />
+              <SortHeader {...sort} label="Augment" field="name" />
+              <SortHeader {...sort} label="Picks" field="picks" />
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
                 Pick Rate
               </th>
-              <SortHeader label="Win Rate" field="winRate" className="w-32" />
+              <SortHeader {...sort} label="Win Rate" field="winRate" className="w-32" />
             </tr>
           </thead>
           <tbody>

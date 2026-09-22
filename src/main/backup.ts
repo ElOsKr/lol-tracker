@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { closeDatabase, getDatabase, getDbPath, getSetting, initDatabase } from "./db";
 import { getBackupDir } from "./paths";
+import type { BackupInfo, RecoveryReport } from "../shared/api";
 
 // Snapshots are taken through SQLite's online backup API rather than by copying
 // matches.db off disk. The database runs in WAL mode, so the file on its own is
@@ -36,21 +37,6 @@ const KEEP_WEEKLY = 4;
 const KEEP_MONTHLY = 6;
 
 export type BackupReason = "auto" | "manual" | "pre-import" | "pre-repair" | "pre-restore";
-
-export interface BackupInfo {
-  file: string;
-  created: number;
-  size: number;
-  games: number | null;
-  reason: string;
-}
-
-export interface RecoveryReport {
-  problem: "missing" | "corrupt";
-  restoredFrom: string | null;
-  quarantined: string | null;
-  detail?: string;
-}
 
 const FILE_RE = /^matches-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-([a-z-]+)\.db$/;
 
