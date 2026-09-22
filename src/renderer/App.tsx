@@ -9,6 +9,7 @@ import Friends from "./pages/Friends";
 import FriendDetail from "./pages/FriendDetail";
 import Trends from "./pages/Trends";
 import Records from "./pages/Records";
+import Challenges from "./pages/Challenges";
 import GlobalStats from "./pages/GlobalStats";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import Settings from "./pages/Settings";
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/friends/:key" element={<FriendDetail />} />
           <Route path="/trends" element={<Trends />} />
           <Route path="/records" element={<Records />} />
+          <Route path="/challenges" element={<Challenges />} />
           <Route path="/global" element={<GlobalStats />} />
           <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
           <Route path="/widget" element={<WidgetSettings />} />

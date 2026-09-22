@@ -262,23 +262,23 @@ export default function Champions() {
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-12">
+              <th className="px-2 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap w-12">
                 #
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
+              <th className="px-2 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap">
                 Champion
               </th>
-              <SortHeader {...sort} label="Games" field="games" />
-              <SortHeader {...sort} label="Win Rate" field="wins" />
-              <SortHeader {...sort} label="Avg K" field="avg_kills" />
-              <SortHeader {...sort} label="Avg D" field="avg_deaths" />
-              <SortHeader {...sort} label="Avg A" field="avg_assists" />
-              <SortHeader {...sort} label="KDA" field="kda" />
-              <SortHeader {...sort} label="Score" field="avg_score" />
-              <SortHeader {...sort} label="MVP / ACE" field="badges" />
-              <SortHeader {...sort} label="Avg Dmg" field="avg_damage" />
-              <SortHeader {...sort} label="Avg Gold" field="avg_gold" />
-              <SortHeader {...sort} label="Multikills" field="multikills" />
+              <SortHeader {...sort} compact label="Games" field="games" />
+              <SortHeader {...sort} compact label="Win %" field="wins" />
+              <SortHeader {...sort} compact label="K" field="avg_kills" />
+              <SortHeader {...sort} compact label="D" field="avg_deaths" />
+              <SortHeader {...sort} compact label="A" field="avg_assists" />
+              <SortHeader {...sort} compact label="KDA" field="kda" />
+              <SortHeader {...sort} compact label="Score" field="avg_score" />
+              <SortHeader {...sort} compact label="MVP / ACE" field="badges" />
+              <SortHeader {...sort} compact label="Dmg" field="avg_damage" />
+              <SortHeader {...sort} compact label="Gold" field="avg_gold" />
+              <SortHeader {...sort} compact label="Multikills" field="multikills" />
             </tr>
           </thead>
           <tbody>
@@ -290,8 +290,8 @@ export default function Champions() {
                     expandedId === c.champion_id ? "bg-lol-card-hover" : ""
                   }`}
                 >
-                  <td className="px-3 py-2 text-xs text-lol-text">{i + 1}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2 text-xs text-lol-text">{i + 1}</td>
+                  <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
                       <ChampionIcon championId={c.champion_id} size={28} />
                       <span className="text-sm text-lol-text-bright">
@@ -299,26 +299,26 @@ export default function Champions() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text-bright">{c.games}</td>
-                  <td className="px-3 py-2 w-32">
+                  <td className="px-2 py-2 text-sm text-lol-text-bright">{c.games}</td>
+                  <td className="px-2 py-2 w-32">
                     <WinRateBar wins={c.wins} total={c.games} />
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{c.avg_kills}</td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{c.avg_deaths}</td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{c.avg_assists}</td>
+                  <td className="px-2 py-2 text-sm text-lol-text">{c.avg_kills}</td>
+                  <td className="px-2 py-2 text-sm text-lol-text">{c.avg_deaths}</td>
+                  <td className="px-2 py-2 text-sm text-lol-text">{c.avg_assists}</td>
                   <td
-                    className={`px-3 py-2 text-sm ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
+                    className={`px-2 py-2 text-sm ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
                   >
                     {kdaRatio(c.kills, c.deaths, c.assists)}
                   </td>
                   <td
-                    className={`px-3 py-2 text-sm font-semibold ${
+                    className={`px-2 py-2 text-sm font-semibold ${
                       c.avg_score != null ? scoreColor(c.avg_score) : "text-lol-text"
                     }`}
                   >
                     {c.avg_score != null ? c.avg_score.toFixed(1) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-sm">
+                  <td className="px-2 py-2 text-sm whitespace-nowrap">
                     <span className={c.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
                       {c.mvps}
                     </span>
@@ -327,13 +327,13 @@ export default function Champions() {
                       {c.aces}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text">
+                  <td className="px-2 py-2 text-sm text-lol-text">
                     {(c.avg_damage ?? 0).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-gold">
+                  <td className="px-2 py-2 text-sm text-lol-gold">
                     {(c.avg_gold ?? 0).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <div className="flex gap-1 text-[10px] tabular-nums">
                       <span
                         className={`w-7 shrink-0 text-center ${c.double_kills > 0 ? "text-sky-400" : "text-transparent"}`}

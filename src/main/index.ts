@@ -5,6 +5,7 @@ import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } fro
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
 import { startLiveTracking, stopLiveTracking } from "./live";
+import { startChallengeTracking } from "./challenges";
 import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
 import { applySecurityPolicy } from "./security";
 import { APP_USER_MODEL_ID, ensureStartMenuShortcut } from "./shortcut";
@@ -189,6 +190,9 @@ app.whenReady().then(async () => {
   // Follows the client into and out of matches, so the Live Game tab has a
   // snapshot to show and the map a game was rolled onto gets written down
   startLiveTracking(win);
+  // Records where the ARAM challenges stand each day the client is up. The
+  // client keeps no history of its own, so a day nobody writes down is gone.
+  startChallengeTracking(win);
   startBackupSchedule();
 });
 

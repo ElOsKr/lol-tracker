@@ -19,6 +19,7 @@ import {
   RefreshIcon,
   RadioIcon,
   HourglassIcon,
+  AwardIcon,
 } from "./icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -32,6 +33,7 @@ const links: { to: string; label: string; icon: IconComponent }[] = [
   { to: "/trends", label: "Trends", icon: TrendingUpIcon },
   { to: "/records", label: "Records", icon: MedalIcon },
   { to: "/widget", label: "Widget / OBS", icon: HourglassIcon },
+  { to: "/challenges", label: "Challenges", icon: AwardIcon },
   { to: "/global", label: "Total Stats", icon: GlobeIcon },
 ];
 
