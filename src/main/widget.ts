@@ -1,3 +1,4 @@
+import { TRACKED_QUEUE_IDS, QUEUE_ID_ARAM, isTrackedQueue, hasAugments } from "../shared/queues";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
 import * as db from "./db";
@@ -61,7 +62,7 @@ function preferences(): WidgetPreferences {
     height,
     opacity,
     account,
-    queue: queue !== null && Number.isInteger(queue) && queue >= 0 ? queue : null,
+    queue: isTrackedQueue(queue) ? queue : QUEUE_ID_ARAM,
   };
 }
 
@@ -88,6 +89,7 @@ export function widgetSnapshot(): WidgetSnapshot {
         gameCreation: row.game_creation,
         queueId: row.queue_id,
         win: !!row.win,
+        placement: row.placement ?? null,
         remake: !!row.is_remake,
         championId: row.champion_id,
         kills: row.kills,
@@ -95,7 +97,7 @@ export function widgetSnapshot(): WidgetSnapshot {
         assists: row.assists,
         items,
         itemIcons: items.map((id) => icon(data?.items[id])),
-        augments: (row.augment_ids ?? "")
+        augments: (hasAugments(row.queue_id) ? (row.augment_ids ?? "") : "")
           .split(",")
           .map(Number)
           .filter((id) => id > 0)
@@ -242,8 +244,8 @@ export function registerWidgetHandlers(main: () => BrowserWindow | null) {
       typeof value.account !== "string" ||
       (value.account !== "" &&
         !db.getMatchFilterOptions().accounts.some((a) => a.puuid === value.account)) ||
-      (value.queue !== null &&
-        (!Number.isInteger(value.queue) || !db.getStoredQueues().includes(value.queue)))
+      !Number.isInteger(value.queue) ||
+      !TRACKED_QUEUE_IDS.includes(value.queue as number)
     )
       throw new Error("Invalid widget selection");
     db.setSetting("widget_account", value.account);

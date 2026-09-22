@@ -1,3 +1,4 @@
+import { saveQueueLifetimeTotal } from "./queue-totals";
 import {
   authenticate,
   ClientElevatedPermsError,
@@ -10,7 +11,7 @@ import {
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
-import { MAYHEM_QUEUE_IDS } from "../shared/queues";
+import { TRACKED_QUEUE_IDS, CAPTURE_POLICY_VERSION } from "../shared/queues";
 import { SGP_HISTORY_CAP } from "../shared/api";
 import type { BackfillLimit, BackfillResult, LcuStatus } from "../shared/api";
 
@@ -178,7 +179,7 @@ const SGP_MAX_PAGES = 25;
 // reaches no further back: without it the hydration loop below pays one LCU
 // request per game the account played in some other queue, only to throw it
 // away. OR because a game is in exactly one queue.
-const SGP_MAYHEM_TAGS = `${MAYHEM_QUEUE_IDS.map((id) => `tag=q_${id}`).join("&")}&tagsQueryType=OR`;
+const SGP_TRACKED_TAGS = "tagsQueryType=AND";
 const SGP_ALL_TAGS = "tagsQueryType=AND";
 
 // How many new games to accumulate before nudging the UI to re-query, so a long
@@ -456,7 +457,7 @@ export async function backfillHistory(
     // the first page we've already fully accounted for means everything in
     // front of it is too. Tracked per account, since a newly added one has
     // nothing to stop on.
-    const completedKey = `backfill_complete_${summoner.puuid}`;
+    const completedKey = `backfill_complete_${CAPTURE_POLICY_VERSION}_${summoner.puuid}`;
     const walkedBefore = db.getSetting(completedKey) === "1";
     const stopAtKnownPage = walkedBefore && !full;
 
@@ -472,7 +473,7 @@ export async function backfillHistory(
     let activeHost = host;
     let walked: { ids: number[]; stoppedBy: WalkStop };
     try {
-      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
+      walked = await walk(activeHost, SGP_TRACKED_TAGS);
     } catch (err) {
       // The remembered shard may simply be the wrong one now. Find the right
       // one and restart the walk there; if none answers, the original failure
@@ -481,7 +482,7 @@ export async function backfillHistory(
       const rehomed = await rehomeSgpHost(summoner.puuid, token, activeHost);
       if (!rehomed) throw err;
       activeHost = rehomed;
-      walked = await walk(activeHost, SGP_MAYHEM_TAGS);
+      walked = await walk(activeHost, SGP_TRACKED_TAGS);
     }
 
     // The queue filter is Riot's vocabulary, not ours, and a filtered walk that
@@ -543,11 +544,11 @@ export async function backfillHistory(
         continue;
       }
 
-      if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) {
+      if (!TRACKED_QUEUE_IDS.includes(game.queueId)) {
         db.markIgnoredGame(gameId);
       } else if (db.insertGameFull(game, summoner.puuid)) {
         added++;
-        console.log(`Backfilled ARAM Mayhem game ${gameId}`);
+        console.log(`Backfilled LoL game ${gameId}`);
       }
 
       // Let the app fill in as it goes rather than staying empty for minutes
@@ -649,8 +650,8 @@ export async function fetchNewGames(
     // Recorded rather than skipped, so the next window has this game as an
     // anchor too. Otherwise a run of games in other queues looks exactly like
     // the gap below and would send us off on a deep walk to rediscover that
-    // they still aren't Mayhem games.
-    if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) {
+    // they still aren't tracked games.
+    if (!TRACKED_QUEUE_IDS.includes(game.queueId)) {
       db.markIgnoredGame(game.gameId);
       continue;
     }
@@ -665,7 +666,7 @@ export async function fetchNewGames(
     const inserted = db.insertGameFull(fullGame, summoner.puuid);
     if (inserted) {
       newGamesCount++;
-      console.log(`Stored ARAM Mayhem game ${fullGame.gameId}`);
+      console.log(`Stored LoL game ${fullGame.gameId}`);
     }
   }
 
@@ -807,14 +808,14 @@ async function captureEogGame(
 
     const game = await fetchGameDetails(gameId);
 
-    if (!MAYHEM_QUEUE_IDS.includes(game.queueId)) {
+    if (!TRACKED_QUEUE_IDS.includes(game.queueId)) {
       db.markIgnoredGame(gameId);
       eogPending.delete(gameId);
       return;
     }
 
     if (db.insertGameFull(game, summoner.puuid)) {
-      console.log(`Stored ARAM Mayhem game ${gameId} from the post-game screen`);
+      console.log(`Stored LoL game ${gameId} from the post-game screen`);
       notifyGamesUpdated(win);
     }
     eogPending.delete(gameId);
@@ -842,12 +843,34 @@ function startCapture(win: BrowserWindow, gameId: number, queueId: number): void
   // The queue id rides along whenever the source has one, so a game we don't
   // track is dismissed without a single request. Sources that omit it leave
   // this NaN, and the fetched game is what decides instead.
-  if (Number.isFinite(queueId) && queueId > 0 && !MAYHEM_QUEUE_IDS.includes(queueId)) {
+  if (Number.isFinite(queueId) && queueId >= 0 && !TRACKED_QUEUE_IDS.includes(queueId)) {
     db.markIgnoredGame(gameId);
     return;
   }
 
   captureEogGame(win, gameId, 0);
+}
+
+// Serialize observations so delayed responses cannot cross account switches.
+let totalsCapture = Promise.resolve();
+function captureQueueTotals(win: BrowserWindow, data: any) {
+  totalsCapture = totalsCapture
+    .then(async () => {
+      if (!data?.localPlayer?.puuid || !Number.isSafeInteger(data.gameId) || data.gameId <= 0)
+        return;
+      const summoner = await fetchCurrentSummoner();
+      if (summoner.puuid !== data.localPlayer.puuid) return;
+      const game = await fetchGameDetails(data.gameId);
+      // Resolve the queue from this exact game, never from the selected view.
+      if (game.gameId !== data.gameId) return;
+      if (saveQueueLifetimeTotal(data, game, summoner.puuid)) {
+        db.upsertSummoner(summoner);
+        notifyGamesUpdated(win);
+      }
+    })
+    .catch(() => {
+      /* A later resource update or reconnect can retry. */
+    });
 }
 
 function handleFrame(win: BrowserWindow, payload: any): void {
@@ -877,6 +900,7 @@ function handleFrame(win: BrowserWindow, payload: any): void {
   if (EOG_STATS_PATHS.includes(path)) {
     // The resource is also cleared once the screen is dismissed
     if (payload.eventType === "Delete" || !payload.data) return;
+    if (path === EOG_STATS_PATHS[0]) captureQueueTotals(win, payload.data);
     startCapture(win, Number(payload.data.gameId), Number(payload.data.queueId));
   }
 }
@@ -977,6 +1001,10 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
 
     eogSocket = socket;
     console.log("Listening for post-game results");
+    // Also capture when Riftally starts while the results screen is already open.
+    void lcuJson("/" + EOG_STATS_PATHS[0]).then((data) => {
+      if (data) captureQueueTotals(win, data);
+    });
 
     // The socket only carries changes, so a client that was already in a match
     // when we attached needs the current phase read once.
@@ -1043,6 +1071,9 @@ async function isInGame(): Promise<boolean> {
 // rest of its life without one. Deferred while a game is in progress so we
 // aren't hammering the client mid-match; a later poll picks it up.
 async function syncGames(win: BrowserWindow) {
+  // Retry a result whose match details were not ready when the event arrived.
+  const resultBlock = await lcuJson("/" + EOG_STATS_PATHS[0]);
+  if (resultBlock) captureQueueTotals(win, resultBlock);
   let summoner: any = null;
   try {
     summoner = await fetchCurrentSummoner();

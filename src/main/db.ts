@@ -1,3 +1,5 @@
+import { isSupportedLolMatch, participantModeFields } from "../shared/match-mode";
+import { saveQueueLifetimeTotal } from "./queue-totals";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
@@ -8,7 +10,16 @@ import {
   type PlayerScore,
   type ScoreInput,
 } from "../shared/opScore";
-import { AUGMENT_SLOTS, QUEUE_ID_MAYHEM_CLASSIC } from "../shared/queues";
+import {
+  AUGMENT_SLOTS,
+  QUEUE_ID_MAYHEM_CLASSIC,
+  QUEUE_ID_ARAM,
+  MAYHEM_QUEUE_IDS,
+  hasScore,
+  SCORE_POLICY_VERSION,
+  isTrackedQueue,
+  CAPTURE_POLICY_VERSION,
+} from "../shared/queues";
 import { mapNameForSkin } from "../shared/maps";
 import {
   DAY_START_HOUR,
@@ -211,13 +222,40 @@ function createTables() {
       updated_at   INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS match_mode_stats (
+      game_id INTEGER NOT NULL REFERENCES games(game_id) ON DELETE CASCADE,
+      participant_id INTEGER NOT NULL,
+      placement INTEGER,
+      cs INTEGER,
+      vision REAL,
+      position TEXT,
+      PRIMARY KEY(game_id, participant_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS queue_lifetime_totals (
+      puuid TEXT NOT NULL,
+      queue_id INTEGER NOT NULL,
+      wins INTEGER NOT NULL,
+      losses INTEGER NOT NULL,
+      game_id INTEGER NOT NULL,
+      game_creation INTEGER NOT NULL,
+      captured_at INTEGER NOT NULL,
+      PRIMARY KEY (puuid, queue_id)
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
 
-    -- Games seen during a backfill that aren't Mayhem. Remembering them keeps
-    -- repeat backfills from re-fetching every ARAM/Arena game each time.
+    -- Discards belong to a capture policy; expanding supported queues revisits
+    -- earlier decisions without removing the legacy record below.
+    CREATE TABLE IF NOT EXISTS ignored_games_by_policy (
+      game_id INTEGER NOT NULL,
+      policy TEXT NOT NULL,
+      PRIMARY KEY (game_id, policy)
+    );
+
     CREATE TABLE IF NOT EXISTS ignored_games (
       game_id INTEGER PRIMARY KEY
     );
@@ -351,9 +389,13 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
 
   return participants.map((p: any, i: number): RawParticipantRow => {
     const s = p.stats || p;
-    const player = identities[i]?.player || {};
+    const player =
+      identities.find((identity: any) => identity.participantId === (p.participantId ?? i + 1))
+        ?.player ||
+      identities[i]?.player ||
+      {};
     const augments: { slot: number; augment_id: number }[] = [];
-    for (let slot = 1; slot <= AUGMENT_SLOTS; slot++) {
+    for (let slot = 1; MAYHEM_QUEUE_IDS.includes(raw.queueId) && slot <= AUGMENT_SLOTS; slot++) {
       const augId = s[`playerAugment${slot}`];
       if (augId && augId > 0) augments.push({ slot, augment_id: augId });
     }
@@ -366,7 +408,7 @@ function participantRowsFromRaw(raw: any): RawParticipantRow[] {
         player.gameName || player.summonerName || p.summonerName || p.riotIdGameName || null,
       tag_line: player.tagLine || p.riotIdTagline || null,
       profile_icon: typeof icon === "number" && icon > 0 ? icon : null,
-      team_id: p.teamId ?? s.teamId ?? 100,
+      team_id: participantModeFields(raw, p, i).teamId,
       champion_id: p.championId ?? s.championId ?? 0,
       win: s.win ? 1 : 0,
       kills: s.kills ?? 0,
@@ -783,10 +825,13 @@ function backfillPlayerStatsSpells() {
 
 // Retroactively detect remakes for games stored before the flag existed
 function backfillRemakes() {
-  const games = db.prepare("SELECT game_id, game_duration, raw_json FROM games").all() as {
+  const games = db
+    .prepare("SELECT game_id, queue_id, game_duration, raw_json FROM games")
+    .all() as {
     game_id: number;
     game_duration: number;
     raw_json: string | null;
+    queue_id: number;
   }[];
   const updateStmt = db.prepare("UPDATE games SET is_remake = 1 WHERE game_id = ?");
   const tx = db.transaction(() => {
@@ -801,7 +846,7 @@ function backfillRemakes() {
           /* ignore parse errors */
         }
       }
-      if (detectRemake(game.game_duration, rows)) {
+      if (detectRemake(game.game_duration, rows, game.queue_id)) {
         updateStmt.run(game.game_id);
       }
     }
@@ -911,20 +956,7 @@ function backfillAugmentSlots() {
   `);
 }
 
-// Queues switched off on the Settings page, as stored in hidden_queues. An
-// absent key means the setting was never written; an empty one means the user
-// has everything switched on.
-function getHiddenQueues(): number[] {
-  const raw = getSetting("hidden_queues");
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map(Number)
-    .filter((id) => Number.isFinite(id));
-}
-
-// Every queue with games stored, ignoring which ones are hidden — the Settings
-// page needs the full list to offer a hidden queue's switch back on.
+// The unfiltered list is used for maintenance and catalogue discovery.
 export function getStoredQueues(): number[] {
   const rows = db
     .prepare(`
@@ -937,19 +969,16 @@ export function getStoredQueues(): number[] {
   return rows.map((r) => r.queue_id);
 }
 
-// Appends queue conditions to a query's WHERE list. An explicit queue filter
-// wins; otherwise the queues switched off in Settings are excluded everywhere.
+// A missing selection resolves to one queue, never to an aggregate.
+export function selectedQueue(): number {
+  const saved = getSetting("selected_queue");
+  const value = saved == null || saved === "" ? NaN : Number(saved);
+  return isTrackedQueue(value) ? value : QUEUE_ID_ARAM;
+}
+
 function applyQueueFilter(where: string[], params: any[], queue?: number, alias = "g") {
-  if (queue != null) {
-    where.push(`${alias}.queue_id = ?`);
-    params.push(queue);
-    return;
-  }
-  const hidden = getHiddenQueues();
-  if (hidden.length > 0) {
-    where.push(`${alias}.queue_id NOT IN (${hidden.map(() => "?").join(", ")})`);
-    params.push(...hidden);
-  }
+  where.push(`${alias}.queue_id = ?`);
+  params.push(isTrackedQueue(queue) ? queue : selectedQueue());
 }
 
 // Remakes are already left out of every stat; this setting takes them out of
@@ -962,7 +991,7 @@ function hideRemakes(): boolean {
 // stored scores recompute when either changes (new formula, new patch,
 // re-tagged champion).
 function scoreFormulaKey() {
-  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}`;
+  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}:${SCORE_POLICY_VERSION}`;
 }
 
 // Recompute stored scores from the participant rows. Runs whenever the formula version or
@@ -1037,6 +1066,7 @@ function groupByGame<T extends { game_id: number }>(rows: T[]): Map<number, T[]>
 function computeOwnerScore(
   participants: ScoreRow[],
   ownerPuuid: string | null,
+  queueId: number,
   fallback?: { champion_id: number; kills: number; deaths: number; assists: number },
 ): PlayerScore | null {
   const inputs = scoreInputsFromRows(participants);
@@ -1052,13 +1082,13 @@ function computeOwnerScore(
     );
   }
   if (!owner) return null;
-  return computeMatchScores(inputs, getChampionClasses()).get(owner.participantId) ?? null;
+  return computeMatchScores(inputs, getChampionClasses(), queueId).get(owner.participantId) ?? null;
 }
 
 function backfillScores() {
   const games = db
     .prepare(`
-      SELECT g.game_id, g.puuid, g.is_remake,
+      SELECT g.game_id, g.puuid, g.queue_id, g.is_remake,
              ps.champion_id, ps.kills, ps.deaths, ps.assists
       FROM games g
       JOIN player_stats ps ON g.game_id = ps.game_id
@@ -1067,6 +1097,7 @@ function backfillScores() {
     game_id: number;
     puuid: string;
     is_remake: number;
+    queue_id: number;
     champion_id: number;
     kills: number;
     deaths: number;
@@ -1084,11 +1115,16 @@ function backfillScores() {
   );
   const tx = db.transaction(() => {
     for (const row of games) {
-      if (row.is_remake) {
+      if (row.is_remake || !hasScore(row.queue_id)) {
         updateStmt.run(null, null, null, row.game_id);
         continue;
       }
-      const result = computeOwnerScore(participants.get(row.game_id) ?? [], row.puuid || null, row);
+      const result = computeOwnerScore(
+        participants.get(row.game_id) ?? [],
+        row.puuid || null,
+        row.queue_id,
+        row,
+      );
       updateStmt.run(
         result?.score ?? null,
         result?.raw ?? null,
@@ -1106,7 +1142,13 @@ function parsePatch(version: unknown): string | null {
   return m ? `${m[1]}.${m[2]}` : null;
 }
 
-function detectRemake(gameDuration: number, rows: { early_surrender: number }[]): boolean {
+function detectRemake(
+  gameDuration: number,
+  rows: { early_surrender: number }[],
+  queue?: number,
+): boolean {
+  if (queue == null || !MAYHEM_QUEUE_IDS.includes(queue))
+    return gameDuration < 300 && rows.some((r) => r.early_surrender === 1);
   // Very short games are always remakes
   if (gameDuration < 300) return true;
   // An early surrender still inside the first ten minutes counts as one too
@@ -1120,6 +1162,7 @@ function detectRemake(gameDuration: number, rows: { early_surrender: number }[])
 // alongside the row rather than derived in JS: three correlated MAX()es over a
 // page of 25 games cost a fraction of a millisecond.
 const GAME_MAX_STATS_SQL = `
+           (SELECT ms.placement FROM match_mode_stats ms JOIN match_participants owner ON owner.game_id=ms.game_id AND owner.participant_id=ms.participant_id WHERE ms.game_id=g.game_id AND owner.puuid=g.puuid LIMIT 1) AS placement,
            MAX(IFNULL((SELECT MAX(mp.total_damage_dealt) FROM match_participants mp
                         WHERE mp.game_id = g.game_id), 0), 1) as game_max_dmg,
            MAX(IFNULL((SELECT MAX(mp.total_damage_taken) FROM match_participants mp
@@ -1372,7 +1415,7 @@ export function getMatchFilterOptions(filters?: {
     queueWhere.push("g.game_version = ?");
     queueParams.push(filters.patch);
   }
-  applyQueueFilter(queueWhere, queueParams, undefined);
+  // Catalogue must remain independent from the selected queue.
   applyAccountFilter(queueWhere, queueParams);
   const queueRows = db
     .prepare(`
@@ -1478,7 +1521,17 @@ function getMatchParticipants(gameId: number): any[] {
     else augments.set(row.participant_id, [row.augment_id]);
   }
 
+  const modeStats = new Map(
+    (db.prepare("SELECT * FROM match_mode_stats WHERE game_id=?").all(gameId) as any[]).map((m) => [
+      m.participant_id,
+      m,
+    ]),
+  );
   return rows.map((r) => ({
+    placement: modeStats.get(r.participant_id)?.placement ?? null,
+    cs: modeStats.get(r.participant_id)?.cs ?? null,
+    vision: modeStats.get(r.participant_id)?.vision ?? null,
+    position: modeStats.get(r.participant_id)?.position ?? null,
     participantId: r.participant_id,
     puuid: r.puuid,
     gameName: r.game_name,
@@ -1833,8 +1886,10 @@ export function gameExists(gameId: number): boolean {
 // skipped. One query beats a lookup per id when a backfill checks hundreds.
 export function getKnownGameIds(): Set<number> {
   const rows = db
-    .prepare("SELECT game_id FROM games UNION SELECT game_id FROM ignored_games")
-    .all() as { game_id: number }[];
+    .prepare(
+      "SELECT game_id FROM games UNION SELECT game_id FROM ignored_games_by_policy WHERE policy = ?",
+    )
+    .all(CAPTURE_POLICY_VERSION) as { game_id: number }[];
   return new Set(rows.map((r) => r.game_id));
 }
 
@@ -1843,14 +1898,17 @@ export function getKnownGameIds(): Set<number> {
 export function isGameKnown(gameId: number): boolean {
   const row = db
     .prepare(
-      "SELECT 1 FROM games WHERE game_id = ? UNION ALL SELECT 1 FROM ignored_games WHERE game_id = ? LIMIT 1",
+      "SELECT 1 FROM games WHERE game_id = ? UNION ALL SELECT 1 FROM ignored_games_by_policy WHERE game_id = ? AND policy = ? LIMIT 1",
     )
-    .get(gameId, gameId);
+    .get(gameId, gameId, CAPTURE_POLICY_VERSION);
   return !!row;
 }
 
 export function markIgnoredGame(gameId: number): void {
-  db.prepare("INSERT OR IGNORE INTO ignored_games (game_id) VALUES (?)").run(gameId);
+  db.prepare("INSERT OR IGNORE INTO ignored_games_by_policy (game_id, policy) VALUES (?, ?)").run(
+    gameId,
+    CAPTURE_POLICY_VERSION,
+  );
 }
 
 // The game's owner among its participant rows. participantRowsFromRaw has
@@ -1862,15 +1920,16 @@ function findOwnerRow(rows: RawParticipantRow[], puuid: string): RawParticipantR
 }
 
 export function insertGameFull(gameData: any, puuid: string): boolean {
+  if (!isSupportedLolMatch(gameData)) return false;
   const rows = participantRowsFromRaw(gameData);
   const owner = findOwnerRow(rows, puuid);
   if (!owner) return false;
 
-  const isRemake = detectRemake(gameData.gameDuration, rows) ? 1 : 0;
+  const isRemake = detectRemake(gameData.gameDuration, rows, gameData.queueId) ? 1 : 0;
 
   let ownerScore: PlayerScore | null = null;
-  if (!isRemake) {
-    ownerScore = computeOwnerScore(rows, puuid, {
+  if (!isRemake && hasScore(gameData.queueId)) {
+    ownerScore = computeOwnerScore(rows, puuid, gameData.queueId, {
       champion_id: owner.champion_id,
       kills: owner.kills,
       deaths: owner.deaths,
@@ -1951,6 +2010,13 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       ownerScore?.badge ?? null,
     );
 
+    const modeStmt = db.prepare(
+      "INSERT OR REPLACE INTO match_mode_stats (game_id,participant_id,placement,cs,vision,position) VALUES (?,?,?,?,?,?)",
+    );
+    gameData.participants.forEach((p: any, i: number) => {
+      const m = participantModeFields(gameData, p, i);
+      modeStmt.run(gameData.gameId, m.participantId, m.placement, m.cs, m.vision, m.position);
+    });
     // Augments
     for (const aug of owner.augments) {
       insertAugmentStmt.run(gameData.gameId, aug.slot, aug.augment_id);
@@ -2283,9 +2349,11 @@ export function getTeammateDetail(key: string): { player: any; matches: any[] } 
     champ.assists += friend.assists;
 
     const gameRows = scoreRows.get(row.game_id) ?? [];
-    const friendScore = computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses()).get(
-      friend.participant_id,
-    );
+    const friendScore = !hasScore(row.queue_id)
+      ? undefined
+      : computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses(), row.queue_id).get(
+          friend.participant_id,
+        );
     const friendStats = gameRows.find((p) => p.participant_id === friend.participant_id);
 
     matches.push({
@@ -2802,10 +2870,10 @@ export function setGameMap(gameId: number, mapId: number | null, mapSkin: string
 }
 
 export function getGameMapName(gameId: number): string | null {
-  const row = db.prepare("SELECT map_skin FROM match_maps WHERE game_id = ?").get(gameId) as
-    | { map_skin: string }
+  const row = db.prepare("SELECT map_skin, map_id FROM match_maps WHERE game_id = ?").get(gameId) as
+    | { map_skin: string; map_id: number | null }
     | undefined;
-  return mapNameForSkin(row?.map_skin);
+  return mapNameForSkin(row?.map_skin, row?.map_id);
 }
 
 // The icon the account who played a game was wearing at the time, which is what
@@ -2892,7 +2960,10 @@ function emptyRecord(): PlayerRecord {
  * empty, and the ones that don't are the point: a friend's record on the
  * champion they just locked in.
  */
-export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerHistory> {
+export function getPlayerHistories(
+  players: PlayerRef[],
+  queue?: number,
+): Record<string, PlayerHistory> {
   const histories: Record<string, PlayerHistory> = {};
   if (players.length === 0) return histories;
 
@@ -2903,7 +2974,7 @@ export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerH
   if (!match) return histories;
 
   const where = [match, "mp.is_remake = 0"];
-  applyQueueFilter(where, params, undefined, "mp");
+  applyQueueFilter(where, params, queue, "mp");
 
   const rows = db
     .prepare(`
@@ -2989,7 +3060,7 @@ export function getPlayerHistories(players: PlayerRef[]): Record<string, PlayerH
         `(o.puuid IS NULL OR o.puuid NOT IN (${ourList}))`,
       ];
       teamParams.push(...ours);
-      applyQueueFilter(teamWhere, teamParams, undefined, "o");
+      applyQueueFilter(teamWhere, teamParams, queue, "o");
 
       const teamRows = db
         .prepare(`
@@ -3311,7 +3382,15 @@ function buildStreak(rows: CareerRow[], index: number): RecapStreak {
  * because crossing a mark only happens once and happened then.
  */
 export function getGameRecap(gameId?: number): any {
-  const rows = careerRows();
+  const targetQueue =
+    gameId == null
+      ? selectedQueue()
+      : (
+          db.prepare("SELECT queue_id FROM games WHERE game_id = ?").get(gameId) as
+            | { queue_id: number }
+            | undefined
+        )?.queue_id;
+  const rows = careerRows(targetQueue);
   const id = gameId ?? rows[rows.length - 1]?.game_id;
   if (id == null) return null;
 
@@ -3467,6 +3546,8 @@ export function getSetting(key: string): string | null {
 }
 
 export function setSetting(key: string, value: string): void {
+  if (key === "selected_queue" && (value === "" || !isTrackedQueue(Number(value))))
+    throw new Error("Invalid queue selection");
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
 }
 
@@ -3526,7 +3607,9 @@ export async function writeExportTo(filePath: string): Promise<number> {
       await write(chunk);
     }
 
-    await write("]}");
+    await write(
+      `],"queueTotals":${JSON.stringify(db.prepare("SELECT * FROM queue_lifetime_totals").all())}}`,
+    );
   } finally {
     await new Promise<void>((resolve, reject) => {
       out.on("error", reject);
@@ -3538,6 +3621,15 @@ export async function writeExportTo(filePath: string): Promise<number> {
 
 export function importData(data: any): number {
   if (data.version >= 3) {
+    for (const t of Array.isArray(data.queueTotals) ? data.queueTotals : []) {
+      if (!t || typeof t.puuid !== "string") continue;
+      saveQueueLifetimeTotal(
+        { gameId: t.game_id, localPlayer: { puuid: t.puuid, wins: t.wins, losses: t.losses } },
+        { gameId: t.game_id, queueId: t.queue_id, gameCreation: t.game_creation },
+        t.puuid,
+        t.captured_at,
+      );
+    }
     for (const s of data.summoners ?? []) {
       upsertSummoner(s);
     }
@@ -3570,7 +3662,7 @@ export function importData(data: any): number {
 function rebuildDerivedStats(): number {
   const games = db
     .prepare(`
-      SELECT g.game_id, g.puuid, g.game_duration,
+      SELECT g.game_id, g.puuid, g.queue_id, g.game_duration,
              ps.champion_id, ps.kills, ps.deaths, ps.assists
       FROM games g
       LEFT JOIN player_stats ps ON g.game_id = ps.game_id
@@ -3579,6 +3671,7 @@ function rebuildDerivedStats(): number {
     game_id: number;
     puuid: string;
     game_duration: number;
+    queue_id: number;
     champion_id: number | null;
     kills: number | null;
     deaths: number | null;
@@ -3657,12 +3750,12 @@ function rebuildDerivedStats(): number {
 
       // Writing is_remake fires trg_games_denorm_participants, which carries
       // the new value down to the participant rows.
-      const isRemake = detectRemake(row.game_duration, rows) ? 1 : 0;
+      const isRemake = detectRemake(row.game_duration, rows, row.queue_id) ? 1 : 0;
       updateRemake.run(isRemake, row.game_id);
 
       let ownerScore: PlayerScore | null = null;
-      if (!isRemake) {
-        ownerScore = computeOwnerScore(rows, row.puuid || null, {
+      if (!isRemake && hasScore(row.queue_id)) {
+        ownerScore = computeOwnerScore(rows, row.puuid || null, row.queue_id, {
           champion_id: owner.champion_id,
           kills: owner.kills,
           deaths: owner.deaths,

@@ -1,3 +1,4 @@
+import { getQueueLifetimeTotals } from "./queue-totals";
 import { ipcMain, BrowserWindow, dialog, app, shell } from "electron";
 import fs from "fs";
 import * as db from "./db";
@@ -17,6 +18,7 @@ import { SESSION_GROUPING_SETTING } from "../shared/session";
 // the renderer has any business reading or rewriting. Only the keys backing the
 // Settings page are exposed.
 const RENDERER_SETTINGS = new Set([
+  "selected_queue",
   "auto_start",
   "minimize_to_tray",
   "hidden_queues",
@@ -35,6 +37,7 @@ function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | 
 }
 
 export function registerIpcHandlers() {
+  ipcMain.handle("db:queue-lifetime-totals", () => getQueueLifetimeTotals());
   ipcMain.handle(
     "db:match-history",
     (

@@ -26,8 +26,98 @@ function load(file, mocks = {}) {
   );
   return mod.exports;
 }
+require.extensions[".ts"] = (mod, filename) => {
+  mod._compile(
+    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        esModuleInterop: true,
+      },
+    }).outputText,
+    filename,
+  );
+};
 const { startWidgetServer } = load("src/main/widget-server.ts");
 const root = path.resolve(__dirname, "../public-widget");
+
+test("queue selection persists in order and never clears to all queues", async () => {
+  const previous = global.window;
+  const writes = [];
+  global.window = {
+    api: {
+      setSetting: async (key, value) => {
+        writes.push([key, value]);
+      },
+    },
+  };
+  try {
+    const selection = load("src/renderer/hooks/useQueueSelection.ts", {
+      react: { useSyncExternalStore: (_subscribe, snapshot) => snapshot() },
+    });
+    selection.initQueueSelection(null);
+    assert.equal(selection.useQueueSelection()[0], 450);
+    await Promise.all([selection.selectQueue(2400), selection.selectQueue(2450)]);
+    assert.deepEqual(writes, [
+      ["selected_queue", "2400"],
+      ["selected_queue", "2450"],
+    ]);
+    assert.equal(selection.useQueueSelection()[0], 2450);
+    await selection.selectQueue(undefined);
+    assert.equal(selection.useQueueSelection()[0], 2450);
+    global.window.api.setSetting = async () => {
+      throw new Error("write failed");
+    };
+    await assert.rejects(selection.selectQueue(450), /write failed/);
+    assert.equal(selection.useQueueSelection()[0], 2450);
+    selection.initQueueSelection("2400");
+    assert.equal(selection.useQueueSelection()[0], 2400);
+  } finally {
+    if (previous === undefined) delete global.window;
+    else global.window = previous;
+  }
+});
+
+// El proyecto ya publica sus propias releases, asi que comprobar
+// actualizaciones es legitimo. Lo que sigue sin poder ocurrir es instalar un
+// ejecutable ajeno: el renderer solo devuelve una URL, y la validacion del
+// origen es lo unico que impide apuntar el instalador a otro sitio.
+test("an installer can only be fed a download from this project's own releases", async () => {
+  const previous = process.env.PORTABLE_EXECUTABLE_FILE;
+  process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\MayhemTracker.exe";
+  const originalFetch = global.fetch;
+  global.fetch = async () => {
+    assert.fail("A rejected URL must not reach the network");
+  };
+  try {
+    const updater = load("src/main/updater.ts", {
+      electron: { app: { quit: () => assert.fail("Must not quit") } },
+      child_process: { spawn: () => assert.fail("Must not launch an installer") },
+    });
+    // La release del proyecto original, que es justo la que no debe instalarse
+    const upstream = await updater.downloadAndInstall(
+      {},
+      "https://github.com/Yhprum/mayhem-tracker/releases/download/v1.11.0/MayhemTracker.exe",
+    );
+    assert.equal(upstream.success, false);
+    assert.match(upstream.error, /Unexpected download URL/);
+
+    // Cualquier otro anfitrion, incluido uno que solo se le parezca
+    for (const url of [
+      "https://github.com/ElOsKr-evil/lol-tracker/releases/download/v1/x.exe",
+      "https://example.com/lol-tracker/x.exe",
+      "https://github.com/ElOsKr/otro-repo/releases/download/v1/x.exe",
+    ]) {
+      const bad = await updater.downloadAndInstall({}, url);
+      assert.equal(bad.success, false, url);
+      assert.match(bad.error, /Unexpected download URL/, url);
+    }
+  } finally {
+    global.fetch = originalFetch;
+    if (previous === undefined) delete process.env.PORTABLE_EXECUTABLE_FILE;
+    else process.env.PORTABLE_EXECUTABLE_FILE = previous;
+  }
+});
 
 test("closing the desktop widget hides it, reopening reuses it, shutdown destroys it", async () => {
   const events = new Map();
@@ -102,7 +192,7 @@ test("closing the desktop widget hides it, reopening reuses it, shutdown destroy
   const win = windows[0];
   assert.equal(win.opacity, 1);
   const event = { sender: main.webContents, senderFrame: main.webContents.mainFrame };
-  handlers.get("widget:preferences")(event, { account: "", queue: null, height: 280, opacity: 30 });
+  handlers.get("widget:preferences")(event, { account: "", queue: 450, height: 280, opacity: 30 });
   assert.deepEqual(win.size, [360, 280]);
   assert.equal(win.opacity, 0.3);
   assert.equal(handlers.get("widget:state")(event).preferences.height, 280);
@@ -241,9 +331,9 @@ test("widget shares account/queue filters, excludes remakes from streak and expo
     () => handlers.get("widget:preferences")(event, { account: "other", queue: null }),
     /Invalid widget selection/,
   );
-  const appearance = { account: "account-a", queue: null, height: 320, opacity: 60 };
+  const appearance = { account: "account-a", queue: 450, height: 320, opacity: 60 };
   handlers.get("widget:preferences")(event, appearance);
-  assert.equal(settings.get("widget_queue"), "");
+  assert.equal(settings.get("widget_queue"), "450");
   assert.equal(settings.get("widget_height"), "320");
   assert.equal(settings.get("widget_opacity"), "60");
   for (const change of [

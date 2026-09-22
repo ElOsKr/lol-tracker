@@ -116,7 +116,13 @@ function renderMatchCard(match: Match): HTMLElement {
     element(
       "div",
       `badge badge-${match.win ? "win" : "loss"}`,
-      match.remake ? "REMAKE" : match.win ? "VICTORIA" : "DERROTA",
+      match.placement
+        ? `PUESTO ${match.placement}`
+        : match.remake
+          ? "REMAKE"
+          : match.win
+            ? "VICTORIA"
+            : "DERROTA",
     ),
   );
   return card;

@@ -1,3 +1,4 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -161,7 +162,7 @@ function ChampionExpanded({
 export default function Champions() {
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
-  const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
+  const [queue, setQueue] = useQueueSelection();
   const { data, refetch } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patch, queue),
     [patch, queue],

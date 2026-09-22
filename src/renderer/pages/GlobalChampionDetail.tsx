@@ -1,3 +1,4 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useMemo, useEffect, useCallback, type ReactNode } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -222,8 +223,7 @@ export default function GlobalChampionDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const patch = searchParams.get("patch") ?? undefined;
-  const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
+  const [queue, setQueue] = useQueueSelection();
 
   // Filters live in the URL so the back link returns to the same view
   const setFilter = useCallback(
@@ -287,7 +287,7 @@ export default function GlobalChampionDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <QueueSelect value={queue} onChange={(q) => setFilter("queue", q)} />
+          <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={(p) => setFilter("patch", p)} />
         </div>
       </div>

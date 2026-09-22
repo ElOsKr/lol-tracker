@@ -4,8 +4,8 @@
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
-- Fase actual (2026-09-20): widget integrado y publicado en `main`; sincronización con el proyecto original al día. La ampliación a las demás colas de LoL está implementada en `codex/lol-all-queues` y sin integrar. TFT sigue pendiente.
-- Riftally es el nombre elegido; League Companion se descartó por estar ya en uso. La identidad técnica del paquete, ejecutable e identificador sigue siendo la de Mayhem Tracker; su adaptación queda pendiente.
+- Fase actual (2026-09-20): widget integrado y publicado en `main`, sincronización con el proyecto original al día y canal de releases propio desde 0.1.0. La ampliación a todas las colas de LoL se integra en esta rama; TFT sigue pendiente. Diez colas verificadas con muestras reales sobre copia; Arena y Enjambre siguen sin validación real. Los contadores de fin de partida son instantáneas de Riot y pueden reiniciarse: no equivalen al histórico completo.
+- Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo a League Companion por estar ya en uso. El renombrado del paquete, ejecutable e identificador, todavía Mayhem Tracker, queda para una entrega aparte. El actualizador ya lee las releases de este repositorio, así que la desactivación provisional de actualizaciones oficiales deja de ser necesaria.
 - Conservar la licencia MIT y la atribución originales.
 
 ## Memoria compartida
@@ -39,10 +39,10 @@
 
 - `src/main/`: Electron, LCU, persistencia, IPC, copias de seguridad y actualizador.
 - `src/preload/`: puente entre Electron y la interfaz.
-- `src/shared/`: contratos y reglas compartidas; `queues.ts` contiene actualmente las colas Mayhem.
+- `src/shared/`: contratos y reglas compartidas; `queues.ts` define captura y capacidades; `queue-catalog.ts` conserva el catálogo LoL obtenido de Riot/LCU.
 - `src/renderer/`: interfaz React, páginas, componentes y hooks.
 - `scripts/`: generación de descripciones de aumentos.
-- Antes de ampliar colas, revisar el filtrado en `src/main/lcu.ts`, los contratos, SQLite y las vistas dependientes de Mayhem. No asumir que quitar un filtro completa la adaptación.
+- Antes de ampliar colas, revisar el filtrado en `src/main/lcu.ts`, los contratos, SQLite y las vistas dependientes de Mayhem. No asumir que quitar un filtro completa la adaptación. TRACKED_QUEUE_IDS define captura; MAYHEM_QUEUE_IDS conserva los aumentos propios de Mayhem. hasScore admite Mayhem y ARAM normal; pasar siempre la cola al cálculo compartido. ARAM normal usa perfil experimental v2 contrastado con historial antiguo por autorización de Oscar; Mayhem v4 no cambia. Consultar CALIBRATION-ARAM.md y versionar SCORE_POLICY_VERSION al cambiar pesos de ARAM. Versionar CAPTURE_POLICY_VERSION al ampliar captura para reexaminar descartes e importaciones completadas.
 - Verificar la disponibilidad real del historial TFT antes de diseñar su integración; no mezclar métricas LoL y TFT.
 - Preservar los datos existentes y las copias de seguridad. No incorporar credenciales LCU ni datos personales a Git.
 
@@ -52,5 +52,6 @@
 - Consultar `DEVELOPMENT.md` para instalación, arranque, compilación y límites de la validación.
 - Controles existentes: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`.
 - `npm run test:widget` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
+- `npm run test:aram` usa el Node de Electron y SQLite real con datos sintéticos aislados para captura ARAM, separación de colas, persistencia y compatibilidad.
 - Evitar `npm run format` sobre todo el proyecto para un cambio localizado. No actualizar dependencias ni regenerar recursos por rutina.
 - Revisar identidad y destino del actualizador antes de una futura distribución de Riftally.

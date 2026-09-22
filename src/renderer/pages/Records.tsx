@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useSearchParams } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type {
@@ -313,23 +315,23 @@ function streakCard(streak: StreakRecord, win: boolean): CardDef {
 }
 
 export default function Records() {
+  // La cola viene de la seleccion global de la aplicacion, compartida con el
+  // resto de paginas. La cuenta es propia de esta vista, asi que viaja en la
+  // URL como la dejo el proyecto original.
+  const [queue, setQueue] = useQueueSelection();
   const [searchParams, setSearchParams] = useSearchParams();
-  const queueParam = searchParams.get("queue");
-  const queue = queueParam ? Number(queueParam) : undefined;
   const account = searchParams.get("account") ?? undefined;
-  const setParam = (key: string, value: string | undefined) => {
+  const setAccount = (a: string | undefined) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (value == null) next.delete(key);
-        else next.set(key, value);
+        if (a == null) next.delete("account");
+        else next.set("account", a);
         return next;
       },
       { replace: true },
     );
   };
-  const setQueue = (q: number | undefined) => setParam("queue", q == null ? undefined : String(q));
-  const setAccount = (a: string | undefined) => setParam("account", a);
 
   const { data, refetch } = useIpc<RecordsData>(
     () => window.api.getRecords(queue, account),

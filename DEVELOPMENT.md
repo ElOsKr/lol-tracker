@@ -1,4 +1,40 @@
-# Desarrollo de League Companion
+# Desarrollo de Riftally
+
+Riftally es el nombre elegido. La interfaz y la identidad del ejecutable siguen siendo Mayhem Tracker hasta la entrega específica de renombrado.
+
+## Puntuación ARAM normal — 2026-09-15
+
+La cola 450 admite AVG Score experimental con perfil propio v2: tanques y soportes trasladan 0.3 de peso de daño a participación; tiradores trasladan 0.1 de daño y 0.1 de oro a participación. Los demás pesos, curvas y bonificaciones permanecen iguales. Esta revisión conservadora se contrastó con el historial disponible, autorizado por Oscar pese a su antigüedad; no constituye validación frente a notas oficiales. No incorpora todavía escudos ni control de masas. `hasScore` separa puntuación y aumentos; la cola se pasa explícitamente a captura, reparación, amigos y marcador. Remakes sin nota. La política `mayhem-v4-aram-experimental-v2` provoca recálculo tras cargar campeones al arrancar. Mayhem v4 conserva sus resultados; Clash ARAM y otras colas siguen sin nota. Pruebas SQLite: captura, media, migración desde v1, reparación, persistencia y coincidencia del desglose. Recálculo sobre copia consistente: conservación del resto de tablas/ajustes y comparación exacta de resultados Mayhem con la fórmula anterior. Metodología en CALIBRATION-ARAM.md. Reiniciar desde Quit para cargar el cambio.
+
+## Integración oficial v1.11.1 — 2026-09-14
+
+Integrada v1.11.1 (91cb554): revisión completa del historial disponible una vez por cuenta y arranque, importación manual completa y recuperación si las últimas 20 partidas no contienen ninguna conocida. Conserva las tres colas admitidas y los descartes por política aram-v1; la nueva consulta isGameKnown respeta esa política para recuperar ARAM normal descartado por versiones antiguas. Sin cambios de esquema ni dependencias. La cobertura sigue limitada por el historial que Riot ofrece.
+
+## Otras colas LoL — 2026-09-14
+
+Catálogo de colas obtenido de Riot y del cliente local: clasificatorias, normales, ARAM, Clash, bots, rotatorios, Arena, cooperativos, práctica, personalizadas e históricas. TFT excluido por catálogo y validación del payload. El selector agrupa las colas y conserva una sola selección, incluida la cola 0. Una entrada no implica que Riot la tenga disponible actualmente ni que publique todo su historial.
+
+La política lol-v1 reexamina descartes anteriores y recorre el historial sin limitarlo a etiquetas ARAM. Captura solo partidas LoL reconocidas con participantes y resultado explícito; una respuesta incompleta no se convierte en derrota. Muestras reales de diez colas importadas sobre copia SQLite, conservando tablas/ajustes e integridad. Backup consistente previo: backups/lol-queues-validation/pre-queues.db. No se ha importado directamente en la base real durante las pruebas.
+
+CS, visión y posición aparecen en detalle cuando existen. Arena usa subequipos y posición final cuando la fuente los proporciona; equipos desconocidos no se agrupan falsamente. El widget muestra puesto si está disponible. Resultado y winrate usan el resultado explícito del servicio; la puntuación e iconos de aumentos Mayhem no se extrapolan a otros modos. Remakes fuera de Mayhem requieren rendición temprana además de duración corta. En directo la Grieta no se etiqueta como Abismo y el marcador admite más de dos equipos.
+
+Pruebas: selección incluida cola 0 y ausencia de valor, exclusión TFT, resultados incompletos, colas separadas, Arena sintético, preservación de datos, muestras reales de normales/Solo-Dúo/Flexible/Clash/URF/práctica/personalizadas/Bots Malditos; interfaz Electron con selección, persistencia, estados vacíos y puestos Arena. Arena y Enjambre aún requieren validación con partidas reales; no había muestras propias disponibles. Exportación y reparación conservan las reglas de modo. Reiniciar por Quit para cargar la versión; la importación inicial recuperará las colas disponibles dentro de la ventana del servicio. Sin ampliar TFT ni publicar cambios.
+
+## Contadores por cola — 2026-09-14
+
+El panel desplegable «Totales por cola comunicados por Riot», bajo el selector global, muestra snapshots de victorias y derrotas de localPlayer del recurso EOG. La captura verifica cuenta y obtiene la cola desde el detalle de la misma partida; no depende del filtro de captura ARAM. Escucha cambios, lee al conectar y reintenta durante el polling. Sin datos muestra pendiente, nunca el historial local como total histórico. Rechaza valores vacíos, inválidos, regresiones y observaciones antiguas; no incrementa manualmente ni duplica eventos.
+
+SQLite añade queue_lifetime_totals por cuenta/cola, incluido en exportaciones JSON y copias que las utilizan; importaciones anteriores siguen admitidas. Pruebas sintéticas de persistencia, duplicados, cuentas, colas, valores inválidos y exportación/importación correctas. Vista compilada comprobada en Electron con base aislada. Pendiente validar una partida real, cobertura histórica y remakes; el esquema LCU existe pero no había resultados EOG disponibles durante la investigación. Reiniciar desde Quit y terminar una partida para capturar el primer valor. Los contadores no sustituyen las estadísticas ni el winrate del widget.
+
+## ARAM normal — 2026-09-13
+
+Añadida captura de ARAM normal (450) al refresco, importación histórica y fin de partida; continúan ARAM Mayhem (2400) y Mayhem Classic (2450). El selector superior muestra una sola cola y la guarda en SQLite. Sin selección previa se abre ARAM normal; una cola vacía no cambia a “todas”. Historial, estadísticas, compañeros y resumen respetan la cola. Las selecciones antiguas por página se sustituyen por la global; los valores antiguos de hidden_queues se conservan pero ya no gobiernan las vistas.
+
+Widget / OBS mantiene su cuenta, tamaño y opacidad y permite fijar cualquiera de las tres colas, incluso sin partidas. Una selección antigua vacía se interpreta como ARAM normal. La URL de OBS sigue siendo la misma. Los aumentos y la puntuación calibrada para Mayhem no se aplican a ARAM normal; el score se deja sin valor. En ARAM normal, la detección conservadora de remake requiere el indicador de rendición temprana y menos de cinco minutos; pendiente contrastarlo con muestras reales.
+
+La política aram-v1 reexamina el historial aunque la importación Mayhem anterior estuviera completada. Conserva los descartes antiguos y registra los nuevos por versión de política. Importa las tres colas admitidas independientemente de la vista elegida; otras colas siguen fuera de alcance. El límite histórico del servicio sigue vigente.
+
+Validación: typecheck, lint, formato, build, test:widget y test:aram. Prueba de interfaz compilada en Electron con base aislada: selección, navegación, recarga, colas vacías y páginas principales. Copia consistente previa en backups/aram-normal-1789330102523/pre-aram.db; migración ensayada sobre otra copia con conservación exacta de tablas/ajustes existentes e integridad correcta. Las pruebas de transporte utilizan respuestas sintéticas; falta verificar una partida real y repetir OBS con esta versión. Reiniciar completamente desde Quit en la bandeja para cargar la compilación nueva.
 
 La base sigue siendo Mayhem Tracker. El alcance acordado es ampliar primero a todas las colas de LoL, después añadir TFT y mantener el widget como complemento. Esta preparación no implementa esas funcionalidades.
 
@@ -44,7 +80,13 @@ En desarrollo, los datos se guardan en `data/` y las copias en `backups/`, ambos
 | `npm run dist`                               | Compilar y empaquetar el portable Windows en dist/.           |
 | `npm run gen:augments`                       | Regenerar descripciones de aumentos; solo cuando corresponda. |
 
-`dist` mantiene todavía el nombre MayhemTracker.exe y la identidad original. La adaptación de identidad y actualizador está pendiente. `npm version` ejecuta preversion y puede crear un commit y una etiqueta: no usarlo como comando de validación.
+`dist` mantiene todavía el nombre MayhemTracker.exe y la identidad original. La consulta y la instalación de actualizaciones oficiales están desactivadas para evitar sustituir las funciones propias por el ejecutable original. Queda pendiente adaptar la identidad y disponer de un canal de actualizaciones propio. `npm version` ejecuta preversion y puede crear un commit y una etiqueta: no usarlo como comando de validación.
+
+## Integración oficial — 2026-09-13
+
+Integrada la versión oficial v1.11.0 (58468b4) en la rama codex/lol-all-queues sobre nuestra base a9eca2c. Incluye partida en directo, resumen posterior, corrección de totales de sesión, mejoras de importación y aumentos del parche 26.18. Conserva Widget / OBS, ventana de escritorio, altura/opacidad y preferencias. Las dependencias no cambian; package-lock.json solo actualiza la versión del proyecto.
+
+Typecheck, lint, formato, build y cuatro pruebas automatizadas correctos. Se creó una copia consistente mediante la API de backup de SQLite en backups/upstream-1.11.0-validation/pre-update.db. Sobre otra copia aislada se verificaron integridad, conservación exacta de las tablas y ajustes existentes, totales de sesiones, resumen posterior y consulta del widget con la base nueva. Esta validación no sustituye una prueba gráfica de Electron, una partida en directo ni una nueva comprobación en OBS. Las copias y el script local de comprobación están excluidos de Git. El soporte de todas las colas LoL sigue pendiente.
 
 ## Validación de referencia — 2026-09-08
 

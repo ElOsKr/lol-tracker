@@ -1,6 +1,6 @@
-import { useEffect } from "react";
-import { useFilterOptions } from "../hooks/useFilterOptions";
-import { QUEUE_LABELS } from "../../shared/queues";
+import { useState } from "react";
+
+import { QUEUE_LABELS, QUEUE_CATALOG } from "../../shared/queues";
 
 export function queueLabel(queueId: number): string {
   return QUEUE_LABELS[queueId] ?? `Queue ${queueId}`;
@@ -13,30 +13,32 @@ export default function QueueSelect({
   value: number | undefined;
   onChange: (queue: number | undefined) => void;
 }) {
-  const { queues } = useFilterOptions();
-
-  // Clear the selection if new data leaves it without any matching games
-  useEffect(() => {
-    if (value !== undefined && queues.length > 0 && !queues.includes(value)) {
-      onChange(undefined);
-    }
-  }, [queues, value, onChange]);
-
-  // A queue dropdown is noise while the database only holds one queue
-  if (queues.length < 2) return null;
-
+  const [error, setError] = useState("");
   return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-      className="select"
-    >
-      <option value="">All Queues</option>
-      {queues.map((q) => (
-        <option key={q} value={q}>
-          {queueLabel(q)}
-        </option>
-      ))}
-    </select>
+    <>
+      <select
+        value={value ?? ""}
+        onChange={(e) => {
+          setError("");
+          void Promise.resolve(onChange(Number(e.target.value))).catch(() =>
+            setError("No se pudo guardar la cola"),
+          );
+        }}
+        className="select max-w-[260px] min-w-0"
+      >
+        {["Principales", "Otros modos", "Cooperativo y bots", "Personalizadas", "Históricas"].map(
+          (group) => (
+            <optgroup key={group} label={group}>
+              {QUEUE_CATALOG.filter((q) => q.group === group).map((q) => (
+                <option key={q.id} value={q.id}>
+                  {queueLabel(q.id)}
+                </option>
+              ))}
+            </optgroup>
+          ),
+        )}
+      </select>
+      {error && <span role="alert">{error}</span>}
+    </>
   );
 }

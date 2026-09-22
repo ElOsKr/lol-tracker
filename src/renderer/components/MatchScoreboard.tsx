@@ -1,3 +1,4 @@
+import { MAYHEM_QUEUE_IDS, hasScore } from "../../shared/queues";
 import { useMemo, useState, type ReactNode } from "react";
 import type { MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
@@ -37,15 +38,21 @@ export default function MatchScoreboard({
   multikills?: boolean;
 }) {
   const participants = useMemo(
-    () => parseParticipants(detail.participants, puuids),
+    () =>
+      parseParticipants(detail.participants, puuids).map((p) => ({
+        ...p,
+        augments: MAYHEM_QUEUE_IDS.includes(detail.game.queue_id) ? p.augments : [],
+      })),
     [detail, puuids],
   );
   const teams = useMemo(() => groupByTeam(participants), [participants]);
   const scores = useMemo(() => {
+    if (detail.game.is_remake || !hasScore(detail.game.queue_id))
+      return new Map<number, ScoreBreakdown>();
     const classes: Record<number, string | undefined> = {};
     for (const p of participants) classes[p.championId] = champData?.[p.championId]?.class;
-    return computeMatchScoreBreakdowns(participants, classes);
-  }, [participants, champData]);
+    return computeMatchScoreBreakdowns(participants, classes, detail.game.queue_id);
+  }, [participants, champData, detail.game.queue_id, detail.game.is_remake]);
 
   const gameMaxStats = useMemo(() => {
     let dmg = 0,
@@ -115,7 +122,9 @@ function TeamScoreboard({
         className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
       >
         <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
-          Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
+          Equipo{" "}
+          {teamId === 100 ? "1" : teamId === 200 ? "2" : teamId > 0 ? teamId : "sin identificar"} —{" "}
+          {players[0]?.placement ? `Puesto ${players[0].placement}` : isWin ? "Victory" : "Defeat"}
         </span>
         <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <TeamStat label="Avg score">
@@ -274,6 +283,9 @@ function PlayerRow({
         </div>
         <div className="text-[10px] text-lol-text truncate">
           {getChampionName(champData, p.championId)}
+          {p.cs != null && ` · ${p.cs} CS`}
+          {p.vision != null && ` · Visión ${p.vision}`}
+          {p.position && ` · ${p.position}`}
         </div>
       </div>
 

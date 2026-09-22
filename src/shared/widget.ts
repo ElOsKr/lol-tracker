@@ -3,6 +3,7 @@ export interface WidgetMatch {
   gameCreation: number;
   queueId: number;
   win: boolean;
+  placement?: number | null;
   remake: boolean;
   championId: number;
   kills: number;

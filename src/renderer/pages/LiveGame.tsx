@@ -1,3 +1,4 @@
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useChampionData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
@@ -8,7 +9,7 @@ import type {
   LcuStatus,
   LiveGameSnapshot,
 } from "../lib/types";
-import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
+import { TRACKED_QUEUE_IDS } from "../../shared/queues";
 import { formatDuration } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import GameRecap from "../components/GameRecap";
@@ -31,10 +32,11 @@ const RESULT_RETRY_MS = 4_000;
 // whether to wait for results at all. A game in some other queue is recorded
 // nowhere and would leave the page waiting forever.
 function isTrackedQueue(queueId: number | null): boolean {
-  return queueId != null && MAYHEM_QUEUE_IDS.includes(queueId);
+  return queueId != null && TRACKED_QUEUE_IDS.includes(queueId);
 }
 
 export default function LiveGame() {
+  const [queue, setQueue] = useQueueSelection();
   const { snapshot, receivedAt } = useLiveGame();
   const status = useLcuStatus();
   const champData = useChampionData();
@@ -57,6 +59,25 @@ export default function LiveGame() {
   // Nothing has been asked yet, as opposed to asked and answered with no game
   if (!snapshot) return <div className="mt-20 text-center text-lol-text">Loading...</div>;
 
+  if ((snapshot.inGame || snapshot.starting) && snapshot.queueId !== queue) {
+    return (
+      <div className="p-6">
+        La partida actual pertenece a{" "}
+        {snapshot.queueId == null ? "una cola sin identificar" : queueLabel(snapshot.queueId)}.
+        Estás viendo {queueLabel(queue)}.
+        {snapshot.queueId != null && TRACKED_QUEUE_IDS.includes(snapshot.queueId) && (
+          <button
+            className="btn-secondary ml-3"
+            onClick={() => {
+              void setQueue(snapshot.queueId!);
+            }}
+          >
+            Ver esta cola
+          </button>
+        )}
+      </div>
+    );
+  }
   if (snapshot.inGame || snapshot.starting) {
     return <LiveView snapshot={snapshot} receivedAt={receivedAt} champData={champData} />;
   }
@@ -70,7 +91,7 @@ export default function LiveGame() {
     (snapshot.gameId != null
       ? { gameId: snapshot.gameId, tracked: isTrackedQueue(snapshot.queueId) }
       : null);
-  const target = watching?.tracked ? watching.gameId : null;
+  const target = watching?.tracked && snapshot.queueId === queue ? watching.gameId : null;
 
   return <RecapView target={target} champData={champData} puuids={puuids} status={status} />;
 }
@@ -155,12 +176,12 @@ function LiveHeader({
           {snapshot.mapName}
         </span>
       )}
-      {snapshot.queueId != null && snapshot.queueId > 0 && (
+      {snapshot.queueId != null && snapshot.queueId >= 0 && (
         <span className="text-[11px] text-lol-text">{queueLabel(snapshot.queueId)}</span>
       )}
 
       <div className="ml-auto flex items-center gap-4">
-        {snapshot.inGame && (
+        {snapshot.inGame && snapshot.players.every((p) => p.teamId === 100 || p.teamId === 200) && (
           <span className="text-sm font-semibold">
             <span className="text-sky-400">{teamKills[100] ?? 0}</span>
             <span className="mx-1.5 text-lol-text/40">vs</span>

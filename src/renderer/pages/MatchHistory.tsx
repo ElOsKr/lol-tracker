@@ -1,3 +1,5 @@
+import { hasAugments } from "../../shared/queues";
+import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMatches } from "../hooks/useMatches";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
@@ -48,7 +50,7 @@ import {
   kdaHighlight,
   formatPatch,
 } from "../lib/format";
-import { queueLabel } from "../components/QueueSelect";
+import QueueSelect from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
 import {
   SESSION_GROUPING_SETTING,
@@ -72,9 +74,9 @@ function emptyStateMessage(
       : "Importing your match history...";
   }
   if (status !== "connected" && status !== "ingame") {
-    return "Waiting for the League client. Once it's open, your Mayhem games import automatically.";
+    return "Waiting for the League client. Once it's open, your games from the selected queue import automatically.";
   }
-  return "No ARAM Mayhem games found yet. New games are recorded as you play.";
+  return "No games found in this queue yet. New games are recorded as you play.";
 }
 
 // The unselected state is the default sort (date), so it isn't listed here
@@ -204,10 +206,7 @@ export default function MatchHistory() {
     "matches.patch",
     undefined,
   );
-  const [queueFilter, setQueueFilter] = useViewState<number | undefined>(
-    "matches.queue",
-    undefined,
-  );
+  const [queueFilter, setQueueFilter] = useQueueSelection();
   const [accountFilter, setAccountFilter] = useViewState<string | undefined>(
     "matches.account",
     undefined,
@@ -355,9 +354,7 @@ export default function MatchHistory() {
     if (patchFilter !== undefined && !filterOptions.patches.includes(patchFilter)) {
       setPatchFilter(undefined);
     }
-    if (queueFilter !== undefined && !filterOptions.queues.includes(queueFilter)) {
-      setQueueFilter(undefined);
-    }
+
     if (
       accountFilter !== undefined &&
       !filterOptions.accounts.some((a) => a.puuid === accountFilter)
@@ -494,7 +491,7 @@ export default function MatchHistory() {
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <StatCard
-            label="Avg Score"
+            label={queueFilter === 450 ? "Avg Score · experimental" : "Avg Score"}
             accent="gold"
             icon={<StarIcon className="w-3 h-3" />}
             value={
@@ -670,22 +667,7 @@ export default function MatchHistory() {
               </option>
             ))}
           </select>
-          {(filterOptions.queues.length > 1 || queueFilter !== undefined) && (
-            <select
-              value={queueFilter ?? ""}
-              onChange={(e) =>
-                setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
-              }
-              className="select"
-            >
-              <option value="">All Queues</option>
-              {filterOptions.queues.map((q) => (
-                <option key={q} value={q}>
-                  {queueLabel(q)}
-                </option>
-              ))}
-            </select>
-          )}
+          <QueueSelect value={queueFilter} onChange={setQueueFilter} />
           <div className="flex items-center gap-1">
             <select
               value={sort ?? ""}
@@ -730,7 +712,6 @@ export default function MatchHistory() {
         <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
           {championFilter !== undefined ||
           patchFilter !== undefined ||
-          queueFilter !== undefined ||
           accountFilter !== undefined ||
           multikillFilter.length > 0 ||
           favoritesOnly
@@ -1061,7 +1042,7 @@ function GameRow({
   const isWin = !!match.win;
   const isFavorite = !!match.favorite;
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
-  const augmentIds = parseAugmentIds(match.augment_ids);
+  const augmentIds = hasAugments(match.queue_id) ? parseAugmentIds(match.augment_ids) : [];
 
   const accent = isFavorite
     ? "bg-amber-400"
@@ -1090,7 +1071,7 @@ function GameRow({
         <div
           className={`text-xs font-bold shrink-0 ${isRemake ? "text-gray-500 w-8" : isWin ? "text-lol-win w-8" : "text-lol-loss w-8"}`}
         >
-          {isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}
+          {match.placement ? `#${match.placement}` : isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}
         </div>
         <ChampionIcon championId={match.champion_id} size={36} />
         {/* Two 17px spells + the 2px gap match the portrait's 36px height */}
