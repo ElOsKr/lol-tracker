@@ -345,8 +345,8 @@ export function registerIpcHandlers() {
   ipcMain.handle("data:export", async (event) => {
     const win = senderWindow(event);
     const options = {
-      title: "Export Riftally data",
-      defaultPath: `riftally-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      title: "Export LoLeanding data",
+      defaultPath: `loleanding-backup-${new Date().toISOString().slice(0, 10)}.json`,
       filters: [{ name: "JSON", extensions: ["json"] }],
     };
     // Parented to the window when there is one, so the dialog is modal
@@ -386,7 +386,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);
     const options = {
-      title: "Import Riftally data",
+      title: "Import LoLeanding data",
       filters: [{ name: "JSON", extensions: ["json"] }],
       properties: ["openFile" as const],
     };
@@ -401,7 +401,7 @@ export function registerIpcHandlers() {
       const raw = await fs.promises.readFile(result.filePaths[0], "utf-8");
       const data = JSON.parse(raw);
       if (!data || typeof data !== "object" || !Array.isArray(data.games)) {
-        return { success: false, error: "That file isn't a Riftally backup" };
+        return { success: false, error: "That file isn't a LoLeanding backup" };
       }
       // Snapshot first: an import writes into every table, and this is the last
       // moment the database is known to be in the state the user chose it from.

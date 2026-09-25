@@ -61,7 +61,7 @@ export function friendlyErrorMessage(err: unknown): string {
     return "League client is not running";
   }
   if (err instanceof ClientElevatedPermsError) {
-    return "League client is running as administrator — run Riftally as administrator to connect";
+    return "League client is running as administrator — run LoLeanding as administrator to connect";
   }
   const message = err instanceof Error ? err.message : String(err);
   if (/ECONNREFUSED|ECONNRESET|socket hang up|EPIPE/i.test(message)) {
@@ -1001,7 +1001,7 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
 
     eogSocket = socket;
     console.log("Listening for post-game results");
-    // Also capture when Riftally starts while the results screen is already open.
+    // Also capture when LoLeanding starts while the results screen is already open.
     void lcuJson("/" + EOG_STATS_PATHS[0]).then((data) => {
       if (data) captureQueueTotals(win, data);
     });

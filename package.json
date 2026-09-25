@@ -1,5 +1,5 @@
 {
-  "name": "riftally",
+  "name": "loleanding",
   "version": "0.1.0",
   "description": "League of Legends match history tracker for every queue, born from ARAM Mayhem",
   "license": "MIT",
@@ -50,8 +50,8 @@
     "vite": "^7.3.1"
   },
   "build": {
-    "appId": "com.riftally.app",
-    "productName": "Riftally",
+    "appId": "com.loleanding.app",
+    "productName": "LoLeanding",
     "directories": {
       "output": "dist"
     },
@@ -66,7 +66,7 @@
     "win": {
       "target": "portable",
       "icon": "assets/icon.ico",
-      "artifactName": "Riftally.exe"
+      "artifactName": "LoLeanding.exe"
     },
     "portable": {
       "unpackDirName": true

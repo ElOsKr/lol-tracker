@@ -36,16 +36,50 @@ export function SwordsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** The app's mark: the hourglass below laid on its side, which makes an M. */
-export function RiftallyIcon(props: SVGProps<SVGSVGElement>) {
+/**
+ * The app's mark: the Howling Abyss seen from above, two nexuses joined by the
+ * single lane, turned to the map's diagonal. Prismatic like a Mayhem augment,
+ * so it ignores currentColor on purpose.
+ */
+export function LoLeandingIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <Icon {...props}>
-      {/* front diagonal: unbroken between the two uprights */}
-      <path d="M5 19V5l14 14V5" />
-      {/* back diagonal: gap where it passes behind the front one */}
-      <path d="M19 5l-4.5 4.5" />
-      <path d="M9.5 14.5 5 19" />
-    </Icon>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="url(#loleanding-prism)"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="1em"
+      height="1em"
+      {...props}
+    >
+      <defs>
+        <linearGradient
+          id="loleanding-prism"
+          gradientUnits="userSpaceOnUse"
+          x1="3"
+          y1="3"
+          x2="21"
+          y2="21"
+        >
+          <stop offset="0" stopColor="#fff0a3" />
+          <stop offset="0.22" stopColor="#b6f2b4" />
+          <stop offset="0.45" stopColor="#8fe4ff" />
+          <stop offset="0.68" stopColor="#b6a2ff" />
+          <stop offset="0.86" stopColor="#ff9be3" />
+          <stop offset="1" stopColor="#ffd0ee" />
+        </linearGradient>
+      </defs>
+      <g transform="rotate(-45 12 12)">
+        <path d="M5 12l3-3 3 3-3 3z" />
+        <path d="M13 12l3-3 3 3-3 3z" />
+        <path d="M11 12h2" />
+        <path d="M2 12h3" />
+        <path d="M19 12h3" />
+      </g>
+    </svg>
   );
 }
 

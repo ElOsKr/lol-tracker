@@ -28,8 +28,8 @@ export default function QueueTotals() {
         <p>Cargando…</p>
       ) : !data?.length ? (
         <p>
-          Pendiente de capturar: termina una partida con Riftally abierto y conserva la pantalla de
-          resultados unos segundos.
+          Pendiente de capturar: termina una partida con LoLeanding abierto y conserva la pantalla
+          de resultados unos segundos.
         </p>
       ) : (
         <div className="overflow-x-auto">

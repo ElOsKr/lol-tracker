@@ -70,7 +70,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     const res = await fetch(
       `https://api.github.com/repos/ElOsKr/lol-tracker/releases?per_page=${RELEASE_PAGE_SIZE}`,
       {
-        headers: { "User-Agent": "riftally" },
+        headers: { "User-Agent": "loleanding" },
         signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
       },
     );
@@ -149,12 +149,12 @@ export async function downloadAndInstall(
 
   let tmpDir: string;
   try {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "riftally-update-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "loleanding-update-"));
   } catch (err: any) {
     return { success: false, error: `Failed to create temp dir: ${err.message}` };
   }
 
-  const newExe = path.join(tmpDir, "riftally-update.exe");
+  const newExe = path.join(tmpDir, "loleanding-update.exe");
   // Rearmed on every chunk, so the download is only abandoned once it has
   // genuinely stopped rather than merely being slow.
   const controller = new AbortController();
@@ -167,7 +167,7 @@ export async function downloadAndInstall(
   try {
     armStallTimer();
     const res = await fetch(assetUrl, {
-      headers: { "User-Agent": "riftally" },
+      headers: { "User-Agent": "loleanding" },
       signal: controller.signal,
     });
     if (!res.ok || !res.body) {

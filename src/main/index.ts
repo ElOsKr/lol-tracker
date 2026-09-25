@@ -139,7 +139,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("Riftally");
+  tray.setToolTip("LoLeanding");
   tray.setContextMenu(contextMenu);
   tray.on("double-click", () => {
     mainWindow?.show();

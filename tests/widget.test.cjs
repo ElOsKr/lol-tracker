@@ -84,7 +84,7 @@ test("queue selection persists in order and never clears to all queues", async (
 // origen es lo unico que impide apuntar el instalador a otro sitio.
 test("an installer can only be fed a download from this project's own releases", async () => {
   const previous = process.env.PORTABLE_EXECUTABLE_FILE;
-  process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\Riftally.exe";
+  process.env.PORTABLE_EXECUTABLE_FILE = "C:\\test\\LoLeanding.exe";
   const originalFetch = global.fetch;
   global.fetch = async () => {
     assert.fail("A rejected URL must not reach the network");
@@ -356,9 +356,9 @@ test("widget shares account/queue filters, excludes remakes from streak and expo
 // carpeta entera, porque Chromium ya ha creado la nueva cuando esto corre.
 test("legacy data and backups move to the renamed userData folder exactly once", () => {
   const os = require("node:os");
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "riftally-migrate-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "loleanding-migrate-"));
   const oldRoot = path.join(root, "mayhem-tracker");
-  const newRoot = path.join(root, "riftally");
+  const newRoot = path.join(root, "loleanding");
   fs.mkdirSync(path.join(oldRoot, "data"), { recursive: true });
   fs.mkdirSync(path.join(oldRoot, "backups"), { recursive: true });
   fs.mkdirSync(path.join(oldRoot, "Cache"), { recursive: true });
@@ -395,9 +395,9 @@ test("legacy data and backups move to the renamed userData folder exactly once",
 
 test("migrateLegacyUserData resolves the old folder next to the new one and only when packaged", () => {
   const os = require("node:os");
-  const appData = fs.mkdtempSync(path.join(os.tmpdir(), "riftally-appdata-"));
+  const appData = fs.mkdtempSync(path.join(os.tmpdir(), "loleanding-appdata-"));
   const oldRoot = path.join(appData, "mayhem-tracker");
-  const newRoot = path.join(appData, "riftally");
+  const newRoot = path.join(appData, "loleanding");
   fs.mkdirSync(path.join(oldRoot, "data"), { recursive: true });
   fs.writeFileSync(path.join(oldRoot, "data", "matches.db"), "db");
   const app = (packaged) => ({

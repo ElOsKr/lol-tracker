@@ -1,11 +1,12 @@
-# Riftally
+# LoLeanding
 
 ## Alcance y fase actual
 
 - Base: Mayhem Tracker, Electron + React + TypeScript, con SQLite y conexión local LCU.
 - Orden acordado: adaptar captura, historial y estadísticas a todas las colas de LoL; después añadir TFT con su modelo y estadísticas propios; mantener el widget como complemento de la aplicación principal.
 - Fase actual (2026-09-20): widget integrado y publicado en `main`, sincronización con el proyecto original al día y canal de releases propio desde 0.1.0. La ampliación a todas las colas de LoL se integra en esta rama; TFT sigue pendiente. Diez colas verificadas con muestras reales sobre copia; Arena y Enjambre siguen sin validación real. Los contadores de fin de partida son instantáneas de Riot y pueden reiniciarse: no equivalen al histórico completo.
-- Riftally es el nombre elegido por Oscar el 2026-09-13, sustituyendo a League Companion por estar ya en uso. El paquete es `riftally`, el ejecutable `Riftally.exe` y el identificador `com.riftally.app`; las instalaciones anteriores migran sus datos desde `%APPDATA%\mayhem-tracker` al arrancar (`migrateLegacyUserData` en `src/main/paths.ts`). El actualizador ya lee las releases de este repositorio, así que la desactivación provisional de actualizaciones oficiales deja de ser necesaria.
+- LoLeanding es el nombre elegido por Oscar el 2026-09-26 (antes se barajaron League Companion, ya en uso, y Riftally, descartado por genérico). El paquete es `loleanding`, el ejecutable `LoLeanding.exe` y el identificador `com.loleanding.app`; las instalaciones anteriores migran sus datos desde `%APPDATA%\mayhem-tracker` al arrancar (`migrateLegacyUserData` en `src/main/paths.ts`). El actualizador ya lee las releases de este repositorio, así que la desactivación provisional de actualizaciones oficiales deja de ser necesaria.
+- Logo: `assets/logo.svg` (concepto H19: aro del aumento de ARAM Mayhem vectorizado del icono original, disco oscuro y la marca de dos nexos con el carril en diagonal, acabado prismático). De él salen `assets/icon.ico`, `assets/icon.png` y los `tray*.png`; `assets/logo-h35.svg` es la variante en reserva (garras encendidas). La marca de la barra lateral es `LoLeandingIcon` en `src/renderer/components/icons.tsx`.
 - Conservar la licencia MIT y la atribución originales.
 
 ## Memoria compartida
@@ -21,7 +22,7 @@
 
 ## Documentación técnica
 
-- Página canónica: https://app.notion.com/p/3e16b7c64fe5812fa221e3e47770e591 («Riftally — Documentación técnica de la aplicación»), subpágina de la memoria compartida. Describe arquitectura, fuentes de datos, esquema SQLite, mapa del código, interfaz, widget, seguridad, puntuación, copias de seguridad y circuito de publicación.
+- Página canónica: https://app.notion.com/p/3e16b7c64fe5812fa221e3e47770e591 («LoLeanding — Documentación técnica de la aplicación»), subpágina de la memoria compartida. Describe arquitectura, fuentes de datos, esquema SQLite, mapa del código, interfaz, widget, seguridad, puntuación, copias de seguridad y circuito de publicación.
 - No se actualiza sola. Al terminar una tarea que deje desfasado algo de lo que describe, actualizar las secciones afectadas y la cabecera de estado con la rama y el commit nuevos, antes de cerrar; indicarlo al usuario. Si el cambio no toca nada documentado, no escribir por rutina.
 - Editar lo mínimo y conservar el resto, igual que con la memoria. Releer la página antes de escribir.
 

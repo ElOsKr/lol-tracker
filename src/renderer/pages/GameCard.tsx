@@ -153,7 +153,7 @@ function CardHeading({ card, puuids }: { card: GameCardData; puuids: string[] | 
         <Dot />
         <span>{formatDuration(game.game_duration)}</span>
         <span className="ml-auto text-[10px] uppercase tracking-[0.2em] text-lol-text/50">
-          Riftally
+          LoLeanding
         </span>
       </div>
     </div>
