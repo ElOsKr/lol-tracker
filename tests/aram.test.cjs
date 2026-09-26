@@ -6,7 +6,7 @@ const path = require("node:path");
 const Module = require("node:module");
 const ts = require("typescript");
 
-const directory = fs.mkdtempSync(path.join(os.tmpdir(), "riftally-aram-test-"));
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), "loleanding-aram-test-"));
 require.extensions[".ts"] = (mod, filename) => {
   mod._compile(
     ts.transpileModule(fs.readFileSync(filename, "utf8"), {
