@@ -15,18 +15,19 @@ Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte 
 | 5   | ✅ **Limpieza del repo. (#17)** Borrar las ramas viejas ya integradas; retirar la automatización externa duplicada de novedades de upstream.            | S      |
 | 6   | ✅ **Recordar tamaño y posición de la ventana. (#18)**                                                                                                  | S      |
 
-## Hito 2 — Pulido de interfaz (v0.4.0)
+## Hito 2 — Pulido de interfaz (v0.5.x)
 
-| #   | Qué                                                                                                                               | Tamaño |
-| --- | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 7   | **Página de inicio.** Tarjetas configurables: racha actual, resumen de la última sesión, mejor campeón del mes, próximo objetivo. | M      |
-| 8   | **Densidad y tamaño de texto.** Modo compacto / cómodo.                                                                           | S      |
-| 9   | **Estados vacíos y de carga** coherentes en todas las páginas.                                                                    | S      |
-| 10  | **Atajos de teclado.** Cambiar de pestaña (1–9), buscar (Ctrl+F), sincronizar (Ctrl+R).                                           | S      |
-| 11  | **Historial virtualizado**, para que el scroll no se resienta con miles de partidas.                                              | S      |
-| 12  | **Aviso al terminar la partida.** Notificación de Windows con resultado, KDA y nota cuando la app está en la bandeja.             | S      |
+| #   | Qué                                                                                                                                                                                     | Tamaño |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 7   | **Página de inicio.** Tarjetas configurables: racha actual, resumen de la última sesión, mejor campeón del mes, próximo objetivo.                                                       | M      |
+| 8   | **Densidad y tamaño de texto.** Modo compacto / cómodo.                                                                                                                                 | S      |
+| 9   | **Estados vacíos y de carga** coherentes en todas las páginas.                                                                                                                          | S      |
+| 10  | **Atajos de teclado.** Cambiar de pestaña (1–9), buscar (Ctrl+F), sincronizar (Ctrl+R).                                                                                                 | S      |
+| 11  | **Historial virtualizado**, para que el scroll no se resienta con miles de partidas.                                                                                                    | S      |
+| 12  | **Aviso al terminar la partida.** Notificación de Windows con resultado, KDA y nota cuando la app está en la bandeja.                                                                   | S      |
+| 13  | ✅ **Interfaz adaptable (v0.5.0).** Ventana hasta 480 × 500; barra lateral plegable a iconos; modo móvil con menú ☰; páginas que retiran columnas y reordenan tarjetas según el ancho. | M      |
 
-## Hito 3 — Catálogos (v0.5.0)
+## Hito 3 — Catálogos (v0.6.0)
 
 | #   | Qué                                                                                                                                                                                                                | Tamaño |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
@@ -35,7 +36,7 @@ Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte 
 | 15  | **Fichas de campeón.** Habilidades, clase y tus datos con él; enlazadas desde el historial.                                                                                                                        | M      |
 | 16  | **Marcas de parche en Tendencias.** Líneas verticales por cambio de parche.                                                                                                                                        | S      |
 
-## Hito 4 — Entender tus partidas (v0.6.0)
+## Hito 4 — Entender tus partidas (v0.7.0)
 
 | #   | Qué                                                                                                                                                                                          | Tamaño |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
@@ -48,7 +49,7 @@ Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte 
 | 23  | **Objetivos y rachas.** Metas semanales con progreso.                                                                                                                                        | M      |
 | 24  | **Exportar a CSV/JSON** el historial filtrado.                                                                                                                                               | S      |
 
-## Hito 5 — Datos y puntuación (v0.7.0)
+## Hito 5 — Datos y puntuación (v0.8.0)
 
 | #   | Qué                                                                                                                                                         | Tamaño |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
