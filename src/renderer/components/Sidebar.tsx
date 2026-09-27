@@ -1,6 +1,7 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useNavLayout } from "../hooks/useNavLayout";
 import { visibleNavItems, type NavItemId } from "../../shared/navigation";
+import { t as translate, useT } from "../lib/i18n";
 import { hasAugments } from "../../shared/queues";
 import { NavLink } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef, type ComponentType, type SVGProps } from "react";
@@ -52,12 +53,12 @@ const statusColors: Record<LcuStatus, string> = {
   disconnected: "bg-lol-loss",
 };
 
-const statusLabels: Record<LcuStatus, string> = {
-  connected: "Connected",
-  ingame: "In Game",
-  connecting: "Connecting...",
-  disconnected: "Disconnected",
-};
+const statusLabels = {
+  connected: "status.connected",
+  ingame: "status.ingame",
+  connecting: "status.connecting",
+  disconnected: "status.disconnected",
+} as const satisfies Record<LcuStatus, string>;
 
 function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: IconComponent }) {
   return (
@@ -81,6 +82,7 @@ function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: I
 export default function Sidebar() {
   const [queue] = useQueueSelection();
   const layout = useNavLayout();
+  const t = useT();
   const status = useLcuStatus();
   const { running: backfilling, progress, percent } = useBackfill();
   const [refreshing, setRefreshing] = useState(false);
@@ -121,11 +123,11 @@ export default function Sidebar() {
     () =>
       window.api.onBackfillDone((result) => {
         if ("error" in result) {
-          setLastResult(`Import failed: ${result.error}`);
+          setLastResult(translate("sidebar.importFailed", { error: result.error }));
         } else if (result.cancelled) {
-          setLastResult(`Import stopped after ${result.added} game(s)`);
+          setLastResult(translate("sidebar.importStopped", { count: result.added }));
         } else if (result.added > 0) {
-          setLastResult(`Imported ${result.added} past game(s)`);
+          setLastResult(translate("sidebar.imported", { count: result.added }));
         }
       }),
     [],
@@ -137,10 +139,12 @@ export default function Sidebar() {
     try {
       const result = await window.api.refreshGames();
       if ("error" in result) {
-        setLastResult(`Error: ${result.error}`);
+        setLastResult(translate("sidebar.error", { error: result.error }));
       } else {
         setLastResult(
-          result.newGames > 0 ? `Found ${result.newGames} new game(s)` : "No new games",
+          result.newGames > 0
+            ? translate("sidebar.foundNew", { count: result.newGames })
+            : translate("sidebar.noNew"),
         );
       }
     } catch (err: any) {
@@ -149,7 +153,7 @@ export default function Sidebar() {
         /^Error invoking remote method '[^']+': (Error: )?/,
         "",
       );
-      setLastResult(`Error: ${message}`);
+      setLastResult(translate("sidebar.error", { error: message }));
     } finally {
       setRefreshing(false);
     }
@@ -166,7 +170,7 @@ export default function Sidebar() {
             LoLeanding
           </span>
           <span className="text-[8px] font-semibold uppercase tracking-[0.35em] text-lol-text/80 mt-1">
-            Tracker
+            {t("sidebar.tracker")}
           </span>
         </div>
       </div>
@@ -174,11 +178,16 @@ export default function Sidebar() {
         {visibleNavItems(layout)
           .filter((item) => hasAugments(queue) || item.id !== "augments")
           .map((item) => (
-            <NavItem key={item.id} to={item.path} label={item.label} icon={icons[item.id]} />
+            <NavItem
+              key={item.id}
+              to={item.path}
+              label={t(`nav.${item.id}`)}
+              icon={icons[item.id]}
+            />
           ))}
       </div>
       <div className="px-3 pb-1">
-        <NavItem to="/settings" label="Settings" icon={SettingsIcon} />
+        <NavItem to="/settings" label={t("nav.settings")} icon={SettingsIcon} />
       </div>
       <div className="p-3 border-t border-lol-border/60 flex flex-col gap-2">
         {lastResult && !backfilling && (
@@ -190,8 +199,11 @@ export default function Sidebar() {
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-lol-text truncate">
               {progress && progress.total > 0
-                ? `Importing history ${progress.current}/${progress.total}`
-                : "Importing history..."}
+                ? t("sidebar.importingProgress", {
+                    current: progress.current,
+                    total: progress.total,
+                  })
+                : t("sidebar.importing")}
             </span>
             <div className="h-1 rounded-full bg-lol-border overflow-hidden">
               <div
@@ -204,14 +216,14 @@ export default function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
-            <span className="text-xs text-lol-text">{statusLabels[status]}</span>
+            <span className="text-xs text-lol-text">{t(statusLabels[status])}</span>
           </div>
           {backfilling ? (
             <button
               onClick={() => window.api.cancelBackfill()}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-lol-border bg-white/5 text-lol-text hover:text-lol-text-bright hover:bg-white/10 transition-colors"
             >
-              Cancel
+              {t("sidebar.cancel")}
             </button>
           ) : (
             <button
@@ -220,7 +232,7 @@ export default function Sidebar() {
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-lol-gold/25 bg-lol-gold/10 text-lol-gold hover:bg-lol-gold/20 disabled:opacity-50 transition-colors"
             >
               <RefreshIcon className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Syncing..." : "Sync"}
+              {refreshing ? t("sidebar.syncing") : t("sidebar.sync")}
             </button>
           )}
         </div>
@@ -238,7 +250,7 @@ export default function Sidebar() {
               onClick={() => setShowUpdateDialog(true)}
               className="text-[10px] text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
             >
-              v{update.latest} available
+              {t("sidebar.updateAvailable", { version: update.latest ?? "" })}
             </button>
           )}
         </div>

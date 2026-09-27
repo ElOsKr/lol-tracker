@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { MinusIcon, MaximizeIcon, RestoreIcon, XIcon } from "./icons";
+import { useT } from "../lib/i18n";
 
 export default function StatusBar() {
   const [maximized, setMaximized] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     window.api.isWindowMaximized().then(setMaximized);
@@ -14,21 +16,21 @@ export default function StatusBar() {
       <div className="titlebar-no-drag flex items-stretch self-stretch">
         <button
           onClick={() => window.api.minimizeWindow()}
-          title="Minimize"
+          title={t("window.minimize")}
           className="w-11 flex items-center justify-center text-lol-text hover:bg-white/5 hover:text-lol-text-bright transition-colors"
         >
           <MinusIcon className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={() => window.api.toggleMaximizeWindow()}
-          title={maximized ? "Restore" : "Maximize"}
+          title={maximized ? t("window.restore") : t("window.maximize")}
           className="w-11 flex items-center justify-center text-lol-text hover:bg-white/5 hover:text-lol-text-bright transition-colors"
         >
           {maximized ? <RestoreIcon className="w-3 h-3" /> : <MaximizeIcon className="w-3 h-3" />}
         </button>
         <button
           onClick={() => window.api.closeWindow()}
-          title="Close"
+          title={t("window.close")}
           className="w-11 flex items-center justify-center text-lol-text hover:bg-lol-loss hover:text-white transition-colors"
         >
           <XIcon className="w-3.5 h-3.5" />

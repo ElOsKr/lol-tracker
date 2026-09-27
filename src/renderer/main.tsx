@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { initQueueSelection } from "./hooks/useQueueSelection";
 import { initNavLayout } from "./hooks/useNavLayout";
+import { initLanguage } from "./lib/i18n";
+import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
 import App from "./App";
 import { initViewState } from "./lib/viewState";
@@ -15,8 +17,10 @@ Promise.all([
   window.api.getSetting("selected_queue"),
   window.api.getSetting(NAV_LAYOUT_SETTING),
   window.api.getSetting(HOME_PAGE_SETTING),
+  window.api.getSetting(LANGUAGE_SETTING),
 ])
-  .then(([remember, queue, navLayout, homePage]) => {
+  .then(([remember, queue, navLayout, homePage, language]) => {
+    initLanguage(language);
     initQueueSelection(queue);
     initNavLayout(navLayout, homePage);
     initViewState(remember === "true");

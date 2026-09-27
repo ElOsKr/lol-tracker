@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { saveHomePath, saveNavLayout, useHomePath, useNavLayout } from "../hooks/useNavLayout";
-import { NAV_ITEMS, moveNavItem, setNavItemHidden, visibleNavItems } from "../../shared/navigation";
+import { setLanguageChoice, useLanguageChoice, useT, type Translate } from "../lib/i18n";
+import { moveNavItem, setNavItemHidden, visibleNavItems } from "../../shared/navigation";
+import { LANGUAGE_CHOICES, type LanguageChoice } from "../../shared/i18n";
 
 import { setRemembering } from "../lib/viewState";
 import { SGP_HISTORY_CAP } from "../lib/types";
@@ -13,20 +15,14 @@ import {
   type SessionGrouping,
 } from "../../shared/session";
 
-const SESSION_GROUPING_OPTIONS: { value: SessionGrouping; label: string }[] = [
-  { value: "day", label: "Day" },
-  { value: "week", label: "Week" },
-  { value: "patch", label: "Patch" },
-  { value: "none", label: "Don't group" },
-];
+const SESSION_GROUPING_OPTIONS: SessionGrouping[] = ["day", "week", "patch", "none"];
 
-const BACKUP_REASONS: Record<string, string> = {
-  auto: "Scheduled",
-  manual: "Manual",
-  "pre-import": "Before import",
-  "pre-repair": "Before repair",
-  "pre-restore": "Before restore",
-};
+const BACKUP_REASONS = ["auto", "manual", "pre-import", "pre-repair", "pre-restore"] as const;
+
+function backupReason(t: Translate, reason: string): string {
+  const known = BACKUP_REASONS.find((r) => r === reason);
+  return known ? t(`backup.reason.${known}`) : reason;
+}
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -74,6 +70,8 @@ export default function Settings() {
   const { running: backfilling, progress } = useBackfill();
   const navLayout = useNavLayout();
   const homePath = useHomePath();
+  const languageChoice = useLanguageChoice();
+  const t = useT();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -145,6 +143,8 @@ export default function Settings() {
     await window.api.setSetting(SESSION_GROUPING_SETTING, next);
   }, []);
 
+  const errorWith = useCallback((error: string) => t("settings.errorWith", { error }), [t]);
+
   const handleBackupNow = useCallback(async () => {
     setBackupBusy(true);
     setBackupStatus(null);
@@ -152,16 +152,16 @@ export default function Settings() {
       const result = await window.api.createBackup();
       setBackupStatus(
         result.success
-          ? `Backed up ${result.backup?.games} game(s)`
-          : `Error: ${result.error ?? "backup failed"}`,
+          ? t("settings.backedUp", { count: result.backup?.games ?? 0 })
+          : errorWith(result.error ?? t("settings.backupFailed")),
       );
       refreshBackups();
     } catch (err: any) {
-      setBackupStatus(`Error: ${err.message}`);
+      setBackupStatus(errorWith(err.message));
     } finally {
       setBackupBusy(false);
     }
-  }, [refreshBackups]);
+  }, [refreshBackups, t, errorWith]);
 
   const handleRestore = useCallback(
     async (file: string) => {
@@ -172,17 +172,17 @@ export default function Settings() {
         const result = await window.api.restoreBackup(file);
         setBackupStatus(
           result.success
-            ? `Restored ${result.games} game(s) from ${file}`
-            : `Error: ${result.error ?? "restore failed"}`,
+            ? t("settings.restored", { count: result.games ?? 0, file })
+            : errorWith(result.error ?? t("settings.restoreFailed")),
         );
         refreshBackups();
       } catch (err: any) {
-        setBackupStatus(`Error: ${err.message}`);
+        setBackupStatus(errorWith(err.message));
       } finally {
         setBackupBusy(false);
       }
     },
-    [refreshBackups],
+    [refreshBackups, t, errorWith],
   );
 
   const handleExport = useCallback(async () => {
@@ -190,98 +190,130 @@ export default function Settings() {
     try {
       const result = await window.api.exportData();
       if (result.success) {
-        setExportStatus(`Exported ${result.games} game(s) to ${result.path}`);
+        setExportStatus(
+          t("settings.exported", { count: result.games ?? 0, path: result.path ?? "" }),
+        );
       } else {
         // No error means the file dialog was dismissed, which needs no message
-        setExportStatus(result.error ? `Error: ${result.error}` : null);
+        setExportStatus(result.error ? errorWith(result.error) : null);
       }
     } catch (err: any) {
-      setExportStatus(`Error: ${err.message}`);
+      setExportStatus(errorWith(err.message));
     }
-  }, []);
+  }, [t, errorWith]);
 
   const handleImport = useCallback(async () => {
     setImportStatus(null);
     try {
       const result = await window.api.importData();
       if (result.success) {
-        setImportStatus(`Imported ${result.imported} new game(s)`);
+        setImportStatus(t("settings.importedNew", { count: result.imported ?? 0 }));
       } else {
-        setImportStatus(result.error ? `Error: ${result.error}` : null);
+        setImportStatus(result.error ? errorWith(result.error) : null);
       }
       // An import takes a snapshot on its way in
       refreshBackups();
     } catch (err: any) {
-      setImportStatus(`Error: ${err.message}`);
+      setImportStatus(errorWith(err.message));
     }
-  }, [refreshBackups]);
+  }, [refreshBackups, t, errorWith]);
 
   useEffect(() => {
     if (!progress) return;
     setBackfillStatus(
       progress.total === 0
-        ? "Nothing new to check"
-        : `Checking game ${progress.current} of ${progress.total}, ${progress.added} added so far`,
+        ? t("settings.nothingNew")
+        : t("settings.checking", {
+            current: progress.current,
+            total: progress.total,
+            added: progress.added,
+          }),
     );
-  }, [progress]);
+  }, [progress, t]);
 
   const handleBackfill = useCallback(async () => {
-    setBackfillStatus("Fetching your match list from Riot...");
+    setBackfillStatus(t("settings.fetchingList"));
     try {
       const result = await window.api.backfillHistory();
       if ("error" in result) {
-        setBackfillStatus(`Error: ${result.error}`);
+        setBackfillStatus(errorWith(result.error));
       } else {
         const summary =
           result.added > 0
-            ? `Added ${result.added} game(s) from ${result.scanned} found in your Riot history`
-            : `No new LoL games found (${result.scanned} games checked)`;
+            ? t("settings.backfillAdded", { added: result.added, scanned: result.scanned })
+            : t("settings.backfillNone", { scanned: result.scanned });
         setBackfillStatus(
           result.cancelled
-            ? `Stopped after adding ${result.added} game(s). Run it again to finish.`
+            ? t("settings.backfillStopped", { added: result.added })
             : result.limit === "service"
-              ? `${summary}. Riot only serves your most recent ${SGP_HISTORY_CAP} games of any queue, so nothing older can be imported — but every new game from here on is kept.`
+              ? t("settings.backfillService", { summary, cap: SGP_HISTORY_CAP })
               : result.limit === "paging"
-                ? `${summary}. Stopped at the ${result.scanned}-game paging limit, so anything older was not checked.`
+                ? t("settings.backfillPaging", { summary, scanned: result.scanned })
                 : summary,
         );
       }
     } catch (err: any) {
-      setBackfillStatus(`Error: ${err.message}`);
+      setBackfillStatus(errorWith(err.message));
     }
-  }, []);
+  }, [t, errorWith]);
 
   const handleRepair = useCallback(async () => {
     setRepairStatus(null);
     try {
       const result = await window.api.repairPuuids();
       setRepairStatus(
-        `Repaired ${result.repairedGames} game(s), found ${result.discoveredAccounts} account(s), rebuilt stats and scores for ${result.rebuiltGames} game(s)`,
+        t("settings.repaired", {
+          games: result.repairedGames,
+          accounts: result.discoveredAccounts,
+          rebuilt: result.rebuiltGames,
+        }),
       );
       // A repair takes a snapshot on its way in
       refreshBackups();
     } catch (err: any) {
-      setRepairStatus(`Error: ${err.message}`);
+      setRepairStatus(errorWith(err.message));
     }
-  }, [refreshBackups]);
+  }, [refreshBackups, t, errorWith]);
 
   if (loading) return null;
 
+  const actionButton =
+    "px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
+      <h1 className="text-xl font-bold text-lol-text-bright">{t("settings.title")}</h1>
 
       {/* General */}
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">General</h2>
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">{t("settings.general")}</h2>
         <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">{t("settings.language")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.languageDesc")}</p>
+            </div>
+            <select
+              className="select shrink-0"
+              value={languageChoice}
+              onChange={(e) => void setLanguageChoice(e.target.value as LanguageChoice)}
+            >
+              {LANGUAGE_CHOICES.map((choice) => (
+                <option key={choice} value={choice}>
+                  {t(`language.${choice}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="border-t border-lol-border" />
+
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Start with Windows</p>
+              <p className="text-sm text-lol-text-bright">{t("settings.autoStart")}</p>
               <p className="text-xs text-lol-text mt-0.5">
-                Open the program in the system tray when you sign in to Windows, so your games are
-                recorded without having to remember to start it.
-                {!autoStartSupported && " Only available in the packaged program."}
+                {t("settings.autoStartDesc")}
+                {!autoStartSupported && t("settings.autoStartOnlyPackaged")}
               </p>
             </div>
             <Switch
@@ -295,11 +327,8 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Minimize to tray on close</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                When enabled, the program can keep storing your games even when the window is
-                closed. You can still close the program from the system tray.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.minimizeToTray")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.minimizeToTrayDesc")}</p>
             </div>
             <Switch
               checked={minimizeToTray}
@@ -311,11 +340,8 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Remember filters and sorting</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Reopen every page with the filters, search, and sort order you last used. When off,
-                each page starts on its defaults again every time the program opens.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.rememberFilters")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.rememberFiltersDesc")}</p>
             </div>
             <Switch
               checked={rememberFilters}
@@ -332,11 +358,8 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Hide remakes</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Leave remade games out of the match history. They are still recorded, and were never
-                counted toward your stats either way.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.hideRemakes")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.hideRemakesDesc")}</p>
             </div>
             <Switch
               checked={hideRemakes}
@@ -348,11 +371,8 @@ export default function Settings() {
 
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-lol-text-bright">Group match history by</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Break the match list into sessions, each under a heading with its own record and
-                averages. Days start at 5am; weeks run Monday to Sunday.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.grouping")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.groupingDesc")}</p>
             </div>
             <select
               className="select shrink-0"
@@ -360,37 +380,31 @@ export default function Settings() {
               onChange={(e) => handleSessionGroupingChange(e.target.value as SessionGrouping)}
             >
               {SESSION_GROUPING_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+                <option key={option} value={option}>
+                  {t(`grouping.${option}`)}
                 </option>
               ))}
             </select>
           </div>
 
-          <p className="text-xs text-lol-text">
-            La cola se elige en el selector superior y se conserva al reiniciar. No se mezclan las
-            estadísticas de distintas colas.
-          </p>
+          <p className="text-xs text-lol-text">{t("settings.queueNote")}</p>
         </div>
       </div>
 
       {/* Sidebar */}
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-1">Sidebar</h2>
-        <p className="text-xs text-lol-text mb-4">
-          Choose which pages appear in the sidebar and in what order. Settings always stays, so you
-          can come back here.
-        </p>
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-1">{t("settings.sidebar")}</h2>
+        <p className="text-xs text-lol-text mb-4">{t("settings.sidebarDesc")}</p>
         <div className="space-y-1">
           {navLayout.order.map((id, index) => {
-            const item = NAV_ITEMS.find((candidate) => candidate.id === id)!;
+            const label = t(`nav.${id}`);
             const hidden = navLayout.hidden.includes(id);
             return (
               <div key={id} className="flex items-center gap-3 py-1">
                 <div className="flex flex-col">
                   <button
                     type="button"
-                    aria-label={`Move ${item.label} up`}
+                    aria-label={t("settings.moveUp", { label })}
                     disabled={index === 0}
                     onClick={() => void saveNavLayout(moveNavItem(navLayout, id, -1))}
                     className="px-1 text-[10px] leading-none text-lol-text hover:text-lol-text-bright disabled:opacity-30 disabled:cursor-not-allowed"
@@ -399,7 +413,7 @@ export default function Settings() {
                   </button>
                   <button
                     type="button"
-                    aria-label={`Move ${item.label} down`}
+                    aria-label={t("settings.moveDown", { label })}
                     disabled={index === navLayout.order.length - 1}
                     onClick={() => void saveNavLayout(moveNavItem(navLayout, id, 1))}
                     className="px-1 text-[10px] leading-none text-lol-text hover:text-lol-text-bright disabled:opacity-30 disabled:cursor-not-allowed"
@@ -410,7 +424,7 @@ export default function Settings() {
                 <span
                   className={`flex-1 text-sm ${hidden ? "text-lol-text" : "text-lol-text-bright"}`}
                 >
-                  {item.label}
+                  {label}
                 </span>
                 <Switch
                   checked={!hidden}
@@ -425,11 +439,8 @@ export default function Settings() {
 
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-lol-text-bright">Start page</p>
-            <p className="text-xs text-lol-text mt-0.5">
-              The page that opens when the program starts. Only pages shown in the sidebar can be
-              chosen.
-            </p>
+            <p className="text-sm text-lol-text-bright">{t("settings.startPage")}</p>
+            <p className="text-xs text-lol-text mt-0.5">{t("settings.startPageDesc")}</p>
           </div>
           <select
             className="select shrink-0"
@@ -438,7 +449,7 @@ export default function Settings() {
           >
             {visibleNavItems(navLayout).map((item) => (
               <option key={item.id} value={item.path}>
-                {item.label}
+                {t(`nav.${item.id}`)}
               </option>
             ))}
           </select>
@@ -447,23 +458,15 @@ export default function Settings() {
 
       {/* Data Management */}
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Data Management</h2>
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">{t("settings.data")}</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Backfill match history</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Pull your available LoL games from Riot and add any that aren't stored yet. This
-                runs automatically the first time an account connects; use this to run it again, or
-                to finish an import you cancelled.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.backfill")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.backfillDesc")}</p>
             </div>
-            <button
-              onClick={handleBackfill}
-              disabled={backfilling}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {backfilling ? "Working..." : "Backfill"}
+            <button onClick={handleBackfill} disabled={backfilling} className={actionButton}>
+              {backfilling ? t("settings.working") : t("settings.backfillButton")}
             </button>
           </div>
           {backfillStatus && <p className="text-xs text-lol-text">{backfillStatus}</p>}
@@ -472,16 +475,11 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Export data</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Save all match data to a JSON file for backup
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.export")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.exportDesc")}</p>
             </div>
-            <button
-              onClick={handleExport}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-            >
-              Export
+            <button onClick={handleExport} className={actionButton}>
+              {t("settings.exportButton")}
             </button>
           </div>
           {exportStatus && <p className="text-xs text-lol-text">{exportStatus}</p>}
@@ -490,16 +488,11 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Import data</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Load match data from a previously exported file
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.import")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.importDesc")}</p>
             </div>
-            <button
-              onClick={handleImport}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-            >
-              Import
+            <button onClick={handleImport} className={actionButton}>
+              {t("settings.importButton")}
             </button>
           </div>
           {importStatus && <p className="text-xs text-lol-text">{importStatus}</p>}
@@ -508,18 +501,11 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Repair account data</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Re-detect which accounts are yours by analyzing game history, then rebuild stored
-                stats, augments, and performance scores from the raw game data. Use this if games
-                are attributed to the wrong account or scores look stale.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.repair")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.repairDesc")}</p>
             </div>
-            <button
-              onClick={handleRepair}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-            >
-              Repair
+            <button onClick={handleRepair} className={actionButton}>
+              {t("settings.repairButton")}
             </button>
           </div>
           {repairStatus && <p className="text-xs text-lol-text">{repairStatus}</p>}
@@ -528,16 +514,12 @@ export default function Settings() {
 
       {/* Backups */}
       <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
-        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Backups</h2>
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">{t("settings.backups")}</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-lol-text-bright">Automatic backups</p>
-              <p className="text-xs text-lol-text mt-0.5">
-                Keep a daily copy of your database on this computer, plus one before any import or
-                repair. Older copies thin out to weekly and monthly. If the database ever goes
-                missing or won't open, the newest working copy is restored on startup.
-              </p>
+              <p className="text-sm text-lol-text-bright">{t("settings.autoBackup")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.autoBackupDesc")}</p>
             </div>
             <Switch
               checked={autoBackup}
@@ -548,7 +530,7 @@ export default function Settings() {
           <div className="border-t border-lol-border" />
 
           {backups.length === 0 ? (
-            <p className="text-xs text-lol-text">No backups yet.</p>
+            <p className="text-xs text-lol-text">{t("settings.noBackups")}</p>
           ) : (
             <div className="space-y-1">
               {backups.map((backup) => (
@@ -559,26 +541,28 @@ export default function Settings() {
                   <div className="min-w-0">
                     <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
                     <p className="text-lol-text">
-                      {BACKUP_REASONS[backup.reason] ?? backup.reason} ·{" "}
-                      {backup.games === null ? "unreadable" : `${backup.games} games`} ·{" "}
-                      {formatSize(backup.size)}
+                      {backupReason(t, backup.reason)} ·{" "}
+                      {backup.games === null
+                        ? t("settings.unreadable")
+                        : t("settings.gamesCount", { count: backup.games })}{" "}
+                      · {formatSize(backup.size)}
                     </p>
                   </div>
                   {confirmRestore === backup.file ? (
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-lol-text">Replace current data?</span>
+                      <span className="text-lol-text">{t("settings.replaceCurrent")}</span>
                       <button
                         onClick={() => handleRestore(backup.file)}
                         disabled={backupBusy}
                         className="px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors disabled:opacity-50"
                       >
-                        Restore
+                        {t("settings.restore")}
                       </button>
                       <button
                         onClick={() => setConfirmRestore(null)}
                         className="px-3 py-1 rounded bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
                       >
-                        Cancel
+                        {t("settings.cancel")}
                       </button>
                     </div>
                   ) : (
@@ -587,7 +571,7 @@ export default function Settings() {
                       disabled={backupBusy || backup.games === null}
                       className="px-3 py-1 rounded shrink-0 bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Restore
+                      {t("settings.restore")}
                     </button>
                   )}
                 </div>
@@ -596,18 +580,14 @@ export default function Settings() {
           )}
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleBackupNow}
-              disabled={backupBusy}
-              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {backupBusy ? "Working..." : "Back up now"}
+            <button onClick={handleBackupNow} disabled={backupBusy} className={actionButton}>
+              {backupBusy ? t("settings.working") : t("settings.backupNow")}
             </button>
             <button
               onClick={() => window.api.openBackupFolder()}
               className="px-4 py-1.5 rounded text-sm bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
             >
-              Open folder
+              {t("settings.openFolder")}
             </button>
           </div>
           {backupStatus && <p className="text-xs text-lol-text">{backupStatus}</p>}

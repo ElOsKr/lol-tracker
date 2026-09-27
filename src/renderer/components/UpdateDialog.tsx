@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReleaseNote, UpdateInfo } from "../lib/types";
 import { ChevronRightIcon, RefreshIcon } from "./icons";
 import Markdown from "./Markdown";
+import { useT } from "../lib/i18n";
 
 function formatReleaseDate(iso: string): string {
   if (!iso) return "";
@@ -11,8 +12,9 @@ function formatReleaseDate(iso: string): string {
 }
 
 function ReleaseBody({ release }: { release: ReleaseNote }) {
+  const t = useT();
   if (!release.body) {
-    return <p className="text-[12px] text-lol-text/50 italic">No notes for this release.</p>;
+    return <p className="text-[12px] text-lol-text/50 italic">{t("update.noNotes")}</p>;
   }
   return (
     <div className="text-[12px] text-lol-text">
@@ -31,6 +33,7 @@ export default function UpdateDialog({
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   const releases = update.releases ?? [];
   // Only the newest is expanded up front: someone several versions behind gets a
@@ -54,7 +57,7 @@ export default function UpdateDialog({
 
   const handleUpdate = async () => {
     if (!update.assetUrl) {
-      setError("No download found for this release");
+      setError(t("update.noDownload"));
       return;
     }
     setDownloading(true);
@@ -62,7 +65,7 @@ export default function UpdateDialog({
     const result = await window.api.downloadUpdate(update.assetUrl);
     if (!result.success) {
       setDownloading(false);
-      setError(result.error ?? "Update failed");
+      setError(result.error ?? t("update.failed"));
     }
     // On success the app restarts itself, no further action needed
   };
@@ -78,15 +81,14 @@ export default function UpdateDialog({
         className="flex max-h-[85vh] w-[32rem] max-w-[90vw] flex-col rounded-lg border border-lol-border bg-lol-card p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-[15px] font-bold text-lol-text-bright">Update Available</h2>
+        <h2 className="text-[15px] font-bold text-lol-text-bright">{t("update.title")}</h2>
         <p className="mt-2 text-[13px] text-lol-text">
-          Version <span className="text-lol-gold">v{update.latest}</span> is available (you have v
-          {update.current}).
+          {t("update.body", { latest: `v${update.latest}`, current: `v${update.current}` })}
         </p>
         {releases.length > 1 && (
           <p className="mt-0.5 text-[12px] text-lol-text/60">
-            {releases.length} versions of changes since your install
-            {update.moreVersions ? ", plus earlier ones on GitHub" : ""}.
+            {t("update.versionsSince", { count: releases.length })}
+            {update.moreVersions ? t("update.moreOnGithub") : ""}.
           </p>
         )}
 
@@ -136,7 +138,9 @@ export default function UpdateDialog({
               />
             </div>
             <p className="mt-1.5 text-[11px] text-lol-text">
-              Downloading... {progress}%{sizeMb ? ` of ${sizeMb} MB` : ""}
+              {sizeMb
+                ? t("update.downloadingOf", { progress, size: sizeMb })
+                : t("update.downloading", { progress })}
             </p>
           </div>
         )}
@@ -149,7 +153,7 @@ export default function UpdateDialog({
                 onClick={() => window.api.openUrl(update.url!)}
                 className="ml-1.5 text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
               >
-                Download manually
+                {t("update.manual")}
               </button>
             )}
           </div>
@@ -160,7 +164,7 @@ export default function UpdateDialog({
             onClick={() => window.api.openUrl(update.url!)}
             className="text-[12px] text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
           >
-            View on GitHub
+            {t("update.viewOnGithub")}
           </button>
           <div className="flex gap-2">
             <button
@@ -168,7 +172,7 @@ export default function UpdateDialog({
               disabled={downloading}
               className="text-xs px-3 py-1.5 rounded-md border border-lol-border text-lol-text hover:bg-white/5 disabled:opacity-50 transition-colors"
             >
-              Not Now
+              {t("update.notNow")}
             </button>
             <button
               onClick={handleUpdate}
@@ -176,7 +180,7 @@ export default function UpdateDialog({
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-lol-gold/25 bg-lol-gold/10 text-lol-gold hover:bg-lol-gold/20 disabled:opacity-50 transition-colors"
             >
               <RefreshIcon className={`w-3 h-3 ${downloading ? "animate-spin" : ""}`} />
-              {downloading ? "Updating..." : "Update & Restart"}
+              {downloading ? t("update.installing") : t("update.install")}
             </button>
           </div>
         </div>
