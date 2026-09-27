@@ -854,7 +854,7 @@ export default function Trends() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
         <Card title={t("trends.byWeekday")}>
           <WeekdayChart weekdays={data.weekdays} />
         </Card>

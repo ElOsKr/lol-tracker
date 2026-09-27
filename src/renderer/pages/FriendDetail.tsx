@@ -393,7 +393,9 @@ function SharedGameRow({
           {detailLoading ? (
             <div className="text-sm text-lol-text text-center py-4">{t("common.loading")}</div>
           ) : detail ? (
-            <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+            <div className="overflow-x-auto">
+              <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+            </div>
           ) : null}
         </div>
       )}

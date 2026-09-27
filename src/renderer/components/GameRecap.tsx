@@ -270,7 +270,7 @@ export default function GameRecap({
           icon={<MedalIcon className="h-3 w-3" />}
           accent="gold"
         >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 @lg:grid-cols-3 @3xl:grid-cols-4">
             {recap.placements.map((placement) => (
               <PlacementCard key={placement.key} placement={placement} recap={recap} />
             ))}
@@ -285,7 +285,7 @@ export default function GameRecap({
           icon={<AwardIcon className="h-3 w-3" />}
           accent="purple"
         >
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 @lg:grid-cols-2 @3xl:grid-cols-3">
             {recap.challenges.map((challenge) => (
               <ChallengeCard key={challenge.id} challenge={challenge} />
             ))}
@@ -293,7 +293,7 @@ export default function GameRecap({
         </Panel>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 @4xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Panel
           title={t("recap.thisSession")}
           subtitle={sessionSubtitle(t, session.games.length, session.duration)}
@@ -423,7 +423,9 @@ export default function GameRecap({
       </div>
 
       <Panel title={t("recap.scoreboard")} icon={<FlameIcon className="h-3 w-3" />} accent="gold">
-        <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+        <div className="overflow-x-auto">
+          <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+        </div>
       </Panel>
     </div>
   );
