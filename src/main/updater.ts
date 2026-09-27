@@ -9,9 +9,13 @@ import type { ReleaseNote, UpdateInfo } from "../shared/api";
 const CHECK_TIMEOUT_MS = 10_000;
 // One page covers any realistic gap between installs, for a single request.
 const RELEASE_PAGE_SIZE = 20;
-// Release bodies are hand-written, but they still arrive over the network, so
-// cap what the dialog is asked to lay out.
+// Release bodies are short, but they still arrive over the network, so cap
+// what the dialog is asked to lay out.
 const MAX_BODY_CHARS = 4_000;
+// The headings from .github/release.yml whose entries describe something a
+// user would notice. Documentation, chores and the catch-all are for whoever
+// reads the release page, not for the update dialog.
+const USER_FACING_SECTIONS = ["Nuevas funciones", "Correcciones", "Accesibilidad"];
 // Applied per chunk rather than to the whole download: the asset is ~90 MB, so
 // a total-duration cap would abort a slow but perfectly healthy connection.
 // What we actually want to catch is a transfer that has stopped moving.
@@ -43,16 +47,68 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+// A generated line is a pull-request title with repository bookkeeping around
+// it: "* feat: recordar la ventana (#18) by @ElOsKr in https://…/pull/21".
+// What the user should read is "* Recordar la ventana".
+function cleanGeneratedBullet(line: string): string {
+  const text = line
+    .replace(/^\s*[*-]\s*/, "")
+    .replace(
+      /^(feat|fix|docs|chore|refactor|test|tests|ci|perf|style|build|revert)(\([^)]*\))?!?:\s*/i,
+      "",
+    )
+    .replace(/\s+by\s+@[\w-]+\s+in\s+\S+\s*$/i, "")
+    .replace(/\s*\(#\d+\)\s*$/, "")
+    .trim();
+  return `* ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+/**
+ * GitHub's generated notes list every merged pull request by title, grouped
+ * under the headings from .github/release.yml. Only the user-facing groups
+ * survive, and each line loses its commit-style prefix, author and link. A
+ * hand-written body (no "What's Changed" heading) comes back untouched, so a
+ * release can always be given proper notes by editing it on GitHub.
+ */
+export function cleanGeneratedNotes(body: string): string {
+  if (!/^## What's Changed\s*$/m.test(body)) return body;
+  // Notes generated without categories put the bullets straight under the
+  // top heading; then there is nothing to filter by and all of them stay.
+  const hasSections = /^### /m.test(body);
+  const out: string[] = [];
+  let keep = false;
+  for (const line of body.split("\n")) {
+    if (/^## /.test(line)) {
+      // "What's Changed" opens the list; "New Contributors" and anything else
+      // at this level is repository news, not release content.
+      keep = !hasSections && /^## What's Changed\s*$/.test(line);
+      continue;
+    }
+    const section = line.match(/^### (.+?)\s*$/);
+    if (section) {
+      keep = USER_FACING_SECTIONS.includes(section[1]);
+      if (keep) {
+        if (out.length) out.push("");
+        out.push(line);
+      }
+      continue;
+    }
+    if (keep && /^\s*[*-]\s+\S/.test(line)) out.push(cleanGeneratedBullet(line));
+  }
+  return out.join("\n").trim();
+}
+
 export function toReleaseNote(release: any): ReleaseNote {
-  const body = String(release.body ?? "")
+  const raw = String(release.body ?? "")
     .replace(/\r\n/g, "\n")
     // Generated notes open with an HTML comment naming the config that produced
-    // them; the dialog renders the body as plain text, so it would show as-is.
+    // them; the dialog would show it as-is.
     .replace(/<!--[\s\S]*?-->/g, "")
     // GitHub appends this to every generated body; the dialog already links to
     // the release page, so in a small window it is pure noise.
     .replace(/^[ \t]*\*\*Full Changelog\*\*:.*$/gim, "")
     .trim();
+  const body = cleanGeneratedNotes(raw);
   return {
     version: String(release.tag_name).replace(/^v/, ""),
     publishedAt: typeof release.published_at === "string" ? release.published_at : "",
