@@ -1161,8 +1161,19 @@ function GameRow({
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="hidden @lg:block">
+        {/* Initials while the row is tight, words once the bars are back; the
+            gap can never be narrower than a badge, so nothing spills over the time */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="hidden @lg:block @4xl:hidden">
+            <MultikillBadge
+              compact
+              doubles={match.double_kills}
+              triples={match.triple_kills}
+              quadras={match.quadra_kills}
+              pentas={match.penta_kills}
+            />
+          </div>
+          <div className="hidden @4xl:block">
             <MultikillBadge
               doubles={match.double_kills}
               triples={match.triple_kills}
