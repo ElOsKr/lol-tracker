@@ -134,8 +134,10 @@ function LiveView({
     <div className="max-w-7xl space-y-4">
       <LiveHeader snapshot={snapshot} elapsed={elapsed} teamKills={teamKills} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-        <LiveScoreboard players={snapshot.players} champData={champData} />
+      <div className="grid gap-4 @5xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
+        <div className="min-w-0 overflow-x-auto">
+          <LiveScoreboard players={snapshot.players} champData={champData} />
+        </div>
 
         <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
           <div className="mb-2 flex items-baseline gap-2">

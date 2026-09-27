@@ -71,16 +71,20 @@ function NavItem({
   label,
   icon: Icon,
   iconsOnly,
+  onNavigate,
 }: {
   to: string;
   label: string;
   icon: IconComponent;
   iconsOnly: boolean;
+  // Drawer only: closes it, even when the page tapped is the one already open
+  onNavigate?: () => void;
 }) {
   return (
     <NavLink
       to={to}
       end={to === "/"}
+      onClick={onNavigate}
       title={iconsOnly ? label : undefined}
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-md text-[13px] font-medium transition-colors ${
@@ -279,6 +283,7 @@ export default function Sidebar({
               label={t(`nav.${item.id}`)}
               icon={icons[item.id]}
               iconsOnly={iconsOnly}
+              onNavigate={mode === "drawer" ? onClose : undefined}
             />
           ))}
       </div>
@@ -288,6 +293,7 @@ export default function Sidebar({
           label={t("nav.settings")}
           icon={SettingsIcon}
           iconsOnly={iconsOnly}
+          onNavigate={mode === "drawer" ? onClose : undefined}
         />
       </div>
       <div
