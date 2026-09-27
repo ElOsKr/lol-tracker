@@ -95,6 +95,7 @@ export default function WidgetSettings() {
                     select({ queue: e.target.value === "" ? null : Number(e.target.value) })
                   }
                 >
+                  <option value="">{t("widget.queueFollowApp")}</option>
                   {TRACKED_QUEUE_IDS.map((q) => (
                     <option key={q} value={q}>
                       {queueLabel(q)}

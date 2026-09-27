@@ -472,6 +472,19 @@ test("widget shares account/queue filters, excludes remakes from streak and expo
   assert.equal(settings.get("widget_queue"), "450");
   assert.equal(settings.get("widget_height"), "320");
   assert.equal(settings.get("widget_opacity"), "60");
+  // Sin cola propia, el widget sigue la de la aplicacion: la consulta va sin
+  // cola y db.ts aplica la seleccionada. Antes caia a ARAM normal, y quien
+  // nunca abria la pagina del widget veia partidas de otra cola.
+  handlers.get("widget:preferences")(event, { ...appearance, queue: null });
+  assert.equal(settings.get("widget_queue"), "");
+  queries.length = 0;
+  widget.widgetSnapshot();
+  assert.deepEqual(queries, [
+    { account: "account-a", queue: undefined },
+    { account: "account-a", queue: undefined },
+  ]);
+  assert.equal(widget.widgetSnapshot().preferences, undefined);
+  assert.equal(handlers.get("widget:state")(event).preferences.queue, null);
   for (const change of [
     { height: 0 },
     { height: 1000 },

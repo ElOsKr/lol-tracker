@@ -570,4 +570,7 @@ export const es: Dictionary = {
   "level.challenger": "Aspirante",
   "startup.failed": "No se pudo cargar la selección de cola.",
   "startup.retry": "Reintentar",
+
+  // Cola del widget
+  "widget.queueFollowApp": "La misma que la aplicación",
 };
