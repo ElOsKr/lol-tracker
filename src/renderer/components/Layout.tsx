@@ -1,15 +1,29 @@
 import QueueTotals from "./QueueTotals";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import QueueSelect from "./QueueSelect";
 import { hasAugments } from "../../shared/queues";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useHomePath } from "../hooks/useNavLayout";
 import Sidebar from "./Sidebar";
 import StatusBar from "./StatusBar";
 import RecoveryBanner from "./RecoveryBanner";
 
+// Only the very first mount of the app jumps to the chosen start page; a
+// re-mount later (hot reload, recovery) must not yank the user off a page.
+let openedHome = false;
+
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const homePath = useHomePath();
+  useEffect(() => {
+    if (openedHome) return;
+    openedHome = true;
+    if (homePath !== "/" && location.pathname === "/") navigate(homePath, { replace: true });
+    // Runs once on purpose
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [queue, setQueue] = useQueueSelection();
   const [error, setError] = useState("");
   return (

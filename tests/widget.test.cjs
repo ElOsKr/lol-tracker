@@ -187,6 +187,44 @@ test("saved window bounds are restored only when they still land on a display", 
   assert.equal(small.height, MIN_HEIGHT);
 });
 
+// La barra lateral se configura desde Ajustes: el orden y las paginas ocultas se
+// guardan en settings y se leen con manga ancha, para que una pagina nueva o retirada
+// nunca deje el menu vacio ni rompa el arranque.
+test("the sidebar layout tolerates stale ids and never hides every page", () => {
+  const nav = load("src/shared/navigation.ts");
+  const all = nav.NAV_ITEMS.map((item) => item.id);
+
+  assert.deepEqual(nav.parseNavLayout(null), nav.DEFAULT_NAV_LAYOUT);
+  assert.deepEqual(nav.parseNavLayout("{not json"), nav.DEFAULT_NAV_LAYOUT);
+
+  // Un id retirado se descarta y una pagina nueva se anade al final
+  const parsed = nav.parseNavLayout(
+    JSON.stringify({ order: ["trends", "old-page", "history"], hidden: ["widget", "old-page"] }),
+  );
+  assert.deepEqual(parsed.order.slice(0, 2), ["trends", "history"]);
+  assert.deepEqual([...parsed.order].sort(), [...all].sort());
+  assert.deepEqual(parsed.hidden, ["widget"]);
+
+  // Reordenar no sale de los limites ni pierde elementos
+  const first = nav.DEFAULT_NAV_LAYOUT.order[0];
+  assert.equal(nav.moveNavItem(nav.DEFAULT_NAV_LAYOUT, first, -1), nav.DEFAULT_NAV_LAYOUT);
+  const moved = nav.moveNavItem(nav.DEFAULT_NAV_LAYOUT, first, 1);
+  assert.equal(moved.order[1], first);
+  assert.equal(moved.order.length, all.length);
+
+  // Nunca puede ocultarse la ultima pagina visible
+  let layout = nav.DEFAULT_NAV_LAYOUT;
+  for (const id of all) layout = nav.setNavItemHidden(layout, id, true);
+  assert.equal(nav.visibleNavItems(layout).length, 1);
+
+  // La pagina de inicio solo vale mientras siga visible
+  assert.equal(nav.resolveHomePath("/trends", nav.DEFAULT_NAV_LAYOUT), "/trends");
+  const noTrends = nav.setNavItemHidden(nav.DEFAULT_NAV_LAYOUT, "trends", true);
+  assert.equal(nav.resolveHomePath("/trends", noTrends), "/");
+  assert.equal(nav.resolveHomePath("/nowhere", nav.DEFAULT_NAV_LAYOUT), "/");
+  assert.equal(nav.resolveHomePath(null, layout), nav.visibleNavItems(layout)[0].path);
+});
+
 test("closing the desktop widget hides it, reopening reuses it, shutdown destroys it", async () => {
   const events = new Map();
   const handlers = new Map();

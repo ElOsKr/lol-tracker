@@ -1,4 +1,6 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { useNavLayout } from "../hooks/useNavLayout";
+import { visibleNavItems, type NavItemId } from "../../shared/navigation";
 import { hasAugments } from "../../shared/queues";
 import { NavLink } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef, type ComponentType, type SVGProps } from "react";
@@ -24,18 +26,20 @@ import {
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
-const links: { to: string; label: string; icon: IconComponent }[] = [
-  { to: "/", label: "Match History", icon: SwordsIcon },
-  { to: "/live", label: "Live Game", icon: RadioIcon },
-  { to: "/champions", label: "Champions", icon: TrophyIcon },
-  { to: "/augments", label: "Augments", icon: CrosshairIcon },
-  { to: "/friends", label: "Friends", icon: UsersIcon },
-  { to: "/trends", label: "Trends", icon: TrendingUpIcon },
-  { to: "/records", label: "Records", icon: MedalIcon },
-  { to: "/widget", label: "Widget / OBS", icon: HourglassIcon },
-  { to: "/challenges", label: "Challenges", icon: AwardIcon },
-  { to: "/global", label: "Total Stats", icon: GlobeIcon },
-];
+// Paths and labels live in shared/navigation so Settings can list the same
+// pages; only the icons are the sidebar's business.
+const icons: Record<NavItemId, IconComponent> = {
+  history: SwordsIcon,
+  live: RadioIcon,
+  champions: TrophyIcon,
+  augments: CrosshairIcon,
+  friends: UsersIcon,
+  trends: TrendingUpIcon,
+  records: MedalIcon,
+  widget: HourglassIcon,
+  challenges: AwardIcon,
+  global: GlobeIcon,
+};
 
 // The app is often left open for days, so a launch-only check would never
 // surface a release cut in the meantime.
@@ -76,6 +80,7 @@ function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: I
 
 export default function Sidebar() {
   const [queue] = useQueueSelection();
+  const layout = useNavLayout();
   const status = useLcuStatus();
   const { running: backfilling, progress, percent } = useBackfill();
   const [refreshing, setRefreshing] = useState(false);
@@ -166,10 +171,10 @@ export default function Sidebar() {
         </div>
       </div>
       <div className="flex flex-col gap-0.5 p-3 mt-1 flex-1">
-        {links
-          .filter((link) => hasAugments(queue) || link.to !== "/augments")
-          .map((link) => (
-            <NavItem key={link.to} {...link} />
+        {visibleNavItems(layout)
+          .filter((item) => hasAugments(queue) || item.id !== "augments")
+          .map((item) => (
+            <NavItem key={item.id} to={item.path} label={item.label} icon={icons[item.id]} />
           ))}
       </div>
       <div className="px-3 pb-1">
