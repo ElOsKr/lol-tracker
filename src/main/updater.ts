@@ -43,9 +43,12 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-function toReleaseNote(release: any): ReleaseNote {
+export function toReleaseNote(release: any): ReleaseNote {
   const body = String(release.body ?? "")
     .replace(/\r\n/g, "\n")
+    // Generated notes open with an HTML comment naming the config that produced
+    // them; the dialog renders the body as plain text, so it would show as-is.
+    .replace(/<!--[\s\S]*?-->/g, "")
     // GitHub appends this to every generated body; the dialog already links to
     // the release page, so in a small window it is pure noise.
     .replace(/^[ \t]*\*\*Full Changelog\*\*:.*$/gim, "")

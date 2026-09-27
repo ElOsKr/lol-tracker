@@ -119,6 +119,29 @@ test("an installer can only be fed a download from this project's own releases",
   }
 });
 
+// GitHub antepone a las notas generadas un comentario HTML con el nombre de la
+// configuracion; el dialogo pinta el cuerpo como texto plano, asi que saldria tal cual.
+test("release notes drop GitHub's generated-notes comment and the changelog footer", () => {
+  const updater = load("src/main/updater.ts", {
+    electron: { app: { quit: () => assert.fail("Must not quit") } },
+    child_process: { spawn: () => assert.fail("Must not launch an installer") },
+  });
+  const note = updater.toReleaseNote({
+    tag_name: "v0.2.0",
+    published_at: "2026-09-26T18:27:00Z",
+    html_url: "https://github.com/ElOsKr/lol-tracker/releases/tag/v0.2.0",
+    body:
+      "<!-- Release notes generated using configuration in .github/release.yml at v0.2.0 -->\r\n\r\n" +
+      "## What's Changed\r\n* feat: renombrar la aplicacion a LoLeanding by @ElOsKr in #11\r\n\r\n" +
+      "**Full Changelog**: https://github.com/ElOsKr/lol-tracker/compare/v0.1.0...v0.2.0",
+  });
+  assert.equal(note.version, "0.2.0");
+  assert.equal(
+    note.body,
+    "## What's Changed\n* feat: renombrar la aplicacion a LoLeanding by @ElOsKr in #11",
+  );
+});
+
 // El tamano y la posicion guardados solo se restauran si siguen cayendo en una
 // pantalla conectada; si no, la ventana apareceria fuera de la vista sin poder agarrarla.
 test("saved window bounds are restored only when they still land on a display", () => {
