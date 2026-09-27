@@ -119,6 +119,51 @@ test("an installer can only be fed a download from this project's own releases",
   }
 });
 
+// El tamano y la posicion guardados solo se restauran si siguen cayendo en una
+// pantalla conectada; si no, la ventana apareceria fuera de la vista sin poder agarrarla.
+test("saved window bounds are restored only when they still land on a display", () => {
+  const { pickBounds, MIN_WIDTH, MIN_HEIGHT } = load("src/main/window-state.ts", {
+    electron: { screen: { getAllDisplays: () => [] } },
+    "./db": { getSetting: () => null, setSetting: () => {} },
+  });
+  const primary = { x: 0, y: 0, width: 1920, height: 1040 };
+  const second = { x: 1920, y: 0, width: 2560, height: 1400 };
+
+  assert.equal(pickBounds(null, [primary]), null);
+  assert.equal(pickBounds({ x: "1", y: 2, width: 3, height: 4 }, [primary]), null);
+
+  const kept = pickBounds({ x: 200, y: 100, width: 1400, height: 900, maximized: true }, [primary]);
+  assert.deepEqual(kept, { x: 200, y: 100, width: 1400, height: 900, maximized: true });
+
+  // Un monitor que ya no esta conectado
+  assert.equal(
+    pickBounds({ x: 2000, y: 100, width: 1400, height: 900, maximized: false }, [primary]),
+    null,
+  );
+  assert.ok(
+    pickBounds({ x: 2000, y: 100, width: 1400, height: 900, maximized: false }, [primary, second]),
+  );
+
+  // Casi entera fuera por la izquierda o por debajo, o por encima del borde superior
+  assert.equal(
+    pickBounds({ x: -1350, y: 100, width: 1400, height: 900, maximized: false }, [primary]),
+    null,
+  );
+  assert.equal(
+    pickBounds({ x: 200, y: 1010, width: 1400, height: 900, maximized: false }, [primary]),
+    null,
+  );
+  assert.equal(
+    pickBounds({ x: 200, y: -300, width: 1400, height: 900, maximized: false }, [primary]),
+    null,
+  );
+
+  // Nunca por debajo del minimo que impone la propia ventana
+  const small = pickBounds({ x: 10, y: 10, width: 300, height: 200, maximized: false }, [primary]);
+  assert.equal(small.width, MIN_WIDTH);
+  assert.equal(small.height, MIN_HEIGHT);
+});
+
 test("closing the desktop widget hides it, reopening reuses it, shutdown destroys it", async () => {
   const events = new Map();
   const handlers = new Map();
