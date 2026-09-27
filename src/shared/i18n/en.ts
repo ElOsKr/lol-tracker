@@ -469,7 +469,8 @@ export const en = {
   "widget.obsPrivacy":
     "Only reachable from this PC. No router ports need opening. It turns off when the app exits.",
   "global.title": "Total Stats",
-  "global.summary": "{games} games · {champions} champions · {augments} augments · {items} items",
+  "global.summary":
+    "All ten players of your {games} games · {champions} champions · {augments} augments · {items} items",
   "global.championsCount": "{count} champions",
   "global.augmentsCount": "{count} augments",
   "global.itemsCount": "{count} items",
@@ -486,7 +487,6 @@ export const en = {
   "global.pick": "Pick",
   "global.noItemsRecorded": "No items recorded",
   "global.noAugmentsRecorded": "No augments recorded",
-  "global.playedAcross": "{count} games played across all stored matches",
   "global.noGamesChampion": "No games with this champion for the selected filters.",
   "global.record": "{wins}W {losses}L",
   "global.kdaSub": "{ratio} ratio · {kills} / {deaths} / {assists} total",
@@ -573,6 +573,14 @@ export const en = {
   "settings.logFileDesc":
     "A record of what the program does in the background, like connecting to the client and recording games. If something goes wrong, main.log is the file to attach to a bug report.",
   "common.clearSearch": "Clear search",
+
+  // Total Stats: what is counted
+  "global.appearances": "Appearances",
+  "global.ownGames": "· {count} yours",
+  "global.ownGame": "· 1 yours",
+  "global.seenIn": "Seen in {count} of your {total} games",
+  "global.playedByYou": "{count} played by you",
+  "global.playedByYouOne": "1 played by you",
 } as const;
 
 export type TranslationKey = keyof typeof en;
