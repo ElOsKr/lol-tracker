@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useFilterOptions } from "../hooks/useFilterOptions";
+import { useT } from "../lib/i18n";
 
 export default function AccountSelect({
   value,
@@ -9,6 +10,7 @@ export default function AccountSelect({
   onChange: (account: string | undefined) => void;
 }) {
   const { accounts } = useFilterOptions();
+  const t = useT();
 
   // Clear the selection if new data leaves it without any matching games
   useEffect(() => {
@@ -26,10 +28,10 @@ export default function AccountSelect({
       onChange={(e) => onChange(e.target.value === "" ? undefined : e.target.value)}
       className="select"
     >
-      <option value="">All Accounts</option>
+      <option value="">{t("history.allAccounts")}</option>
       {accounts.map((a) => (
         <option key={a.puuid} value={a.puuid}>
-          {a.name ?? "Unknown account"}
+          {a.name ?? t("history.unknownAccount")}
         </option>
       ))}
     </select>

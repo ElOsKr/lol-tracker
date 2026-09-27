@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage } from "electron";
+import { app, BrowserWindow } from "electron";
 import path from "path";
 import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
@@ -14,9 +14,9 @@ import { APP_USER_MODEL_ID, ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 
 import { openWidget, registerWidgetHandlers, stopWidget } from "./widget";
+import { createTray } from "./tray";
 
 let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
 let isQuitting = false;
 let didFinalFetch = false;
 
@@ -127,35 +127,17 @@ function createWindow(): BrowserWindow {
   return mainWindow;
 }
 
-function createTray() {
-  // Drawn at tray sizes rather than scaled down from the window icon. Electron
-  // picks up the @2x file beside it on a HiDPI display.
-  tray = new Tray(nativeImage.createFromPath(asset("tray.png")));
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: "Show Window",
-      click: () => {
-        mainWindow?.show();
-        mainWindow?.focus();
-      },
+function setUpTray() {
+  createTray(asset("tray.png"), {
+    showWindow: () => {
+      mainWindow?.show();
+      mainWindow?.focus();
     },
-    { label: "Abrir widget", click: openWidget },
-    { type: "separator" },
-    {
-      label: "Quit",
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
+    openWidget,
+    quit: () => {
+      isQuitting = true;
+      app.quit();
     },
-  ]);
-
-  tray.setToolTip("LoLeanding");
-  tray.setContextMenu(contextMenu);
-  tray.on("double-click", () => {
-    mainWindow?.show();
-    mainWindow?.focus();
   });
 }
 
@@ -200,7 +182,7 @@ app.whenReady().then(async () => {
   registerWidgetHandlers(() => mainWindow);
 
   const win = createWindow();
-  createTray();
+  setUpTray();
 
   startPolling(win);
   // Follows the client into and out of matches, so the Live Game tab has a

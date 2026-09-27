@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CopyIcon, ImageIcon } from "./icons";
+import { useT } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
 
 // Long enough to read where the file went, short enough that it doesn't sit
 // over the page for the rest of the session
@@ -29,6 +31,7 @@ export function useGameImageExport() {
   const [busy, setBusy] = useState<Busy | null>(null);
   const [message, setMessage] = useState<ExportMessage | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useT();
 
   useEffect(() => {
     return () => {
@@ -50,11 +53,11 @@ export function useGameImageExport() {
       try {
         if (action === "copy") {
           const result = await window.api.copyGameImage(gameId);
-          if (result.success) say("Copied the game image to the clipboard", false);
+          if (result.success) say(t("export.copied"), false);
           else if (result.error) say(result.error, true);
         } else {
           const result = await window.api.exportGameImage(gameId);
-          if (result.success) say(`Saved to ${result.path}`, false);
+          if (result.success) say(t("export.saved", { path: result.path ?? "" }), false);
           // Neither succeeded nor failed: the save dialog was dismissed
           else if (result.error) say(result.error, true);
         }
@@ -64,7 +67,7 @@ export function useGameImageExport() {
         setBusy(null);
       }
     },
-    [busy, say],
+    [busy, say, t],
   );
 
   const busyWith = useCallback(
@@ -94,16 +97,19 @@ export function ExportImageMessage({ message }: { message: ExportMessage | null 
   );
 }
 
-const LABELS: Record<ImageAction, { idle: string; busy: string; title: string }> = {
+const LABELS: Record<
+  ImageAction,
+  { idle: TranslationKey; busy: TranslationKey; title: TranslationKey }
+> = {
   save: {
-    idle: "Export PNG",
-    busy: "Exporting...",
-    title: "Save this game as a PNG",
+    idle: "export.savePng",
+    busy: "export.exporting",
+    title: "export.saveTitle",
   },
   copy: {
-    idle: "Copy Image",
-    busy: "Copying...",
-    title: "Copy this game's image to the clipboard",
+    idle: "history.copyImage",
+    busy: "export.copying",
+    title: "export.copyTitle",
   },
 };
 
@@ -116,6 +122,7 @@ export function ExportImageButton({
   onClick: () => void;
   busy: boolean;
 }) {
+  const t = useT();
   const labels = LABELS[action];
   const Icon = action === "copy" ? CopyIcon : ImageIcon;
 
@@ -123,11 +130,11 @@ export function ExportImageButton({
     <button
       onClick={onClick}
       disabled={busy}
-      title={labels.title}
+      title={t(labels.title)}
       className="flex items-center gap-1.5 rounded-lg border border-lol-border bg-lol-card px-2 py-1 text-xs text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:opacity-60"
     >
       <Icon className="h-3.5 w-3.5" />
-      {busy ? labels.busy : labels.idle}
+      {busy ? t(labels.busy) : t(labels.idle)}
     </button>
   );
 }

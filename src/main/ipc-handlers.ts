@@ -11,6 +11,9 @@ import * as backup from "./backup";
 import { copyGameImage, exportGameImage } from "./export-image";
 import { getBackupDir } from "./paths";
 import { openExternalUrl } from "./security";
+import { t } from "./i18n";
+import { refreshTrayMenu } from "./tray";
+import { LANGUAGE_SETTING } from "../shared/i18n";
 import { applyAutoStart, isAutoStartSupported } from "./autostart";
 import { SESSION_GROUPING_SETTING } from "../shared/session";
 
@@ -290,6 +293,7 @@ export function registerIpcHandlers() {
       return;
     }
     db.setSetting(key, value);
+    if (key === LANGUAGE_SETTING) refreshTrayMenu();
 
     // The one setting with a home outside the database: the login item has to be
     // rewritten to match, and only this handler knows the answer just changed.
@@ -345,7 +349,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("data:export", async (event) => {
     const win = senderWindow(event);
     const options = {
-      title: "Export LoLeanding data",
+      title: t("dialog.exportData"),
       defaultPath: `loleanding-backup-${new Date().toISOString().slice(0, 10)}.json`,
       filters: [{ name: "JSON", extensions: ["json"] }],
     };
@@ -386,7 +390,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("data:import", async (event) => {
     const win = senderWindow(event);
     const options = {
-      title: "Import LoLeanding data",
+      title: t("dialog.importData"),
       filters: [{ name: "JSON", extensions: ["json"] }],
       properties: ["openFile" as const],
     };

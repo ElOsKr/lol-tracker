@@ -22,6 +22,7 @@ import RarityFilter, { type Rarity } from "../components/RarityFilter";
 import SortHeader from "../components/SortHeader";
 import { useSort, type SortDir } from "../hooks/useSort";
 import { kdaRatio } from "../lib/format";
+import { useT } from "../lib/i18n";
 
 type SortKey = "picks" | "winRate" | "name";
 
@@ -93,6 +94,7 @@ function ItemSection({
   games: number;
   patch?: string;
 }) {
+  const t = useT();
   const itemData = useItemData(patch);
   const sort = useSort<SortKey>("globalChampion.items", "picks");
   const sorted = useMemo(
@@ -101,29 +103,37 @@ function ItemSection({
         items,
         sort.sortKey,
         sort.sortDir,
-        (i) => itemData[i.item_id]?.name ?? `Item ${i.item_id}`,
+        (i) => itemData[i.item_id]?.name ?? t("global.itemId", { id: i.item_id }),
       ),
-    [items, sort.sortKey, sort.sortDir, itemData],
+    [items, sort.sortKey, sort.sortDir, itemData, t],
   );
 
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-lol-text-bright uppercase tracking-wider">
-          Items
+          {t("live.items")}
         </h2>
-        <span className="text-xs text-lol-text">{items.length} items</span>
+        <span className="text-xs text-lol-text">
+          {t("global.itemsCount", { count: items.length })}
+        </span>
       </div>
       <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
-              <SortHeader {...sort} label="Item" field="name" compact />
-              <SortHeader {...sort} label="Picks" field="picks" compact />
+              <SortHeader {...sort} label={t("global.item")} field="name" compact />
+              <SortHeader {...sort} label={t("global.picks")} field="picks" compact />
               <th className="px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider">
-                Build
+                {t("global.build")}
               </th>
-              <SortHeader {...sort} label="Win Rate" field="winRate" compact className="w-28" />
+              <SortHeader
+                {...sort}
+                label={t("friends.winRate")}
+                field="winRate"
+                compact
+                className="w-28"
+              />
             </tr>
           </thead>
           <tbody>
@@ -133,7 +143,7 @@ function ItemSection({
                   <div className="flex items-center gap-2 min-w-0">
                     <ItemIcon itemId={item.item_id} size={24} patch={patch} />
                     <span className="text-xs text-lol-text-bright truncate">
-                      {itemData[item.item_id]?.name ?? `Item ${item.item_id}`}
+                      {itemData[item.item_id]?.name ?? t("global.itemId", { id: item.item_id })}
                     </span>
                   </div>
                 </td>
@@ -149,7 +159,9 @@ function ItemSection({
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No items recorded</div>
+          <div className="py-8 text-center text-sm text-lol-text">
+            {t("global.noItemsRecorded")}
+          </div>
         )}
       </div>
     </section>
@@ -157,6 +169,7 @@ function ItemSection({
 }
 
 function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: number }) {
+  const t = useT();
   const augmentData = useAugmentData();
   const sort = useSort<SortKey>("globalChampion.augments", "picks");
   const [rarity, setRarity] = useViewState<Rarity>("globalChampion.augRarity", "all");
@@ -174,21 +187,29 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
     <section className="space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-sm font-semibold text-lol-text-bright uppercase tracking-wider mr-2">
-          Augments
+          {t("scoreboard.augments")}
         </h2>
         <RarityFilter value={rarity} onChange={setRarity} />
-        <span className="text-xs text-lol-text ml-auto">{sorted.length} augments</span>
+        <span className="text-xs text-lol-text ml-auto">
+          {t("global.augmentsCount", { count: sorted.length })}
+        </span>
       </div>
       <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
-              <SortHeader {...sort} label="Augment" field="name" compact />
-              <SortHeader {...sort} label="Picks" field="picks" compact />
+              <SortHeader {...sort} label={t("global.augment")} field="name" compact />
+              <SortHeader {...sort} label={t("global.picks")} field="picks" compact />
               <th className="px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider">
-                Pick
+                {t("global.pick")}
               </th>
-              <SortHeader {...sort} label="Win Rate" field="winRate" compact className="w-28" />
+              <SortHeader
+                {...sort}
+                label={t("friends.winRate")}
+                field="winRate"
+                compact
+                className="w-28"
+              />
             </tr>
           </thead>
           <tbody>
@@ -209,7 +230,9 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No augments recorded</div>
+          <div className="py-8 text-center text-sm text-lol-text">
+            {t("global.noAugmentsRecorded")}
+          </div>
         )}
       </div>
     </section>
@@ -219,6 +242,7 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
 export default function GlobalChampionDetailPage() {
   const { championId = "" } = useParams();
   const id = Number(championId);
+  const t = useT();
   const champData = useChampionData();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -257,12 +281,12 @@ export default function GlobalChampionDetailPage() {
       to={`/global${backQuery ? `?${backQuery}` : ""}`}
       className="inline-flex items-center gap-1.5 text-xs text-lol-text hover:text-lol-text-bright transition-colors"
     >
-      <span aria-hidden>←</span> Total Stats
+      <span aria-hidden>←</span> {t("global.title")}
     </Link>
   );
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   const losses = data.games - data.wins;
@@ -282,7 +306,7 @@ export default function GlobalChampionDetailPage() {
               {getChampionName(champData, id)}
             </h1>
             <span className="text-sm text-lol-text">
-              {data.games} games played across all stored matches
+              {t("global.playedAcross", { count: data.games })}
             </span>
           </div>
         </div>
@@ -294,39 +318,47 @@ export default function GlobalChampionDetailPage() {
 
       {data.games === 0 ? (
         <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
-          No games with this champion for the selected filters.
+          {t("global.noGamesChampion")}
         </div>
       ) : (
         <>
           <div className="grid grid-cols-4 gap-4">
             <StatCard
-              label="Win Rate"
+              label={t("friends.winRate")}
               value={percent(winRate)}
-              subtext={`${data.wins}W ${losses}L`}
+              subtext={t("global.record", { wins: data.wins, losses })}
             />
             <StatCard
-              label="KDA"
+              label={t("live.kda")}
               value={`${avg(data.kills)} / ${avg(data.deaths)} / ${avg(data.assists)}`}
-              subtext={`${kdaRatio(data.kills, data.deaths, data.assists)} ratio · ${data.kills} / ${data.deaths} / ${data.assists} total`}
+              subtext={t("global.kdaSub", {
+                ratio: kdaRatio(data.kills, data.deaths, data.assists),
+                kills: data.kills,
+                deaths: data.deaths,
+                assists: data.assists,
+              })}
             />
             <StatCard
-              label="Damage"
+              label={t("recap.damage")}
               value={data.avgDamage.toLocaleString()}
-              subtext={`${percent(data.damageShare)} of team damage`}
+              subtext={t("global.teamDamage", { percent: percent(data.damageShare) })}
             />
             <StatCard
-              label="Pick Rate"
+              label={t("global.pickRate")}
               value={percent(pickRate)}
-              subtext={`${data.games} of ${data.totalParticipantSlots} picks`}
+              subtext={t("global.ofPicks", {
+                games: data.games,
+                total: data.totalParticipantSlots,
+              })}
             />
           </div>
 
           <div className="grid grid-cols-5 gap-2">
-            <MiniStat label="Kill Part.">{percent(data.killParticipation)}</MiniStat>
-            <MiniStat label="Avg Gold">{data.avgGold.toLocaleString()}</MiniStat>
-            <MiniStat label="Avg Dmg Taken">{data.avgDamageTaken.toLocaleString()}</MiniStat>
-            <MiniStat label="Avg Healing">{data.avgHeal.toLocaleString()}</MiniStat>
-            <MiniStat label="Multikills">
+            <MiniStat label={t("global.killPart")}>{percent(data.killParticipation)}</MiniStat>
+            <MiniStat label={t("global.avgGold")}>{data.avgGold.toLocaleString()}</MiniStat>
+            <MiniStat label={t("global.avgTaken")}>{data.avgDamageTaken.toLocaleString()}</MiniStat>
+            <MiniStat label={t("global.avgHealing")}>{data.avgHeal.toLocaleString()}</MiniStat>
+            <MiniStat label={t("history.multikills")}>
               <MultikillCounts
                 doubles={data.doubleKills}
                 triples={data.tripleKills}
