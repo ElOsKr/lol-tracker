@@ -52,6 +52,8 @@ import {
 } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
 import { scoreColor } from "../../shared/opScore";
+import { gamesLabel, useT, type Translate } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
 import {
   SESSION_GROUPING_SETTING,
   parseSessionGrouping,
@@ -64,30 +66,31 @@ import {
 // An empty list means something different depending on whether we're still
 // waiting on the client, mid-import, or genuinely out of games.
 function emptyStateMessage(
+  t: Translate,
   status: LcuStatus,
   backfill: { running: boolean; progress: BackfillProgress | null },
 ) {
   if (backfill.running) {
     const p = backfill.progress;
     return p && p.total > 0
-      ? `Importing your match history — ${p.current} of ${p.total} games checked...`
-      : "Importing your match history...";
+      ? t("history.importingProgress", { current: p.current, total: p.total })
+      : t("history.importing");
   }
   if (status !== "connected" && status !== "ingame") {
-    return "Waiting for the League client. Once it's open, your games from the selected queue import automatically.";
+    return t("history.waitingClient");
   }
-  return "No games found in this queue yet. New games are recorded as you play.";
+  return t("history.noGamesQueue");
 }
 
 // The unselected state is the default sort (date), so it isn't listed here
-const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
-  { value: "score", label: "Score" },
-  { value: "kda", label: "KDA" },
-  { value: "kills", label: "Kills" },
-  { value: "duration", label: "Duration" },
-  { value: "damageDealt", label: "Damage Dealt" },
-  { value: "damageTaken", label: "Damage Taken" },
-  { value: "healing", label: "Healing" },
+const SORT_OPTIONS: { value: MatchSort; label: TranslationKey }[] = [
+  { value: "score", label: "sort.score" },
+  { value: "kda", label: "sort.kda" },
+  { value: "kills", label: "sort.kills" },
+  { value: "duration", label: "sort.duration" },
+  { value: "damageDealt", label: "sort.damageDealt" },
+  { value: "damageTaken", label: "sort.damageTaken" },
+  { value: "healing", label: "sort.healing" },
 ];
 
 interface Session {
@@ -113,7 +116,11 @@ interface Session {
 // patch that no longer sit together — an older game missing its version can
 // land between two that have it — still read as the one session the totals
 // below the header describe.
-function groupIntoSessions(matches: MatchListItem[], grouping: SessionGrouping): Session[] {
+function groupIntoSessions(
+  matches: MatchListItem[],
+  grouping: SessionGrouping,
+  t: Translate,
+): Session[] {
   const sessions = new Map<string, Session>();
   const scores = new Map<string, { sum: number; games: number }>();
 
@@ -123,7 +130,7 @@ function groupIntoSessions(matches: MatchListItem[], grouping: SessionGrouping):
     if (!session) {
       session = {
         key,
-        label: sessionLabel(m, grouping),
+        label: sessionLabel(m, grouping, t),
         matches: [],
         games: 0,
         wins: 0,
@@ -158,21 +165,23 @@ function groupIntoSessions(matches: MatchListItem[], grouping: SessionGrouping):
   return [...sessions.values()];
 }
 
-function sessionLabel(match: MatchListItem, grouping: SessionGrouping): string {
+function sessionLabel(match: MatchListItem, grouping: SessionGrouping, t: Translate): string {
   if (grouping === "patch") {
-    return match.game_version ? `Patch ${formatPatch(match.game_version)}` : "Unknown patch";
+    return match.game_version
+      ? t("history.patchLabel", { patch: formatPatch(match.game_version) })
+      : t("history.unknownPatch");
   }
-  if (grouping === "week") return weekLabel(sessionWeek(match.game_creation));
-  return dayLabel(sessionDay(match.game_creation));
+  if (grouping === "week") return weekLabel(sessionWeek(match.game_creation), t);
+  return dayLabel(sessionDay(match.game_creation), t);
 }
 
-function dayLabel(day: number): string {
+function dayLabel(day: number, t: Translate): string {
   const d = new Date(day);
   const today = new Date(sessionDay(Date.now()));
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  if (d.toDateString() === today.toDateString()) return t("history.today");
+  if (d.toDateString() === yesterday.toDateString()) return t("history.yesterday");
   return d.toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
@@ -182,22 +191,23 @@ function dayLabel(day: number): string {
 }
 
 // Weeks run Monday to Sunday, and are named by the Monday that opens them.
-function weekLabel(week: number): string {
+function weekLabel(week: number, t: Translate): string {
   const d = new Date(week);
   const thisWeek = new Date(sessionWeek(Date.now()));
   const lastWeek = new Date(thisWeek);
   lastWeek.setDate(thisWeek.getDate() - 7);
-  if (d.toDateString() === thisWeek.toDateString()) return "This week";
-  if (d.toDateString() === lastWeek.toDateString()) return "Last week";
+  if (d.toDateString() === thisWeek.toDateString()) return t("history.thisWeek");
+  if (d.toDateString() === lastWeek.toDateString()) return t("history.lastWeek");
   const start = d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     ...(d.getFullYear() !== thisWeek.getFullYear() && { year: "numeric" }),
   });
-  return `Week of ${start}`;
+  return t("history.weekOf", { start });
 }
 
 export default function MatchHistory() {
+  const t = useT();
   const [championFilter, setChampionFilter] = useViewState<number | undefined>(
     "matches.champion",
     undefined,
@@ -451,7 +461,7 @@ export default function MatchHistory() {
   const isDateSort = !sort || sort === "date";
   const sessions = useMemo(() => {
     if (!isDateSort || grouping === "none") return null;
-    const grouped = groupIntoSessions(matches, grouping);
+    const grouped = groupIntoSessions(matches, grouping, t);
     if (!sessionTotals) return grouped;
 
     // The rows stay as they are; only the header totals come from the database,
@@ -474,7 +484,7 @@ export default function MatchHistory() {
             : null,
       };
     });
-  }, [isDateSort, grouping, matches, sessionTotals]);
+  }, [isDateSort, grouping, matches, sessionTotals, t]);
 
   const totalMultikills = dashboard
     ? dashboard.multikills.doubles +
@@ -491,7 +501,7 @@ export default function MatchHistory() {
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <StatCard
-            label={queueFilter === 450 ? "Avg Score · experimental" : "Avg Score"}
+            label={queueFilter === 450 ? t("history.avgScoreExperimental") : t("history.avgScore")}
             accent="gold"
             icon={<StarIcon className="w-3 h-3" />}
             value={
@@ -515,7 +525,7 @@ export default function MatchHistory() {
           </StatCard>
 
           <StatCard
-            label="Avg KDA"
+            label={t("history.avgKda")}
             accent="sky"
             icon={<SwordsIcon className="w-3 h-3" />}
             value={
@@ -531,17 +541,27 @@ export default function MatchHistory() {
             }
             subtext={
               <span className={kdaColor(kdaValue)}>
-                {kdaRatio(dashboard.totalKills, dashboard.totalDeaths, dashboard.totalAssists)} KDA
+                {t("recap.kda", {
+                  ratio: kdaRatio(
+                    dashboard.totalKills,
+                    dashboard.totalDeaths,
+                    dashboard.totalAssists,
+                  ),
+                })}
               </span>
             }
           >
             <div className="text-[11px] text-lol-text">
-              {dashboard.totalKills} / {dashboard.totalDeaths} / {dashboard.totalAssists} total
+              {t("history.totalKda", {
+                kills: dashboard.totalKills,
+                deaths: dashboard.totalDeaths,
+                assists: dashboard.totalAssists,
+              })}
             </div>
           </StatCard>
 
           <StatCard
-            label="Multikills"
+            label={t("history.multikills")}
             accent="purple"
             icon={<ZapIcon className="w-3 h-3" />}
             value={totalMultikills}
@@ -552,35 +572,35 @@ export default function MatchHistory() {
                   {
                     kind: "doubles",
                     label: "D",
-                    name: "double",
+                    name: "history.onlyDouble",
                     value: dashboard.multikills.doubles,
                     color: "text-sky-400",
                   },
                   {
                     kind: "triples",
                     label: "T",
-                    name: "triple",
+                    name: "history.onlyTriple",
                     value: dashboard.multikills.triples,
                     color: "text-amber-400",
                   },
                   {
                     kind: "quadras",
                     label: "Q",
-                    name: "quadra",
+                    name: "history.onlyQuadra",
                     value: dashboard.multikills.quadras,
                     color: "text-purple-400",
                   },
                   {
                     kind: "pentas",
                     label: "P",
-                    name: "penta",
+                    name: "history.onlyPenta",
                     value: dashboard.multikills.pentas,
                     color: "text-red-400",
                   },
                 ] as {
                   kind: MultikillType;
                   label: string;
-                  name: string;
+                  name: TranslationKey;
                   value: number;
                   color: string;
                 }[]
@@ -590,7 +610,7 @@ export default function MatchHistory() {
                   <button
                     key={label}
                     onClick={() => toggleMultikill(kind)}
-                    title={`Only show games with a ${name} kill`}
+                    title={t(name)}
                     className={`text-center rounded-md border px-1 py-0.5 transition-colors ${
                       active
                         ? "border-lol-gold/60 bg-lol-gold/10"
@@ -608,12 +628,12 @@ export default function MatchHistory() {
       )}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Match History</h1>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("history.title")}</h1>
         <div className="flex items-center gap-2">
           {filterOptions.hasFavorites && (
             <button
               onClick={() => setFavoritesOnly((v) => !v)}
-              title={favoritesOnly ? "Showing favorites only" : "Only show favorites"}
+              title={favoritesOnly ? t("history.showingFavorites") : t("history.onlyFavorites")}
               className={`flex items-center rounded-lg border px-2 py-1.5 transition-colors ${
                 favoritesOnly
                   ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
@@ -633,10 +653,10 @@ export default function MatchHistory() {
               onChange={(e) => setAccountFilter(e.target.value === "" ? undefined : e.target.value)}
               className="select"
             >
-              <option value="">All Accounts</option>
+              <option value="">{t("history.allAccounts")}</option>
               {filterOptions.accounts.map((a) => (
                 <option key={a.puuid} value={a.puuid}>
-                  {a.name ?? "Unknown account"}
+                  {a.name ?? t("history.unknownAccount")}
                 </option>
               ))}
             </select>
@@ -648,7 +668,7 @@ export default function MatchHistory() {
             }
             className="select"
           >
-            <option value="">All Champions</option>
+            <option value="">{t("history.allChampions")}</option>
             {championOptions.map(({ id, name }) => (
               <option key={id} value={id}>
                 {name}
@@ -660,10 +680,10 @@ export default function MatchHistory() {
             onChange={(e) => setPatchFilter(e.target.value === "" ? undefined : e.target.value)}
             className="select"
           >
-            <option value="">All Patches</option>
+            <option value="">{t("history.allPatches")}</option>
             {filterOptions.patches.map((p) => (
               <option key={p} value={p}>
-                Patch {formatPatch(p)}
+                {t("history.patchLabel", { patch: formatPatch(p) })}
               </option>
             ))}
           </select>
@@ -677,10 +697,10 @@ export default function MatchHistory() {
               }}
               className="select"
             >
-              <option value="">Sort</option>
+              <option value="">{t("history.sort")}</option>
               {SORT_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(label)}
                 </option>
               ))}
             </select>
@@ -689,11 +709,11 @@ export default function MatchHistory() {
               title={
                 !sort || sort === "date"
                   ? sortDir === "desc"
-                    ? "Newest first"
-                    : "Oldest first"
+                    ? t("history.newestFirst")
+                    : t("history.oldestFirst")
                   : sortDir === "desc"
-                    ? "Highest first"
-                    : "Lowest first"
+                    ? t("history.highestFirst")
+                    : t("history.lowestFirst")
               }
               className="flex items-center rounded-lg border border-lol-border bg-lol-card px-2 py-1.5 text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
             >
@@ -715,8 +735,8 @@ export default function MatchHistory() {
           accountFilter !== undefined ||
           multikillFilter.length > 0 ||
           favoritesOnly
-            ? "No games match the current filters."
-            : emptyStateMessage(lcuStatus, backfill)}
+            ? t("history.noMatchFilters")
+            : emptyStateMessage(t, lcuStatus, backfill)}
         </div>
       )}
 
@@ -753,7 +773,7 @@ export default function MatchHistory() {
 
       {hasMore && <div ref={sentinelRef} className="h-1" />}
       {loading && matches.length > 0 && (
-        <div className="text-center py-3 text-sm text-lol-text">Loading...</div>
+        <div className="text-center py-3 text-sm text-lol-text">{t("common.loading")}</div>
       )}
 
       {contextMenu && (
@@ -765,7 +785,7 @@ export default function MatchHistory() {
             <span className={contextMenu.match.favorite ? "text-amber-400" : "text-lol-text"}>
               {contextMenu.match.favorite ? "★" : "☆"}
             </span>
-            {contextMenu.match.favorite ? "Remove from Favorites" : "Add to Favorites"}
+            {contextMenu.match.favorite ? t("history.removeFavorite") : t("history.addFavorite")}
           </button>
           <button
             onClick={() => {
@@ -776,7 +796,7 @@ export default function MatchHistory() {
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
           >
             <CopyIcon className="h-3.5 w-3.5 text-lol-text" />
-            Copy Image
+            {t("history.copyImage")}
           </button>
           <button
             onClick={() => {
@@ -787,7 +807,7 @@ export default function MatchHistory() {
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
           >
             <ImageIcon className="h-3.5 w-3.5 text-lol-text" />
-            Export as PNG
+            {t("history.exportPng")}
           </button>
         </ContextMenu>
       )}
@@ -809,6 +829,7 @@ function ProfileCard({
   const losses = dashboard.totalGames - dashboard.wins;
   // Oldest on the left so the strip reads left-to-right in time
   const pips = dashboard.recentForm.slice().reverse();
+  const t = useT();
 
   return (
     <div className="relative flex flex-col gap-3 overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4">
@@ -822,14 +843,15 @@ function ProfileCard({
         />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-lol-text-bright truncate">
-            {profile?.name ?? "Summoner"}
+            {profile?.name ?? t("history.summoner")}
           </div>
           {/* The totals below pool every tracked account, so say when the name
               above only accounts for part of them */}
           <div className="text-[11px] text-lol-text truncate">
-            {dashboard.totalGames} {dashboard.totalGames === 1 ? "game" : "games"}
-            {dashboard.totalDuration > 0 && ` · ${formatPlaytime(dashboard.totalDuration)} played`}
-            {dashboard.accounts > 1 && ` · ${dashboard.accounts} accounts`}
+            {gamesLabel(t, dashboard.totalGames)}
+            {dashboard.totalDuration > 0 &&
+              ` · ${t("recap.played", { time: formatPlaytime(dashboard.totalDuration) })}`}
+            {dashboard.accounts > 1 && ` · ${t("history.accounts", { count: dashboard.accounts })}`}
           </div>
         </div>
       </div>
@@ -842,7 +864,11 @@ function ProfileCard({
           </div>
           <div
             className="flex items-end gap-[3px]"
-            title={`Last ${pips.length} ${pips.length === 1 ? "game" : "games"}`}
+            title={
+              pips.length === 1
+                ? t("history.lastGame")
+                : t("history.lastGames", { count: pips.length })
+            }
           >
             {pips.map((g) => (
               <span
@@ -888,6 +914,7 @@ function BadgeCounts({
   scoredWins: number;
   scoredLosses: number;
 }) {
+  const t = useT();
   const rate = (n: number, of: number) => (of > 0 ? `${((n / of) * 100).toFixed(1)}%` : "—");
 
   return (
@@ -896,7 +923,7 @@ function BadgeCounts({
         MVP
       </span>
       <span className="text-xs font-semibold text-lol-text-bright">{mvps}</span>
-      <span className="text-[11px] text-lol-text" title="Share of wins">
+      <span className="text-[11px] text-lol-text" title={t("history.shareWins")}>
         {rate(mvps, scoredWins)}
       </span>
 
@@ -904,7 +931,7 @@ function BadgeCounts({
         ACE
       </span>
       <span className="text-xs font-semibold text-lol-text-bright">{aces}</span>
-      <span className="text-[11px] text-lol-text" title="Share of losses">
+      <span className="text-[11px] text-lol-text" title={t("history.shareLosses")}>
         {rate(aces, scoredLosses)}
       </span>
     </div>
@@ -964,15 +991,14 @@ function ContextMenu({
 // session of nothing but remakes has no record to show, so only the count
 // survives there.
 function SessionHeader({ session }: { session: Session }) {
+  const t = useT();
   const played = session.wins + session.losses;
   const ratio = session.deaths > 0 ? (session.kills + session.assists) / session.deaths : Infinity;
 
   return (
     <div className="flex items-baseline gap-3 px-1 pb-1.5">
       <span className="text-sm font-semibold text-lol-text-bright">{session.label}</span>
-      <span className="text-xs text-lol-text">
-        {session.games} {session.games === 1 ? "game" : "games"}
-      </span>
+      <span className="text-xs text-lol-text">{gamesLabel(t, session.games)}</span>
       {played > 0 && (
         <>
           <span className="text-xs font-semibold">
@@ -983,12 +1009,12 @@ function SessionHeader({ session }: { session: Session }) {
             className={`text-xs ${kdaColor(ratio)}`}
             title={formatKDA(session.kills, session.deaths, session.assists)}
           >
-            {kdaRatio(session.kills, session.deaths, session.assists)} KDA
+            {t("recap.kda", { ratio: kdaRatio(session.kills, session.deaths, session.assists) })}
           </span>
           {session.avgScore != null && (
             <span className={`text-xs font-semibold ${scoreColor(session.avgScore)}`}>
               {session.avgScore.toFixed(1)}
-              <span className="font-normal text-lol-text"> score</span>
+              <span className="font-normal text-lol-text"> {t("history.score")}</span>
             </span>
           )}
         </>
@@ -1038,6 +1064,7 @@ function GameRow({
   onToggle,
   onContextMenu,
 }: GameRowProps) {
+  const t = useT();
   const isRemake = !!match.is_remake;
   const isWin = !!match.win;
   const isFavorite = !!match.favorite;
@@ -1071,7 +1098,13 @@ function GameRow({
         <div
           className={`text-xs font-bold shrink-0 ${isRemake ? "text-gray-500 w-8" : isWin ? "text-lol-win w-8" : "text-lol-loss w-8"}`}
         >
-          {match.placement ? `#${match.placement}` : isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}
+          {match.placement
+            ? `#${match.placement}`
+            : isRemake
+              ? t("history.rmk")
+              : isWin
+                ? t("history.win")
+                : t("history.loss")}
         </div>
         <ChampionIcon championId={match.champion_id} size={36} />
         {/* Two 17px spells + the 2px gap match the portrait's 36px height */}
@@ -1088,7 +1121,7 @@ function GameRow({
           <div className="text-sm text-lol-text-bright">
             {formatKDA(match.kills, match.deaths, match.assists)}
           </div>
-          <div className={`text-xs ${kdaHighlight(kda)}`}>{kda} KDA</div>
+          <div className={`text-xs ${kdaHighlight(kda)}`}>{t("recap.kda", { ratio: kda })}</div>
         </div>
 
         {/* Score — a remake is scored by nothing, so it shows none */}
@@ -1140,7 +1173,7 @@ function GameRow({
       {expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
           {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">Loading...</div>
+            <div className="text-sm text-lol-text text-center py-4">{t("common.loading")}</div>
           ) : detail ? (
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           ) : null}

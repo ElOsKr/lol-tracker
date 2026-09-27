@@ -61,3 +61,8 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
 export function currentLanguage(): Language {
   return language;
 }
+
+/** "1 game" / "{count} games", which nearly every page says somewhere. */
+export function gamesLabel(t: Translate, count: number): string {
+  return count === 1 ? t("common.game") : t("common.games", { count });
+}

@@ -5,6 +5,8 @@ import { useIpc } from "../hooks/useIpc";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import { formatPatch } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
+import { gamesLabel, useT, type Translate } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
 
 // ---- Time helpers ----
 
@@ -367,6 +369,7 @@ const HEATMAP_LEVELS = [0.25, 0.45, 0.7, 1];
 
 function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
   const byDay = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
+  const t = useT();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -421,8 +424,13 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
       const level = games === 0 ? 0 : Math.min(Math.ceil((games / maxGames) * 4), 4);
       const date = shortDate(d);
       const label = row
-        ? `${date} — ${games} game${games === 1 ? "" : "s"} (${row.wins}W–${games - row.wins}L)`
-        : `${date} — no games`;
+        ? t("trends.dayGames", {
+            date,
+            games: gamesLabel(t, games),
+            wins: row.wins,
+            losses: games - row.wins,
+          })
+        : t("trends.dayNone", { date });
       cells.push(
         <rect
           key={dayKey(d)}
@@ -444,7 +452,7 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
     <div className="overflow-x-auto">
       <svg width={width} height={height} className="block">
         {monthLabels}
-        {(["Mon", "Wed", "Fri"] as const).map((label, i) => (
+        {(["trends.mon", "trends.wed", "trends.fri"] as const).map((label, i) => (
           <text
             key={label}
             x={left - 5}
@@ -453,13 +461,13 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
             fontSize={9}
             fill="var(--color-lol-text)"
           >
-            {label}
+            {t(label)}
           </text>
         ))}
         {cells}
       </svg>
       <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-lol-text">
-        <span className="mr-1">Less</span>
+        <span className="mr-1">{t("trends.less")}</span>
         <span className="w-2.5 h-2.5 rounded-xs bg-white/5" />
         {HEATMAP_LEVELS.map((opacity) => (
           <span
@@ -468,7 +476,7 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
             style={{ backgroundColor: "var(--color-lol-gold)", opacity }}
           />
         ))}
-        <span className="ml-1">More</span>
+        <span className="ml-1">{t("trends.more")}</span>
       </div>
     </div>
   );
@@ -485,6 +493,7 @@ function patchBarColor(rate: number): string {
 function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
+  const t = useT();
   const barPitch = 56;
   const chartWidth = Math.max(width, patches.length * barPitch + 16);
   const top = 18;
@@ -563,7 +572,7 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
                     fontSize={9}
                     fill="var(--color-lol-text)"
                   >
-                    {p.games} games
+                    {gamesLabel(t, p.games)}
                   </text>
                 </g>
               );
@@ -573,11 +582,19 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
             <HoverTooltip
               x={barX(hover)}
               width={chartWidth}
-              label={`Patch ${formatPatch(hovered.patch)}`}
+              label={t("history.patchLabel", { patch: formatPatch(hovered.patch) })}
               detail={
                 <>
-                  <div>{`${hovered.games} games · ${hovered.wins}W–${hovered.games - hovered.wins}L`}</div>
-                  {hovered.avg_score != null && <div>avg score {hovered.avg_score.toFixed(1)}</div>}
+                  <div>
+                    {t("trends.gamesRecord", {
+                      games: hovered.games,
+                      wins: hovered.wins,
+                      losses: hovered.games - hovered.wins,
+                    })}
+                  </div>
+                  {hovered.avg_score != null && (
+                    <div>{t("trends.avgScore", { score: hovered.avg_score.toFixed(1) })}</div>
+                  )}
                 </>
               }
               value={
@@ -601,25 +618,52 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
 const MIN_PLOTTED_GAMES = 3;
 
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY_LABELS: TranslationKey[] = [
+  "trends.sun",
+  "trends.mon",
+  "trends.tue",
+  "trends.wed",
+  "trends.thu",
+  "trends.fri",
+  "trends.sat",
+];
+const WEEKDAY_FULL: TranslationKey[] = [
+  "trends.sunday",
+  "trends.monday",
+  "trends.tuesday",
+  "trends.wednesday",
+  "trends.thursday",
+  "trends.friday",
+  "trends.saturday",
+];
 
-function clockPoint(label: string, long: string, games: number, wins: number): SeriesPoint {
+function clockPoint(
+  t: Translate,
+  label: string,
+  long: string,
+  games: number,
+  wins: number,
+): SeriesPoint {
   return {
     label,
     long,
     games,
     value: games >= MIN_PLOTTED_GAMES ? (wins / games) * 100 : null,
-    detail: games > 0 ? `${games} games · ${wins}W–${games - wins}L` : "No games",
+    detail:
+      games > 0
+        ? t("trends.gamesRecord", { games, wins, losses: games - wins })
+        : t("common.noGames"),
   };
 }
 
 function WeekdayChart({ weekdays }: { weekdays: TrendsData["weekdays"] }) {
+  const t = useT();
   const byDay = new Map(weekdays.map((w) => [w.weekday, w]));
   const points = WEEKDAY_ORDER.map((dow) =>
     clockPoint(
-      WEEKDAY_LABELS[dow],
-      WEEKDAY_FULL[dow],
+      t,
+      t(WEEKDAY_LABELS[dow]),
+      t(WEEKDAY_FULL[dow]),
       byDay.get(dow)?.games ?? 0,
       byDay.get(dow)?.wins ?? 0,
     ),
@@ -637,9 +681,11 @@ function WeekdayChart({ weekdays }: { weekdays: TrendsData["weekdays"] }) {
 }
 
 function HourChart({ hours }: { hours: TrendsData["hours"] }) {
+  const t = useT();
   const byHour = new Map(hours.map((h) => [h.hour, h]));
   const points = Array.from({ length: 24 }, (_, hour) =>
     clockPoint(
+      t,
       `${hour}:00`,
       `${String(hour).padStart(2, "0")}:00 – ${String((hour + 1) % 24).padStart(2, "0")}:00`,
       byHour.get(hour)?.games ?? 0,
@@ -662,6 +708,7 @@ function HourChart({ hours }: { hours: TrendsData["hours"] }) {
 
 export default function Trends() {
   const [queue, setQueue] = useQueueSelection();
+  const t = useT();
 
   const { data, refetch } = useIpc<TrendsData>(() => window.api.getTrends(queue), [queue]);
 
@@ -693,9 +740,12 @@ export default function Trends() {
         label: b.label,
         games: b.games,
         value: b.games > 0 ? (b.wins / b.games) * 100 : null,
-        detail: b.games > 0 ? `${b.games} games · ${b.wins}W–${b.games - b.wins}L` : "No games",
+        detail:
+          b.games > 0
+            ? t("trends.gamesRecord", { games: b.games, wins: b.wins, losses: b.games - b.wins })
+            : t("common.noGames"),
       })),
-    [buckets],
+    [buckets, t],
   );
 
   const scorePoints = useMemo(
@@ -704,9 +754,12 @@ export default function Trends() {
         label: b.label,
         games: b.games,
         value: b.scoredGames > 0 ? b.scoreSum / b.scoredGames : null,
-        detail: b.scoredGames > 0 ? `${b.scoredGames} scored games` : "No scored games",
+        detail:
+          b.scoredGames > 0
+            ? t("trends.scoredGames", { count: b.scoredGames })
+            : t("trends.noScored"),
       })),
-    [buckets],
+    [buckets, t],
   );
 
   const scoreDomain = useMemo(() => {
@@ -719,15 +772,15 @@ export default function Trends() {
   }, [scorePoints]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   if (data.daily.length === 0) {
     return (
       <div className="max-w-7xl space-y-4">
-        <h1 className="text-xl font-bold text-lol-text-bright">Trends</h1>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("trends.title")}</h1>
         <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          No games recorded yet — sync your match history to start tracking trends.
+          {t("trends.empty")}
         </div>
       </div>
     );
@@ -747,7 +800,7 @@ export default function Trends() {
               : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
           }`}
         >
-          {g === "month" ? "Monthly" : "Weekly"}
+          {g === "month" ? t("trends.monthly") : t("trends.weekly")}
         </button>
       ))}
     </div>
@@ -756,20 +809,20 @@ export default function Trends() {
   return (
     <div className="max-w-7xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Trends</h1>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("trends.title")}</h1>
         <div className="flex items-center gap-3">
           <span className="text-xs text-lol-text">
-            {totalGames} games over {data.daily.length} days
+            {t("trends.span", { games: totalGames, days: data.daily.length })}
           </span>
           <QueueSelect value={queue} onChange={setQueue} />
         </div>
       </div>
 
-      <Card title="Activity">
+      <Card title={t("trends.activity")}>
         <ActivityHeatmap daily={data.daily} />
       </Card>
 
-      <Card title="Win Rate Over Time" right={granularityToggle}>
+      <Card title={t("trends.winRateOverTime")} right={granularityToggle}>
         <TimeSeriesChart
           points={winRatePoints}
           yMin={0}
@@ -781,7 +834,7 @@ export default function Trends() {
       </Card>
 
       {scoreDomain && (
-        <Card title="Average Score Over Time">
+        <Card title={t("trends.avgScoreOverTime")}>
           <TimeSeriesChart
             points={scorePoints}
             yMin={scoreDomain.min}
@@ -793,16 +846,16 @@ export default function Trends() {
       )}
 
       {data.patches.length > 1 && (
-        <Card title="Win Rate by Patch">
+        <Card title={t("trends.winRateByPatch")}>
           <PatchBars patches={data.patches} />
         </Card>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card title="By Day of Week">
+        <Card title={t("trends.byWeekday")}>
           <WeekdayChart weekdays={data.weekdays} />
         </Card>
-        <Card title="By Hour of Day">
+        <Card title={t("trends.byHour")}>
           <HourChart hours={data.hours} />
         </Card>
       </div>

@@ -35,6 +35,7 @@ import {
 } from "../components/icons";
 import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
+import { gamesLabel, useT, type Translate } from "../lib/i18n";
 
 // Records are moments, not recency — "3 months ago" undersells a trophy, so
 // they get a real date.
@@ -69,11 +70,12 @@ function RecordCard({
   champData: ChampionData;
   onOpen: (match: RecordMatchRef) => void;
 }) {
+  const t = useT();
   const a = ACCENTS[accent];
   return (
     <button
       onClick={() => onOpen(match)}
-      title="View match"
+      title={t("records.viewMatch")}
       className="relative flex flex-col overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4 text-left transition-colors cursor-pointer hover:border-lol-gold/40 hover:bg-lol-card-hover"
     >
       <span
@@ -95,7 +97,7 @@ function RecordCard({
           </div>
           <div className="text-[11px] text-lol-text truncate">
             <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
-              {match.win ? "W" : "L"}
+              {match.win ? t("common.w") : t("common.l")}
             </span>
             {" · "}
             {formatKDA(match.kills, match.deaths, match.assists)}
@@ -127,6 +129,7 @@ function MatchModal({
     () => window.api.getMatchDetail(match.game_id),
     [match.game_id],
   );
+  const t = useT();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -150,7 +153,7 @@ function MatchModal({
           <div className="min-w-0 flex-1">
             <div className="text-sm font-bold text-lol-text-bright truncate">
               <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
-                {match.win ? "Victory" : "Defeat"}
+                {match.win ? t("common.victory") : t("common.defeat")}
               </span>
               {" — "}
               {getChampionName(champData, match.champion_id)}{" "}
@@ -172,7 +175,7 @@ function MatchModal({
           {detail ? (
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           ) : (
-            <div className="text-sm text-lol-text text-center py-8">Loading...</div>
+            <div className="text-sm text-lol-text text-center py-8">{t("common.loading")}</div>
           )}
         </div>
       </div>
@@ -192,7 +195,7 @@ interface CardDef {
   match: RecordMatchRef;
 }
 
-function statCards(bests: RecordsData["bests"]): CardDef[] {
+function statCards(bests: RecordsData["bests"], t: Translate): CardDef[] {
   const cards: CardDef[] = [];
   const add = (
     record: StatRecord | null,
@@ -204,14 +207,14 @@ function statCards(bests: RecordsData["bests"]): CardDef[] {
 
   add(bests.kills, {
     key: "kills",
-    label: "Most Kills",
+    label: t("records.mostKills"),
     icon: <SwordsIcon className="w-3 h-3" />,
     accent: "gold",
     value: (r) => r.value,
   });
   add(bests.kda, {
     key: "kda",
-    label: "Best KDA",
+    label: t("records.bestKda"),
     icon: <ZapIcon className="w-3 h-3" />,
     accent: "sky",
     // kdaRatio turns a deathless game into "Perfect" — better than the raw
@@ -220,7 +223,7 @@ function statCards(bests: RecordsData["bests"]): CardDef[] {
   });
   add(bests.score, {
     key: "score",
-    label: "Highest Score",
+    label: t("records.highestScore"),
     icon: <StarIcon className="w-3 h-3" />,
     accent: "gold",
     value: (r) => (
@@ -232,65 +235,65 @@ function statCards(bests: RecordsData["bests"]): CardDef[] {
   });
   add(bests.killingSpree, {
     key: "spree",
-    label: "Longest Killing Spree",
+    label: t("records.longestSpree"),
     icon: <FlameIcon className="w-3 h-3" />,
     accent: "purple",
     value: (r) => r.value,
-    sub: "kills without dying",
+    sub: t("records.spreeSub"),
   });
   add(bests.damage, {
     key: "damage",
-    label: "Most Damage Dealt",
+    label: t("records.mostDamage"),
     icon: <SwordsIcon className="w-3 h-3" />,
     accent: "sky",
     value: (r) => n(r.value),
   });
   add(bests.damageTaken, {
     key: "taken",
-    label: "Most Damage Taken",
+    label: t("records.mostTaken"),
     icon: <ShieldIcon className="w-3 h-3" />,
     accent: "win",
     value: (r) => n(r.value),
   });
   add(bests.healing, {
     key: "healing",
-    label: "Most Healing",
+    label: t("records.mostHealing"),
     icon: <HeartIcon className="w-3 h-3" />,
     accent: "win",
     value: (r) => n(r.value),
   });
   add(bests.gold, {
     key: "gold",
-    label: "Most Gold Earned",
+    label: t("records.mostGold"),
     icon: <CoinsIcon className="w-3 h-3" />,
     accent: "gold",
     value: (r) => n(r.value),
   });
   add(bests.assists, {
     key: "assists",
-    label: "Most Assists",
+    label: t("records.mostAssists"),
     icon: <UsersIcon className="w-3 h-3" />,
     accent: "sky",
     value: (r) => r.value,
   });
   add(bests.deaths, {
     key: "deaths",
-    label: "Most Deaths",
+    label: t("records.mostDeaths"),
     icon: <SkullIcon className="w-3 h-3" />,
     accent: "purple",
     value: (r) => r.value,
-    sub: "we don't talk about this one",
+    sub: t("records.deathsSub"),
   });
   add(bests.fastestWin, {
     key: "fastestWin",
-    label: "Fastest Win",
+    label: t("records.fastestWin"),
     icon: <TimerIcon className="w-3 h-3" />,
     accent: "win",
     value: (r) => formatDuration(r.value),
   });
   add(bests.longestGame, {
     key: "longestGame",
-    label: "Longest Game",
+    label: t("records.longestGame"),
     icon: <HourglassIcon className="w-3 h-3" />,
     accent: "purple",
     value: (r) => formatDuration(r.value),
@@ -298,17 +301,17 @@ function statCards(bests: RecordsData["bests"]): CardDef[] {
   return cards;
 }
 
-function streakCard(streak: StreakRecord, win: boolean): CardDef {
+function streakCard(streak: StreakRecord, win: boolean, t: Translate): CardDef {
   const range =
     recordDate(streak.start) === recordDate(streak.end)
       ? recordDate(streak.start)
       : `${recordDate(streak.start)} – ${recordDate(streak.end)}`;
   return {
     key: win ? "winStreak" : "lossStreak",
-    label: win ? "Longest Win Streak" : "Longest Loss Streak",
+    label: win ? t("records.winStreak") : t("records.lossStreak"),
     icon: win ? <TrendingUpIcon className="w-3 h-3" /> : <TrendingDownIcon className="w-3 h-3" />,
     accent: win ? "win" : "purple",
-    value: `${streak.length} ${win ? "wins" : "losses"}`,
+    value: t(win ? "records.streakWins" : "records.streakLosses", { count: streak.length }),
     sub: range,
     match: streak.match,
   };
@@ -319,6 +322,7 @@ export default function Records() {
   // resto de paginas. La cuenta es propia de esta vista, asi que viaja en la
   // URL como la dejo el proyecto original.
   const [queue, setQueue] = useQueueSelection();
+  const t = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const account = searchParams.get("account") ?? undefined;
   const setAccount = (a: string | undefined) => {
@@ -351,17 +355,17 @@ export default function Records() {
   }, [refetch]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   // The filters stay on screen even with nothing to show, so a selection that
   // happens to hold no games can be undone
   const header = (
     <div className="flex items-center justify-between">
-      <h1 className="text-xl font-bold text-lol-text-bright">Records</h1>
+      <h1 className="text-xl font-bold text-lol-text-bright">{t("records.title")}</h1>
       <div className="flex items-center gap-3">
         <span className="text-xs text-lol-text">
-          personal bests across {data.totalGames} {data.totalGames === 1 ? "game" : "games"}
+          {t("records.across", { games: gamesLabel(t, data.totalGames) })}
         </span>
         <AccountSelect value={account} onChange={setAccount} />
         <QueueSelect value={queue} onChange={setQueue} />
@@ -374,20 +378,18 @@ export default function Records() {
       <div className="max-w-7xl space-y-4">
         {header}
         <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          {account || queue != null
-            ? "No games match this filter."
-            : "No games recorded yet — sync your match history to start setting records."}
+          {account || queue != null ? t("records.noMatch") : t("records.empty")}
         </div>
       </div>
     );
   }
 
-  const cards = statCards(data.bests);
-  if (data.winStreak) cards.push(streakCard(data.winStreak, true));
+  const cards = statCards(data.bests, t);
+  if (data.winStreak) cards.push(streakCard(data.winStreak, true, t));
   if (data.lossStreak && data.lossStreak.length > 1) {
     // A single loss is just a loss; it only becomes a "streak" worth
     // memorializing at two.
-    cards.push(streakCard(data.lossStreak, false));
+    cards.push(streakCard(data.lossStreak, false, t));
   }
 
   return (
