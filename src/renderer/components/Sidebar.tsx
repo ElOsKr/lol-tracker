@@ -224,7 +224,9 @@ export default function Sidebar({
     <nav
       className={`border-r border-lol-border/60 flex flex-col shrink-0 h-full ${
         mode === "drawer"
-          ? "w-64 bg-lol-dark shadow-xl shadow-black/50"
+          ? // no-drag: the drawer lies over the title bar, whose drag region would
+            // otherwise swallow the clicks on its header and close button
+            "titlebar-no-drag w-64 bg-lol-dark shadow-xl shadow-black/50"
           : `bg-lol-card/60 ${iconsOnly ? "w-14" : "w-56"}`
       }`}
     >

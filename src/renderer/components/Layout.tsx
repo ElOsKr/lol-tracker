@@ -108,7 +108,10 @@ export default function Layout() {
         </main>
       </div>
       {mobile && menuOpen && (
-        <div className="fixed inset-0 z-40 flex" onClick={() => setMenuOpen(false)}>
+        <div
+          className="titlebar-no-drag fixed inset-0 z-40 flex"
+          onClick={() => setMenuOpen(false)}
+        >
           <div className="h-full" onClick={(e) => e.stopPropagation()}>
             <Sidebar mode="drawer" onClose={() => setMenuOpen(false)} />
           </div>
