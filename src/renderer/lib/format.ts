@@ -1,16 +1,18 @@
+import { t } from "./i18n";
+
 export function formatKDA(kills: number, deaths: number, assists: number): string {
   return `${kills} / ${deaths} / ${assists}`;
 }
 
 export function kdaRatio(kills: number, deaths: number, assists: number): string {
-  if (deaths === 0) return "Perfect";
+  if (deaths === 0) return t("format.perfect");
   return ((kills + assists) / deaths).toFixed(2);
 }
 
 // A KDA worth pointing out, taken from the string kdaRatio returns: "Perfect"
 // always counts, and parseFloat leaves NaN there, which fails the comparison.
 export function kdaHighlight(kda: string): string {
-  return parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text";
+  return parseFloat(kda) >= 3 || kda === t("format.perfect") ? "text-lol-gold" : "text-lol-text";
 }
 
 export function kdaColor(ratio: number): string {
@@ -47,9 +49,9 @@ export function formatTimeAgo(timestamp: number): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
+  if (minutes < 60) return t("format.minutesAgo", { n: minutes });
+  if (hours < 24) return t("format.hoursAgo", { n: hours });
+  if (days < 30) return t("format.daysAgo", { n: days });
   return new Date(timestamp).toLocaleDateString();
 }
 

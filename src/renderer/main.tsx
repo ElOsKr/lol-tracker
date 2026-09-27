@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { initQueueSelection } from "./hooks/useQueueSelection";
 import { initNavLayout } from "./hooks/useNavLayout";
-import { initLanguage } from "./lib/i18n";
+import { initLanguage, t } from "./lib/i18n";
 import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
 import App from "./App";
@@ -27,10 +27,12 @@ Promise.all([
     root.render(<App />);
   })
   .catch(() => {
+    // Nothing loaded, so the message itself falls back to the system language
+    initLanguage(null);
     root.render(
       <div role="alert" className="p-6">
-        No se pudo cargar la selección de cola.{" "}
-        <button onClick={() => location.reload()}>Reintentar</button>
+        {t("startup.failed")}{" "}
+        <button onClick={() => location.reload()}>{t("startup.retry")}</button>
       </div>,
     );
   });

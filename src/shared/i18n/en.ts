@@ -542,6 +542,24 @@ export const en = {
   "dialog.importData": "Import LoLeanding data",
   "dialog.exportImage": "Export Game Image",
   "dialog.pngImage": "PNG Image",
+
+  // Formatters, challenge levels, startup
+  "format.perfect": "Perfect",
+  "format.minutesAgo": "{n}m ago",
+  "format.hoursAgo": "{n}h ago",
+  "format.daysAgo": "{n}d ago",
+  "level.unranked": "Unranked",
+  "level.iron": "Iron",
+  "level.bronze": "Bronze",
+  "level.silver": "Silver",
+  "level.gold": "Gold",
+  "level.platinum": "Platinum",
+  "level.diamond": "Diamond",
+  "level.master": "Master",
+  "level.grandmaster": "Grandmaster",
+  "level.challenger": "Challenger",
+  "startup.failed": "The queue selection could not be loaded.",
+  "startup.retry": "Retry",
 } as const;
 
 export type TranslationKey = keyof typeof en;

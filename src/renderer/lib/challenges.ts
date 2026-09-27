@@ -1,5 +1,6 @@
 import type { ChallengeLevel } from "./types";
 import { formatCompact } from "./format";
+import { t } from "./i18n";
 
 // The display half of shared/challenges.ts, which holds the data rules. Both
 // the Challenges tab and the post-game recap draw tiers, so the colours and the
@@ -21,8 +22,8 @@ export const CHALLENGE_LEVEL_COLORS: Record<ChallengeLevel, string> = {
 };
 
 export function challengeLevelName(level: ChallengeLevel | null): string {
-  if (!level || level === "NONE") return "Unranked";
-  return level.charAt(0) + level.slice(1).toLowerCase();
+  if (!level || level === "NONE") return t("level.unranked");
+  return t(`level.${level.toLowerCase() as Lowercase<Exclude<ChallengeLevel, "NONE">>}`);
 }
 
 // Challenge values run from "2 pentakills" to "5,000,000 mastery points" in the
