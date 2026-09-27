@@ -9,6 +9,14 @@ import {
   type TranslationKey,
 } from "../../shared/i18n";
 
+// Windows's regional locale, handed over by the main process. The packaged app
+// ships Chromium's en-US strings alone (electronLanguages), so
+// navigator.language reads en-US whatever Windows is set to; it only serves as
+// the fallback for a locale Windows could not name.
+function systemLocale(): string {
+  return window.api.locale ?? navigator.language;
+}
+
 // One module-level language, like the queue selection: every component reads
 // the same value and re-renders when it changes.
 let choice: LanguageChoice = "system";
@@ -17,13 +25,13 @@ const listeners = new Set<() => void>();
 
 export function initLanguage(raw: string | null) {
   choice = parseLanguageChoice(raw);
-  language = resolveLanguage(choice, navigator.language);
+  language = resolveLanguage(choice, systemLocale());
 }
 
 export async function setLanguageChoice(next: LanguageChoice) {
   await window.api.setSetting(LANGUAGE_SETTING, next);
   choice = next;
-  language = resolveLanguage(next, navigator.language);
+  language = resolveLanguage(next, systemLocale());
   listeners.forEach((listener) => listener());
 }
 
