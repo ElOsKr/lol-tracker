@@ -585,7 +585,9 @@ export const es: Dictionary = {
 
   // Estadísticas totales: qué se cuenta
   "global.appearances": "Apariciones",
-  "global.ownGames": "{count} tuyas",
+  "global.ownGames": "· {count} tuyas",
+  "global.ownGame": "· 1 tuya",
   "global.seenIn": "Visto en {count} de tus {total} partidas",
   "global.playedByYou": "{count} las jugaste tú",
+  "global.playedByYouOne": "1 la jugaste tú",
 };

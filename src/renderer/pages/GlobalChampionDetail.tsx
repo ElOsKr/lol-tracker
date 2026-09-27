@@ -313,7 +313,8 @@ export default function GlobalChampionDetailPage() {
             </h1>
             <span className="text-sm text-lol-text">
               {t("global.seenIn", { count: data.games, total: data.totalGames })}
-              {data.ownGames > 0 && ` · ${t("global.playedByYou", { count: data.ownGames })}`}
+              {data.ownGames === 1 && ` · ${t("global.playedByYouOne")}`}
+              {data.ownGames > 1 && ` · ${t("global.playedByYou", { count: data.ownGames })}`}
             </span>
           </div>
         </div>

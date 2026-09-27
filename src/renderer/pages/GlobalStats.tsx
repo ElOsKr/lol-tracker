@@ -326,7 +326,9 @@ export default function GlobalStats() {
                         {c.games}
                         {c.ownGames > 0 && (
                           <span className="ml-1.5 text-[11px] text-lol-text">
-                            {t("global.ownGames", { count: c.ownGames })}
+                            {c.ownGames === 1
+                              ? t("global.ownGame")
+                              : t("global.ownGames", { count: c.ownGames })}
                           </span>
                         )}
                       </td>

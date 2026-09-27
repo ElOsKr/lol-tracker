@@ -576,9 +576,11 @@ export const en = {
 
   // Total Stats: what is counted
   "global.appearances": "Appearances",
-  "global.ownGames": "{count} yours",
+  "global.ownGames": "· {count} yours",
+  "global.ownGame": "· 1 yours",
   "global.seenIn": "Seen in {count} of your {total} games",
   "global.playedByYou": "{count} played by you",
+  "global.playedByYouOne": "1 played by you",
 } as const;
 
 export type TranslationKey = keyof typeof en;
