@@ -4,8 +4,10 @@ import { getSetting, setSetting } from "./db";
 const SETTING_KEY = "window_bounds";
 // Matches the BrowserWindow minimums in index.ts, so a saved size can never
 // undercut what the window itself enforces.
-export const MIN_WIDTH = 900;
-export const MIN_HEIGHT = 600;
+// Down to phone proportions: below 700 px wide the layout switches to its
+// mobile form (see renderer/hooks/useViewport.ts), which fits this.
+export const MIN_WIDTH = 480;
+export const MIN_HEIGHT = 500;
 const SAVE_DELAY_MS = 500;
 
 export interface WindowState extends Rectangle {

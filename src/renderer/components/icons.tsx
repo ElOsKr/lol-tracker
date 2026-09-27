@@ -206,6 +206,29 @@ export function ArrowDownIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+// Three bars: the menu button of the narrow layout
+export function MenuIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </Icon>
+  );
+}
+
+// A panel with its left column marked and a chevron pointing into it: fold the
+// sidebar. Rotated, it unfolds.
+export function PanelLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+      <path d="m16 9-3 3 3 3" />
+    </Icon>
+  );
+}
+
 export function XIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
