@@ -2,6 +2,7 @@ import { app, BrowserWindow, Tray, Menu, nativeImage } from "electron";
 import path from "path";
 import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
+import { MIN_HEIGHT, MIN_WIDTH, readWindowState, trackWindowState } from "./window-state";
 import { migrateLegacyUserData } from "./paths";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
@@ -47,11 +48,15 @@ const iconPath = asset("icon.png");
 const launchedHidden = process.argv.includes(HIDDEN_FLAG);
 
 function createWindow(): BrowserWindow {
+  // Where and how big the window was last time, if that still fits a display
+  const saved = readWindowState();
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 900,
-    minHeight: 600,
+    width: saved?.width ?? 1280,
+    height: saved?.height ?? 820,
+    x: saved?.x,
+    y: saved?.y,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     icon: iconPath,
     show: !launchedHidden,
     frame: false,
@@ -68,6 +73,13 @@ function createWindow(): BrowserWindow {
       spellcheck: false,
     },
   });
+
+  if (saved?.maximized) {
+    // maximize() also shows the window, which a tray-only launch must not do
+    if (launchedHidden) mainWindow.once("show", () => mainWindow?.maximize());
+    else mainWindow.maximize();
+  }
+  trackWindowState(mainWindow);
 
   // Load renderer
   if (process.env.ELECTRON_RENDERER_URL) {
