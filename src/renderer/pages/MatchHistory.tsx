@@ -859,8 +859,14 @@ function ProfileCard({
       <div className="relative mt-auto">
         <div className="flex items-end justify-between gap-3 mb-1.5">
           <div className="text-2xl font-bold leading-none">
-            <span className="text-lol-win">{dashboard.wins}W</span>{" "}
-            <span className="text-lol-loss/70">{losses}L</span>
+            <span className="text-lol-win">
+              {dashboard.wins}
+              {t("common.w")}
+            </span>{" "}
+            <span className="text-lol-loss/70">
+              {losses}
+              {t("common.l")}
+            </span>
           </div>
           <div
             className="flex items-end gap-[3px]"
@@ -1002,8 +1008,14 @@ function SessionHeader({ session }: { session: Session }) {
       {played > 0 && (
         <>
           <span className="text-xs font-semibold">
-            <span className="text-lol-win">{session.wins}W</span>{" "}
-            <span className="text-lol-loss/70">{session.losses}L</span>
+            <span className="text-lol-win">
+              {session.wins}
+              {t("common.w")}
+            </span>{" "}
+            <span className="text-lol-loss/70">
+              {session.losses}
+              {t("common.l")}
+            </span>
           </span>
           <span
             className={`text-xs ${kdaColor(ratio)}`}

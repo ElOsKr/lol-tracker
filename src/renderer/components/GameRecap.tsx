@@ -301,8 +301,14 @@ export default function GameRecap({
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
             <div>
               <div className="text-2xl font-bold leading-none">
-                <span className="text-lol-win">{session.wins}W</span>{" "}
-                <span className="text-lol-loss/70">{session.losses}L</span>
+                <span className="text-lol-win">
+                  {session.wins}
+                  {t("common.w")}
+                </span>{" "}
+                <span className="text-lol-loss/70">
+                  {session.losses}
+                  {t("common.l")}
+                </span>
               </div>
               <div className="mt-1 text-[11px] text-lol-text">
                 {t("recap.winRate", {
@@ -379,8 +385,14 @@ export default function GameRecap({
         >
           <div className="flex items-baseline gap-3">
             <div className="text-2xl font-bold leading-none">
-              <span className="text-lol-win">{champion.wins}W</span>{" "}
-              <span className="text-lol-loss/70">{champion.games - champion.wins}L</span>
+              <span className="text-lol-win">
+                {champion.wins}
+                {t("common.w")}
+              </span>{" "}
+              <span className="text-lol-loss/70">
+                {champion.games - champion.wins}
+                {t("common.l")}
+              </span>
             </div>
             {champion.avgScore != null && (
               <span className={`text-sm font-semibold ${scoreColor(champion.avgScore)}`}>

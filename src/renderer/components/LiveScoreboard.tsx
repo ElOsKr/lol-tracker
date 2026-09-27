@@ -194,7 +194,9 @@ function ChampionRecordCell({ player }: { player: LivePlayer }) {
       }
     >
       <div className={`text-[11px] font-medium ${winRateColor(record.wins, record.games)}`}>
-        {record.wins}W {losses}L
+        {record.wins}
+        {t("common.w")} {losses}
+        {t("common.l")}
       </div>
       <div className="text-[10px] text-lol-text">
         {t("recap.kda", { ratio: kdaRatio(record.kills, record.deaths, record.assists) })}

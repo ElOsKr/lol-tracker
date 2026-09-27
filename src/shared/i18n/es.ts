@@ -290,7 +290,7 @@ export const es: Dictionary = {
   "common.defeat": "Derrota",
   "common.w": "V",
   "common.l": "D",
-  "history.title": "Historial de partidas",
+  "history.title": "Historial",
   "history.importingProgress":
     "Importando tu historial — {current} de {total} partidas comprobadas...",
   "history.importing": "Importando tu historial...",

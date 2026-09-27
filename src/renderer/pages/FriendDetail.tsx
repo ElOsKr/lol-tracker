@@ -122,7 +122,12 @@ export default function FriendDetail() {
                 {t("friend.record")}
               </div>
               <div className="text-xl font-bold text-lol-text-bright">
-                {player.wins}W <span className="text-lol-text/60">{losses}L</span>
+                {player.wins}
+                {t("common.w")}{" "}
+                <span className="text-lol-text/60">
+                  {losses}
+                  {t("common.l")}
+                </span>
               </div>
               <div className="mt-1">
                 <WinRateBar wins={player.wins} total={player.games} />
