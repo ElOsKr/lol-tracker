@@ -119,27 +119,57 @@ test("an installer can only be fed a download from this project's own releases",
   }
 });
 
-// GitHub antepone a las notas generadas un comentario HTML con el nombre de la
-// configuracion; el dialogo pinta el cuerpo como texto plano, asi que saldria tal cual.
-test("release notes drop GitHub's generated-notes comment and the changelog footer", () => {
+// Las notas generadas por GitHub listan los pull requests con su prefijo de
+// commit, el autor y el enlace, y meten tambien documentacion y chores. El
+// dialogo de actualizacion solo debe ensenar lo que un usuario nota.
+test("release notes keep only user-facing changes, without commit prefixes, authors or links", () => {
   const updater = load("src/main/updater.ts", {
     electron: { app: { quit: () => assert.fail("Must not quit") } },
     child_process: { spawn: () => assert.fail("Must not launch an installer") },
   });
   const note = updater.toReleaseNote({
-    tag_name: "v0.2.0",
-    published_at: "2026-09-26T18:27:00Z",
-    html_url: "https://github.com/ElOsKr/lol-tracker/releases/tag/v0.2.0",
+    tag_name: "v0.3.0",
+    published_at: "2026-09-27T20:00:00Z",
+    html_url: "https://github.com/ElOsKr/lol-tracker/releases/tag/v0.3.0",
     body:
-      "<!-- Release notes generated using configuration in .github/release.yml at v0.2.0 -->\r\n\r\n" +
-      "## What's Changed\r\n* feat: renombrar la aplicacion a LoLeanding by @ElOsKr in #11\r\n\r\n" +
-      "**Full Changelog**: https://github.com/ElOsKr/lol-tracker/compare/v0.1.0...v0.2.0",
+      "<!-- Release notes generated using configuration in .github/release.yml at v0.3.0 -->\r\n\r\n" +
+      "## What's Changed\r\n" +
+      "### Nuevas funciones\r\n" +
+      "* feat: recordar el tamaño y la posición de la ventana by @ElOsKr in https://github.com/ElOsKr/lol-tracker/pull/21\r\n" +
+      "* feat: interfaz en español e inglés (#13) by @ElOsKr in https://github.com/ElOsKr/lol-tracker/pull/23\r\n" +
+      "### Correcciones\r\n" +
+      "* fix(updater): quitar el comentario HTML de las notas by @ElOsKr in https://github.com/ElOsKr/lol-tracker/pull/20\r\n" +
+      "### Documentación\r\n" +
+      "* docs: plantilla de pull request by @ElOsKr in https://github.com/ElOsKr/lol-tracker/pull/19\r\n" +
+      "* chore: versión 0.3.0 (cierre del Hito 1) by @ElOsKr in https://github.com/ElOsKr/lol-tracker/pull/24\r\n" +
+      "### Otros cambios\r\n" +
+      "* docs: añadir la hoja de ruta by @ElOsKr in https://github.com/ElOsKr/lol-tracker/pull/12\r\n\r\n" +
+      "## New Contributors\r\n* @alguien made their first contribution in https://github.com/ElOsKr/lol-tracker/pull/25\r\n\r\n" +
+      "**Full Changelog**: https://github.com/ElOsKr/lol-tracker/compare/v0.2.0...v0.3.0",
   });
-  assert.equal(note.version, "0.2.0");
+  assert.equal(note.version, "0.3.0");
   assert.equal(
     note.body,
-    "## What's Changed\n* feat: renombrar la aplicacion a LoLeanding by @ElOsKr in #11",
+    "### Nuevas funciones\n" +
+      "* Recordar el tamaño y la posición de la ventana\n" +
+      "* Interfaz en español e inglés\n\n" +
+      "### Correcciones\n" +
+      "* Quitar el comentario HTML de las notas",
   );
+
+  // Sin categorias (sin .github/release.yml) no hay por donde filtrar: se limpia cada linea y se conservan todas
+  const flat = updater.toReleaseNote({
+    tag_name: "v0.2.0",
+    body: "## What's Changed\n* feat: renombrar la aplicacion a LoLeanding by @ElOsKr in #11\n",
+  });
+  assert.equal(flat.body, "* Renombrar la aplicacion a LoLeanding");
+
+  // Unas notas escritas a mano en GitHub llegan tal cual
+  const handwritten = updater.toReleaseNote({
+    tag_name: "v0.4.0",
+    body: "## Novedades\n* La app habla español.\n\n**Full Changelog**: https://x/compare/a...b",
+  });
+  assert.equal(handwritten.body, "## Novedades\n* La app habla español.");
 });
 
 // El tamano y la posicion guardados solo se restauran si siguen cayendo en una
