@@ -23,6 +23,7 @@
 ## Documentación técnica
 
 - Página canónica: https://app.notion.com/p/3e16b7c64fe5812fa221e3e47770e591 («LoLeanding — Documentación técnica de la aplicación»), subpágina de la memoria compartida. Describe arquitectura, fuentes de datos, esquema SQLite, mapa del código, interfaz, widget, seguridad, puntuación, copias de seguridad y circuito de publicación.
+- Hoja de ruta: `ROADMAP.md` en el repo, con todas las ideas ordenadas en hitos numerados. Cada hito es un milestone de GitHub y cada punto un issue cuando se empieza. Al cerrar un punto, marcarlo ahí; al surgir una idea nueva, añadirla en su hito.
 - No se actualiza sola. Al terminar una tarea que deje desfasado algo de lo que describe, actualizar las secciones afectadas y la cabecera de estado con la rama y el commit nuevos, antes de cerrar; indicarlo al usuario. Si el cambio no toca nada documentado, no escribir por rutina.
 - Editar lo mínimo y conservar el resto, igual que con la memoria. Releer la página antes de escribir.
 
