@@ -126,7 +126,7 @@ export default function Augments() {
       <h1 className="text-xl font-bold text-lol-text-bright">{t("scoreboard.augments")}</h1>
 
       {/* Rarity Filter + Search */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {rarityFilters.map((f) => (
           <button
             key={f.key}
@@ -150,7 +150,7 @@ export default function Augments() {
         <SearchInput value={search} onChange={setSearch} placeholder={t("global.searchAugment")} />
       </div>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-x-auto">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>

@@ -304,7 +304,7 @@ export default function GlobalChampionDetailPage() {
     <div className="max-w-6xl space-y-4">
       {backLink}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <ChampionIcon championId={id} size={48} />
           <div>
@@ -330,7 +330,7 @@ export default function GlobalChampionDetailPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 @3xl:grid-cols-4">
             <StatCard
               label={t("friends.winRate")}
               value={percent(winRate)}
@@ -367,7 +367,7 @@ export default function GlobalChampionDetailPage() {
             />
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 gap-2 @lg:grid-cols-3 @3xl:grid-cols-5">
             <MiniStat label={t("global.killPart")}>{percent(data.killParticipation)}</MiniStat>
             <MiniStat label={t("global.avgGold")}>{data.avgGold.toLocaleString(LOCALE)}</MiniStat>
             <MiniStat label={t("global.avgTaken")}>
@@ -386,7 +386,7 @@ export default function GlobalChampionDetailPage() {
             </MiniStat>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 items-start">
+          <div className="grid grid-cols-1 gap-4 items-start @3xl:grid-cols-2">
             <ItemSection items={data.items} games={data.games} patch={patch} />
             <AugmentSection augments={data.augments} games={data.games} />
           </div>

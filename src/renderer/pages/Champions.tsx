@@ -239,16 +239,16 @@ export default function Champions() {
 
   return (
     <div className="max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-lol-text-bright">{t("champions.title")}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={setPatch} />
           <SearchInput value={search} onChange={setSearch} placeholder={t("champions.search")} />
         </div>
       </div>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-x-auto">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
@@ -267,15 +267,29 @@ export default function Champions() {
                 className="w-16"
               />
               <SortHeader {...sort} compact numeric label={t("champions.winPct")} field="wins" />
-              <SortHeader {...sort} compact numeric label="K" field="avg_kills" className="w-12" />
-              <SortHeader {...sort} compact numeric label="D" field="avg_deaths" className="w-12" />
+              <SortHeader
+                {...sort}
+                compact
+                numeric
+                label="K"
+                field="avg_kills"
+                className="hidden w-12 @3xl:table-cell"
+              />
+              <SortHeader
+                {...sort}
+                compact
+                numeric
+                label="D"
+                field="avg_deaths"
+                className="hidden w-12 @3xl:table-cell"
+              />
               <SortHeader
                 {...sort}
                 compact
                 numeric
                 label="A"
                 field="avg_assists"
-                className="w-12"
+                className="hidden w-12 @3xl:table-cell"
               />
               <SortHeader
                 {...sort}
@@ -293,14 +307,20 @@ export default function Champions() {
                 field="avg_score"
                 className="w-14"
               />
-              <SortHeader {...sort} compact label="MVP / ACE" field="badges" className="w-22" />
+              <SortHeader
+                {...sort}
+                compact
+                label="MVP / ACE"
+                field="badges"
+                className="hidden w-22 @2xl:table-cell"
+              />
               <SortHeader
                 {...sort}
                 compact
                 numeric
                 label={t("champions.dmg")}
                 field="avg_damage"
-                className="w-16"
+                className="hidden w-16 @4xl:table-cell"
               />
               <SortHeader
                 {...sort}
@@ -308,14 +328,14 @@ export default function Champions() {
                 numeric
                 label={t("recap.gold")}
                 field="avg_gold"
-                className="w-16"
+                className="hidden w-16 @4xl:table-cell"
               />
               <SortHeader
                 {...sort}
                 compact
                 label={t("history.multikills")}
                 field="multikills"
-                className="w-36"
+                className="hidden w-36 @5xl:table-cell"
               />
             </tr>
           </thead>
@@ -345,13 +365,13 @@ export default function Champions() {
                   <td className="px-2 py-2 w-32">
                     <WinRateBar wins={c.wins} total={c.games} />
                   </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                  <td className="hidden px-2 py-2 text-sm text-lol-text text-right tabular-nums @3xl:table-cell">
                     {c.avg_kills.toFixed(1)}
                   </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                  <td className="hidden px-2 py-2 text-sm text-lol-text text-right tabular-nums @3xl:table-cell">
                     {c.avg_deaths.toFixed(1)}
                   </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                  <td className="hidden px-2 py-2 text-sm text-lol-text text-right tabular-nums @3xl:table-cell">
                     {c.avg_assists.toFixed(1)}
                   </td>
                   <td
@@ -366,7 +386,7 @@ export default function Champions() {
                   >
                     {c.avg_score != null ? c.avg_score.toFixed(1) : "—"}
                   </td>
-                  <td className="px-2 py-2 text-sm whitespace-nowrap tabular-nums">
+                  <td className="hidden px-2 py-2 text-sm whitespace-nowrap tabular-nums @2xl:table-cell">
                     <span className={c.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
                       {c.mvps}
                     </span>
@@ -375,13 +395,13 @@ export default function Champions() {
                       {c.aces}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                  <td className="hidden px-2 py-2 text-sm text-lol-text text-right tabular-nums @4xl:table-cell">
                     {(c.avg_damage ?? 0).toLocaleString(LOCALE)}
                   </td>
-                  <td className="px-2 py-2 text-sm text-lol-gold text-right tabular-nums">
+                  <td className="hidden px-2 py-2 text-sm text-lol-gold text-right tabular-nums @4xl:table-cell">
                     {(c.avg_gold ?? 0).toLocaleString(LOCALE)}
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="hidden px-2 py-2 @5xl:table-cell">
                     <div className="flex gap-1 text-[10px] tabular-nums">
                       <span
                         className={`w-7 shrink-0 text-center ${c.double_kills > 0 ? "text-sky-400" : "text-transparent"}`}

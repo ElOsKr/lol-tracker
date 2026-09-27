@@ -103,7 +103,7 @@ export default function FriendDetail() {
     <div className="max-w-6xl space-y-4">
       <BackLink />
 
-      <div className="grid grid-cols-[1fr_22rem] gap-4 items-stretch">
+      <div className="grid grid-cols-1 gap-4 items-stretch @3xl:grid-cols-[1fr_22rem]">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <SummonerIcon iconId={player.profileIcon} size={56} />

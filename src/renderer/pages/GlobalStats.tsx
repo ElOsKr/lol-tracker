@@ -204,9 +204,9 @@ export default function GlobalStats() {
 
   return (
     <div className="max-w-7xl space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-lol-text-bright">{t("global.title")}</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs text-lol-text">
             {t("global.summary", {
               games: data.totalGames,
@@ -257,7 +257,7 @@ export default function GlobalStats() {
 
       {tab === "champions" && (
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-lol-text">
               {t("global.championsCount", { count: sortedChampions.length })}
             </span>
@@ -268,7 +268,7 @@ export default function GlobalStats() {
             />
           </div>
 
-          <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+          <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-x-auto">
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
@@ -352,7 +352,7 @@ export default function GlobalStats() {
 
       {tab === "items" && (
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-lol-text">
               {t("global.itemsCount", { count: sortedItems.length })}
             </span>
@@ -363,7 +363,7 @@ export default function GlobalStats() {
             />
           </div>
 
-          <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+          <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-x-auto">
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
@@ -436,7 +436,7 @@ export default function GlobalStats() {
 
       {tab === "augments" && (
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <RarityFilter value={rarityFilter} onChange={setRarityFilter} />
             <span className="text-xs text-lol-text self-center ml-2">
               {t("global.augmentsCount", { count: sortedAugments.length })}
@@ -450,7 +450,7 @@ export default function GlobalStats() {
             </div>
           </div>
 
-          <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+          <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-x-auto">
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>

@@ -348,9 +348,9 @@ export default function Records() {
   // The filters stay on screen even with nothing to show, so a selection that
   // happens to hold no games can be undone
   const header = (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <h1 className="text-xl font-bold text-lol-text-bright">{t("records.title")}</h1>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs text-lol-text">
           {t("records.across", { games: gamesLabel(t, data.totalGames) })}
         </span>
@@ -383,7 +383,7 @@ export default function Records() {
     <div className="max-w-7xl space-y-4">
       {header}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
+      <div className="grid grid-cols-1 gap-4 items-stretch @lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
         {cards.map(({ key, ...card }) => (
           <RecordCard key={key} {...card} champData={champData} onOpen={setOpenMatch} />
         ))}
