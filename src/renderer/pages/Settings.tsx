@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBackfill } from "../hooks/useBackfill";
+import { saveHomePath, saveNavLayout, useHomePath, useNavLayout } from "../hooks/useNavLayout";
+import { NAV_ITEMS, moveNavItem, setNavItemHidden, visibleNavItems } from "../../shared/navigation";
 
 import { setRemembering } from "../lib/viewState";
 import { SGP_HISTORY_CAP } from "../lib/types";
@@ -70,6 +72,8 @@ function Switch({
 export default function Settings() {
   // Shared so a backfill started automatically on first connect shows here too
   const { running: backfilling, progress } = useBackfill();
+  const navLayout = useNavLayout();
+  const homePath = useHomePath();
   const [autoStart, setAutoStart] = useState(false);
   // Only the packaged program has a path worth registering, so the switch says
   // so instead of pretending in a dev build
@@ -367,6 +371,77 @@ export default function Settings() {
             La cola se elige en el selector superior y se conserva al reiniciar. No se mezclan las
             estadísticas de distintas colas.
           </p>
+        </div>
+      </div>
+
+      {/* Sidebar */}
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-1">Sidebar</h2>
+        <p className="text-xs text-lol-text mb-4">
+          Choose which pages appear in the sidebar and in what order. Settings always stays, so you
+          can come back here.
+        </p>
+        <div className="space-y-1">
+          {navLayout.order.map((id, index) => {
+            const item = NAV_ITEMS.find((candidate) => candidate.id === id)!;
+            const hidden = navLayout.hidden.includes(id);
+            return (
+              <div key={id} className="flex items-center gap-3 py-1">
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    aria-label={`Move ${item.label} up`}
+                    disabled={index === 0}
+                    onClick={() => void saveNavLayout(moveNavItem(navLayout, id, -1))}
+                    className="px-1 text-[10px] leading-none text-lol-text hover:text-lol-text-bright disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Move ${item.label} down`}
+                    disabled={index === navLayout.order.length - 1}
+                    onClick={() => void saveNavLayout(moveNavItem(navLayout, id, 1))}
+                    className="px-1 text-[10px] leading-none text-lol-text hover:text-lol-text-bright disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ▼
+                  </button>
+                </div>
+                <span
+                  className={`flex-1 text-sm ${hidden ? "text-lol-text" : "text-lol-text-bright"}`}
+                >
+                  {item.label}
+                </span>
+                <Switch
+                  checked={!hidden}
+                  onChange={() => void saveNavLayout(setNavItemHidden(navLayout, id, !hidden))}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="border-t border-lol-border my-4" />
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-lol-text-bright">Start page</p>
+            <p className="text-xs text-lol-text mt-0.5">
+              The page that opens when the program starts. Only pages shown in the sidebar can be
+              chosen.
+            </p>
+          </div>
+          <select
+            className="select shrink-0"
+            value={homePath}
+            onChange={(e) => void saveHomePath(e.target.value)}
+          >
+            {visibleNavItems(navLayout).map((item) => (
+              <option key={item.id} value={item.path}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
