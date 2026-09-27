@@ -406,8 +406,15 @@ export default function GlobalStats() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums">
+                      <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums whitespace-nowrap">
                         {item.picks}
+                        {item.ownPicks > 0 && (
+                          <span className="ml-1.5 text-[11px] text-lol-text">
+                            {item.ownPicks === 1
+                              ? t("global.ownGame")
+                              : t("global.ownGames", { count: item.ownPicks })}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-sm text-lol-text text-right tabular-nums">
                         {pickRate}%
@@ -481,8 +488,15 @@ export default function GlobalStats() {
                       <td className="px-3 py-2">
                         <AugmentIcon augmentId={a.augment_id} showName />
                       </td>
-                      <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums">
+                      <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums whitespace-nowrap">
                         {a.picks}
+                        {a.ownPicks > 0 && (
+                          <span className="ml-1.5 text-[11px] text-lol-text">
+                            {a.ownPicks === 1
+                              ? t("global.ownGame")
+                              : t("global.ownGames", { count: a.ownPicks })}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-sm text-lol-text text-right tabular-nums">
                         {pickRate}%

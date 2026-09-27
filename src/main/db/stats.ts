@@ -288,6 +288,22 @@ function participantFilter(patch?: string, queue?: number, alias = "mp") {
 // Our own games per champion under the same filters, so the global table can
 // say how many of a champion's appearances were ours.
 function ownGamesByChampion(patch?: string, queue?: number): Map<number, number> {
+  const own = ownGamesFilter(patch, queue);
+  const rows = db
+    .prepare(`
+      SELECT ps.champion_id, COUNT(*) as games
+      FROM player_stats ps
+      JOIN games g ON g.game_id = ps.game_id
+      WHERE ${own.sql}
+      GROUP BY ps.champion_id
+    `)
+    .all(...own.params) as { champion_id: number; games: number }[];
+  return new Map(rows.map((r) => [r.champion_id, r.games]));
+}
+
+// The WHERE clause and params for our own games under the page's filters,
+// shared by the three own-count queries below.
+function ownGamesFilter(patch?: string, queue?: number): { sql: string; params: any[] } {
   const where = ["g.is_remake = 0"];
   const params: any[] = [];
   if (patch) {
@@ -295,16 +311,43 @@ function ownGamesByChampion(patch?: string, queue?: number): Map<number, number>
     params.push(patch);
   }
   applyQueueFilter(where, params, queue);
+  return { sql: where.join(" AND "), params };
+}
+
+// Our own augment picks, from game_augments (only ever our picks)
+function ownAugmentPicks(patch?: string, queue?: number): Map<number, number> {
+  const own = ownGamesFilter(patch, queue);
   const rows = db
     .prepare(`
-      SELECT ps.champion_id, COUNT(*) as games
-      FROM player_stats ps
-      JOIN games g ON g.game_id = ps.game_id
-      WHERE ${where.join(" AND ")}
-      GROUP BY ps.champion_id
+      SELECT ga.augment_id, COUNT(*) as picks
+      FROM game_augments ga
+      JOIN games g ON g.game_id = ga.game_id
+      WHERE ${own.sql}
+      GROUP BY ga.augment_id
     `)
-    .all(...params) as { champion_id: number; games: number }[];
-  return new Map(rows.map((r) => [r.champion_id, r.games]));
+    .all(...own.params) as { augment_id: number; picks: number }[];
+  return new Map(rows.map((r) => [r.augment_id, r.picks]));
+}
+
+// Our own item picks, from player_stats (only ever our row), same slot rules as
+// the global item table
+function ownItemPicks(patch?: string, queue?: number): Map<number, number> {
+  const own = ownGamesFilter(patch, queue);
+  const rows = db
+    .prepare(`
+      SELECT item_id, COUNT(*) as picks
+      FROM (
+        ${itemSlotUnion(
+          (i) => `SELECT ps.item${i} as item_id
+                FROM player_stats ps JOIN games g ON ps.game_id = g.game_id
+                WHERE ${own.sql}
+                  AND ps.item${i} > 0 AND ps.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
+      )
+      GROUP BY item_id
+    `)
+    .all(...ITEM_SLOTS.flatMap(() => own.params)) as { item_id: number; picks: number }[];
+  return new Map(rows.map((r) => [r.item_id, r.picks]));
 }
 
 // How many stored games the participant rows under a filter come from. Not
@@ -375,10 +418,12 @@ export function getGlobalStats(patch?: string, queue?: number): GlobalStats {
     `)
     .get(...mp.params) as { count: number };
 
+  const ownAugments = ownAugmentPicks(patch, queue);
+  const ownItems = ownItemPicks(patch, queue);
   return {
     champions: championsWithOwn,
-    augments,
-    items,
+    augments: augments.map((a) => ({ ...a, ownPicks: ownAugments.get(a.augment_id) ?? 0 })),
+    items: items.map((it) => ({ ...it, ownPicks: ownItems.get(it.item_id) ?? 0 })),
     totalParticipantSlots: slots.count,
     totalGames: distinctGames(mp),
   };

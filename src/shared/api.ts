@@ -453,8 +453,9 @@ export interface RecordsData {
 // games a champion appeared in, `ownGames` how many of those we played it in.
 export interface GlobalStats {
   champions: { champion_id: number; games: number; wins: number; ownGames: number }[];
-  augments: { augment_id: number; picks: number; wins: number }[];
-  items: { item_id: number; picks: number; wins: number }[];
+  // Likewise `picks` is by anyone and `ownPicks` the ones we made
+  augments: { augment_id: number; picks: number; wins: number; ownPicks: number }[];
+  items: { item_id: number; picks: number; wins: number; ownPicks: number }[];
   totalParticipantSlots: number;
   // Distinct stored games behind those slots, for the page header
   totalGames: number;
