@@ -560,6 +560,9 @@ export const en = {
   "level.challenger": "Challenger",
   "startup.failed": "The queue selection could not be loaded.",
   "startup.retry": "Retry",
+
+  // Widget queue
+  "widget.queueFollowApp": "Same as the app",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -1,4 +1,4 @@
-import { TRACKED_QUEUE_IDS, QUEUE_ID_ARAM, isTrackedQueue, hasAugments } from "../shared/queues";
+import { TRACKED_QUEUE_IDS, isTrackedQueue, hasAugments } from "../shared/queues";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
 import * as db from "./db";
@@ -62,7 +62,11 @@ function preferences(): WidgetPreferences {
     height,
     opacity,
     account,
-    queue: isTrackedQueue(queue) ? queue : QUEUE_ID_ARAM,
+    // No queue of its own means the widget follows whatever queue the app has
+    // selected: a query without a queue resolves to that one in db.ts. It used
+    // to fall back to normal ARAM, which quietly showed the wrong games to
+    // anyone who never opened the widget settings.
+    queue: isTrackedQueue(queue) ? queue : null,
   };
 }
 
@@ -244,8 +248,8 @@ export function registerWidgetHandlers(main: () => BrowserWindow | null) {
       typeof value.account !== "string" ||
       (value.account !== "" &&
         !db.getMatchFilterOptions().accounts.some((a) => a.puuid === value.account)) ||
-      !Number.isInteger(value.queue) ||
-      !TRACKED_QUEUE_IDS.includes(value.queue as number)
+      (value.queue !== null &&
+        (!Number.isInteger(value.queue) || !TRACKED_QUEUE_IDS.includes(value.queue as number)))
     )
       throw new Error("Invalid widget selection");
     db.setSetting("widget_account", value.account);
