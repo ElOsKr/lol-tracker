@@ -1,6 +1,17 @@
 import { useState } from "react";
 
 import { QUEUE_LABELS, QUEUE_CATALOG } from "../../shared/queues";
+import { useT } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
+
+// The catalog names its groups in Spanish; these are the headings shown for them.
+const QUEUE_GROUPS: { group: string; label: TranslationKey }[] = [
+  { group: "Principales", label: "queueGroup.main" },
+  { group: "Otros modos", label: "queueGroup.other" },
+  { group: "Cooperativo y bots", label: "queueGroup.coop" },
+  { group: "Personalizadas", label: "queueGroup.custom" },
+  { group: "Históricas", label: "queueGroup.legacy" },
+];
 
 export function queueLabel(queueId: number): string {
   return QUEUE_LABELS[queueId] ?? `Queue ${queueId}`;
@@ -14,6 +25,7 @@ export default function QueueSelect({
   onChange: (queue: number | undefined) => void;
 }) {
   const [error, setError] = useState("");
+  const t = useT();
   return (
     <>
       <select
@@ -21,22 +33,20 @@ export default function QueueSelect({
         onChange={(e) => {
           setError("");
           void Promise.resolve(onChange(Number(e.target.value))).catch(() =>
-            setError("No se pudo guardar la cola"),
+            setError(t("queue.saveFailed")),
           );
         }}
         className="select max-w-[260px] min-w-0"
       >
-        {["Principales", "Otros modos", "Cooperativo y bots", "Personalizadas", "Históricas"].map(
-          (group) => (
-            <optgroup key={group} label={group}>
-              {QUEUE_CATALOG.filter((q) => q.group === group).map((q) => (
-                <option key={q.id} value={q.id}>
-                  {queueLabel(q.id)}
-                </option>
-              ))}
-            </optgroup>
-          ),
-        )}
+        {QUEUE_GROUPS.map(({ group, label }) => (
+          <optgroup key={group} label={t(label)}>
+            {QUEUE_CATALOG.filter((q) => q.group === group).map((q) => (
+              <option key={q.id} value={q.id}>
+                {queueLabel(q.id)}
+              </option>
+            ))}
+          </optgroup>
+        ))}
       </select>
       {error && <span role="alert">{error}</span>}
     </>

@@ -16,38 +16,46 @@ import WinRateBar from "../components/WinRateBar";
 import PatchSelect from "../components/PatchSelect";
 import QueueSelect from "../components/QueueSelect";
 import SortHeader from "../components/SortHeader";
+import { useT } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
 
 type SortKey = "picks" | "winRate" | "name";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
-const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] = [
+const rarityFilters: {
+  key: RarityFilter;
+  label: TranslationKey;
+  color: string;
+  activeColor: string;
+}[] = [
   {
     key: "all",
-    label: "All",
+    label: "rarity.all",
     color: "text-lol-text",
     activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
   },
   {
     key: "kSilver",
-    label: "Silver",
+    label: "rarity.silver",
     color: "text-gray-300",
     activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
   },
   {
     key: "kGold",
-    label: "Gold",
+    label: "rarity.gold",
     color: "text-yellow-400",
     activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
   },
   {
     key: "kPrismatic",
-    label: "Prismatic",
+    label: "rarity.prismatic",
     color: "text-fuchsia-400",
     activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
   },
 ];
 
 export default function Augments() {
+  const t = useT();
   const champData = useChampionData();
   const augmentData = useAugmentData();
   const [patch, setPatch] = useViewState<string | undefined>("augments.patch", undefined);
@@ -109,12 +117,12 @@ export default function Augments() {
   }, [data, search, sortKey, sortDir, augmentData, rarityFilter]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-7xl space-y-4">
-      <h1 className="text-xl font-bold text-lol-text-bright">Augments</h1>
+      <h1 className="text-xl font-bold text-lol-text-bright">{t("scoreboard.augments")}</h1>
 
       {/* Rarity Filter + Search */}
       <div className="flex items-center gap-2">
@@ -128,10 +136,12 @@ export default function Augments() {
                 : `${f.color} border-lol-border hover:border-lol-border/80 bg-lol-card`
             }`}
           >
-            {f.label}
+            {t(f.label)}
           </button>
         ))}
-        <span className="text-xs text-lol-text self-center ml-2">{sorted.length} augments</span>
+        <span className="text-xs text-lol-text self-center ml-2">
+          {t("global.augmentsCount", { count: sorted.length })}
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={setPatch} />
@@ -141,7 +151,7 @@ export default function Augments() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search augment..."
+            placeholder={t("global.searchAugment")}
             className="input w-48 pr-7"
           />
           {search && (
@@ -171,12 +181,12 @@ export default function Augments() {
           <thead className="bg-lol-dark/50">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-8"></th>
-              <SortHeader {...sort} label="Augment" field="name" />
-              <SortHeader {...sort} label="Picks" field="picks" />
+              <SortHeader {...sort} label={t("global.augment")} field="name" />
+              <SortHeader {...sort} label={t("global.picks")} field="picks" />
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                Pick Rate
+                {t("global.pickRate")}
               </th>
-              <SortHeader {...sort} label="Win Rate" field="winRate" className="w-32" />
+              <SortHeader {...sort} label={t("friends.winRate")} field="winRate" className="w-32" />
             </tr>
           </thead>
           <tbody>
@@ -234,7 +244,7 @@ export default function Augments() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+          <div className="py-8 text-center text-sm text-lol-text">{t("global.noAugments")}</div>
         )}
       </div>
     </div>

@@ -23,9 +23,11 @@ import {
   kdaHighlight,
 } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
+import { gamesLabel, useT } from "../lib/i18n";
 
 export default function FriendDetail() {
   const { key = "" } = useParams();
+  const t = useT();
   const champData = useChampionData();
   const { data, loading, refetch } = useIpc<TeammateDetail | null>(
     () => window.api.getTeammateDetail(key),
@@ -64,7 +66,7 @@ export default function FriendDetail() {
   );
 
   if (loading) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   if (!data) {
@@ -72,7 +74,7 @@ export default function FriendDetail() {
       <div className="max-w-6xl space-y-4">
         <BackLink />
         <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
-          No games found with this player.
+          {t("friend.noGames")}
         </div>
       </div>
     );
@@ -104,7 +106,10 @@ export default function FriendDetail() {
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-lol-text-bright truncate">{player.name}</h1>
               <span className="text-sm text-lol-text">
-                {player.games} games together · last played {formatTimeAgo(player.lastPlayed)}
+                {t("friend.together", {
+                  games: gamesLabel(t, player.games),
+                  ago: formatTimeAgo(player.lastPlayed),
+                })}
               </span>
             </div>
           </div>
@@ -113,35 +118,46 @@ export default function FriendDetail() {
               stop short of the card's top and bottom edges */}
           <div className="flex-1 flex items-center bg-lol-card rounded-xl border border-lol-border/60 divide-x divide-lol-border/60">
             <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">Record</div>
+              <div className="text-[11px] text-lol-text uppercase tracking-wider">
+                {t("friend.record")}
+              </div>
               <div className="text-xl font-bold text-lol-text-bright">
-                {player.wins}W <span className="text-lol-text/60">{losses}L</span>
+                {player.wins}
+                {t("common.w")}{" "}
+                <span className="text-lol-text/60">
+                  {losses}
+                  {t("common.l")}
+                </span>
               </div>
               <div className="mt-1">
                 <WinRateBar wins={player.wins} total={player.games} />
               </div>
             </div>
             <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">Their KDA</div>
+              <div className="text-[11px] text-lol-text uppercase tracking-wider">
+                {t("friends.theirKda")}
+              </div>
               <div className={`text-xl font-bold ${kdaColor(ratio)}`}>
                 {kdaRatio(player.kills, player.deaths, player.assists)}
               </div>
               <div className="text-xs text-lol-text mt-1">
-                {avg(player.kills)} / {avg(player.deaths)} / {avg(player.assists)} per game
+                {t("friend.perGame", {
+                  kills: avg(player.kills),
+                  deaths: avg(player.deaths),
+                  assists: avg(player.assists),
+                })}
               </div>
             </div>
             <div className="flex-1 px-4 py-2.5">
               <div className="text-[11px] text-lol-text uppercase tracking-wider">
-                Their Avg Score
+                {t("friend.theirAvgScore")}
               </div>
               <div
                 className={`text-xl font-bold ${avgScore != null ? scoreColor(avgScore) : "text-lol-text"}`}
               >
                 {avgScore != null ? avgScore.toFixed(1) : "—"}
               </div>
-              <div className="text-xs text-lol-text mt-1">
-                {mvps} MVP · {aces} ACE
-              </div>
+              <div className="text-xs text-lol-text mt-1">{t("friend.mvpAce", { mvps, aces })}</div>
             </div>
           </div>
         </div>
@@ -149,7 +165,7 @@ export default function FriendDetail() {
         <div className="flex flex-col bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
           <div className="px-3 py-2 border-b border-lol-border/60 flex items-center justify-between">
             <span className="text-[11px] text-lol-text uppercase tracking-wider">
-              Their Champions
+              {t("friend.theirChampions")}
             </span>
             <span className="text-[11px] text-lol-text">{player.champions.length}</span>
           </div>
@@ -164,7 +180,7 @@ export default function FriendDetail() {
       </div>
 
       <h2 className="text-sm font-semibold text-lol-text-bright uppercase tracking-wider pt-1">
-        Games Played Together
+        {t("friend.gamesTogether")}
       </h2>
 
       <div className="space-y-1">
@@ -187,6 +203,7 @@ export default function FriendDetail() {
 }
 
 function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champData: any }) {
+  const t = useT();
   const ratio =
     champ.deaths > 0 ? (champ.kills + champ.assists) / champ.deaths : champ.kills + champ.assists;
 
@@ -198,9 +215,9 @@ function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champ
           {getChampionName(champData, champ.champion_id)}
         </div>
         <div className="text-[10px] text-lol-text">
-          {champ.games} {champ.games === 1 ? "game" : "games"} ·{" "}
+          {gamesLabel(t, champ.games)} ·{" "}
           <span className={kdaColor(ratio)}>
-            {kdaRatio(champ.kills, champ.deaths, champ.assists)} KDA
+            {t("recap.kda", { ratio: kdaRatio(champ.kills, champ.deaths, champ.assists) })}
           </span>
         </div>
       </div>
@@ -212,12 +229,13 @@ function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champ
 }
 
 function BackLink() {
+  const t = useT();
   return (
     <Link
       to="/friends"
       className="inline-flex items-center gap-1.5 text-xs text-lol-text hover:text-lol-text-bright transition-colors"
     >
-      <span aria-hidden>←</span> Friends
+      <span aria-hidden>←</span> {t("friends.title")}
     </Link>
   );
 }
@@ -249,6 +267,7 @@ function PlayerBlock({
   heal: number;
   max: { dmg: number; taken: number; heal: number };
 }) {
+  const t = useT();
   const kda = kdaRatio(kills, deaths, assists);
 
   return (
@@ -264,7 +283,7 @@ function PlayerBlock({
       </div>
       <div className="w-20 shrink-0">
         <div className="text-xs text-lol-text-bright">{formatKDA(kills, deaths, assists)}</div>
-        <div className={`text-[10px] ${kdaHighlight(kda)}`}>{kda} KDA</div>
+        <div className={`text-[10px] ${kdaHighlight(kda)}`}>{t("recap.kda", { ratio: kda })}</div>
       </div>
       <ScoreCell score={score} badge={badge} />
       <StatBars damage={damage} taken={taken} heal={heal} max={max} className="w-32" />
@@ -291,6 +310,7 @@ function SharedGameRow({
   puuids: string[] | null;
   onToggle: () => void;
 }) {
+  const t = useT();
   const isWin = !!match.win;
   const accent = isWin ? "bg-lol-win" : "bg-lol-loss";
   const tint = isWin ? "from-lol-win/12 to-lol-win/[0.04]" : "from-lol-loss/12 to-lol-loss/[0.04]";
@@ -314,11 +334,11 @@ function SharedGameRow({
         <div
           className={`text-xs font-bold shrink-0 w-8 ${isWin ? "text-lol-win" : "text-lol-loss"}`}
         >
-          {isWin ? "WIN" : "LOSS"}
+          {isWin ? t("history.win") : t("history.loss")}
         </div>
 
         <PlayerBlock
-          label="You"
+          label={t("friend.you")}
           championId={match.champion_id}
           champData={champData}
           kills={match.kills}
@@ -359,7 +379,7 @@ function SharedGameRow({
       {expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
           {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">Loading...</div>
+            <div className="text-sm text-lol-text text-center py-4">{t("common.loading")}</div>
           ) : detail ? (
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           ) : null}

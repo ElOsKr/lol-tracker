@@ -4,6 +4,7 @@ import path from "path";
 import * as db from "./db";
 import * as dragon from "./dragon";
 import { hardenSession } from "./security";
+import { t } from "./i18n";
 import { CARD_STATUS_KEY, cardRoute, type CardStatus } from "../shared/card";
 
 // The card is drawn by a second window running the same renderer at a fixed
@@ -160,9 +161,9 @@ export async function exportGameImage(
   gameId: number,
 ): Promise<ExportImageResult> {
   const options = {
-    title: "Export Game Image",
+    title: t("dialog.exportImage"),
     defaultPath: defaultFileName(gameId),
-    filters: [{ name: "PNG Image", extensions: ["png"] }],
+    filters: [{ name: t("dialog.pngImage"), extensions: ["png"] }],
   };
   // Parented to the window when there is one, so the dialog is modal
   const chosen = parent

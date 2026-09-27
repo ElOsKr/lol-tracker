@@ -522,3 +522,41 @@ test("migrateLegacyUserData resolves the old folder next to the new one and only
     fs.rmSync(appData, { recursive: true, force: true });
   }
 });
+
+test("the Spanish dictionary covers every key and translate fills placeholders", () => {
+  const i18n = load("src/shared/i18n/index.ts");
+  const { en } = load("src/shared/i18n/en.ts");
+  const { es } = load("src/shared/i18n/es.ts");
+  const enKeys = Object.keys(en);
+  const esKeys = Object.keys(es);
+  assert.ok(enKeys.length > 400, `unexpectedly small dictionary: ${enKeys.length}`);
+  assert.deepEqual(
+    esKeys.filter((k) => !(k in en)),
+    [],
+    "Spanish has keys English does not",
+  );
+  assert.deepEqual(
+    enKeys.filter((k) => !(k in es)),
+    [],
+    "English keys missing from Spanish",
+  );
+  // A placeholder used in English must survive translation, or a number silently vanishes
+  for (const key of enKeys) {
+    const wanted = (en[key].match(/\{\w+\}/g) ?? []).sort();
+    const got = (es[key].match(/\{\w+\}/g) ?? []).sort();
+    assert.deepEqual(got, wanted, `placeholders differ for ${key}`);
+  }
+
+  assert.equal(i18n.translate("en", "settings.gamesCount", { count: 3 }), "3 games");
+  assert.equal(i18n.translate("es", "settings.gamesCount", { count: 3 }), "3 partidas");
+  // Unknown params are left visible rather than blanked
+  assert.equal(i18n.translate("en", "settings.gamesCount"), "{count} games");
+
+  assert.equal(i18n.resolveLanguage("system", "es-ES"), "es");
+  assert.equal(i18n.resolveLanguage("system", "en-US"), "en");
+  assert.equal(i18n.resolveLanguage("system", "fr-FR"), "en");
+  assert.equal(i18n.resolveLanguage("en", "es-ES"), "en");
+  assert.equal(i18n.parseLanguageChoice("de"), "system");
+  assert.equal(i18n.parseLanguageChoice(null), "system");
+  assert.equal(i18n.parseLanguageChoice("es"), "es");
+});

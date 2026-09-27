@@ -11,6 +11,7 @@ import {
   formatChallengeValue as formatValue,
 } from "../lib/challenges";
 import { challengeFraction } from "../../shared/challenges";
+import { useT, type Translate } from "../lib/i18n";
 
 // Snapshot days are stored as YYYY-MM-DD, which is a key, not a date to read.
 function formatDay(day: string): string {
@@ -21,17 +22,17 @@ function formatDay(day: string): string {
   });
 }
 
-function percentileLabel(challenge: ChallengeProgress): string | null {
+function percentileLabel(t: Translate, challenge: ChallengeProgress): string | null {
   if (challenge.level === "NONE" || challenge.percentile >= 100) return null;
-  return `top ${challenge.percentile.toFixed(1)}%`;
+  return t("challenges.top", { percent: challenge.percentile.toFixed(1) });
 }
 
 // Points are on every tier and already shown as the challenge's own value, so
 // the only reward worth a line is the kind you can wear.
-function rewardNote(challenge: ChallengeProgress): string | null {
+function rewardNote(t: Translate, challenge: ChallengeProgress): string | null {
   const title = challenge.nextRewards.find((r) => r.category === "TITLE" && r.name);
   if (!title) return null;
-  return `${levelName(challenge.nextLevel)} unlocks the "${title.name}" title`;
+  return t("challenges.unlocksTitle", { level: levelName(challenge.nextLevel), title: title.name });
 }
 
 // How far through the current tier. The distance left to the next one is read
@@ -80,6 +81,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
 // than hunted for.
 function ChampionProgress({ completedIds }: { completedIds: number[] }) {
   const champData = useChampionData();
+  const t = useT();
   const [showEarned, setShowEarned] = useState(false);
 
   const { remaining, earned } = useMemo(() => {
@@ -115,12 +117,12 @@ function ChampionProgress({ completedIds }: { completedIds: number[] }) {
   return (
     <div className="space-y-3 pt-1">
       <div className="text-[11px] uppercase tracking-wider text-lol-text">
-        Champions left ({remaining.length})
+        {t("challenges.left", { count: remaining.length })}
       </div>
       {remaining.length > 0 ? (
         grid(remaining, false)
       ) : (
-        <div className="text-sm text-lol-text">Every champion done.</div>
+        <div className="text-sm text-lol-text">{t("challenges.allDone")}</div>
       )}
 
       <button
@@ -130,7 +132,7 @@ function ChampionProgress({ completedIds }: { completedIds: number[] }) {
         <ChevronDownIcon
           className={`w-3 h-3 transition-transform ${showEarned ? "" : "-rotate-90"}`}
         />
-        Champions earned ({earned.length})
+        {t("challenges.earned", { count: earned.length })}
       </button>
       {showEarned && grid(earned, true)}
     </div>
@@ -140,10 +142,11 @@ function ChampionProgress({ completedIds }: { completedIds: number[] }) {
 // ---- Challenge rows ----
 
 function ChallengeRow({ challenge }: { challenge: ChallengeProgress }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const champions = challenge.completedChampionIds;
-  const percentile = percentileLabel(challenge);
-  const reward = rewardNote(challenge);
+  const percentile = percentileLabel(t, challenge);
+  const reward = rewardNote(t, challenge);
   const maxed = challenge.nextThreshold == null;
 
   return (
@@ -188,7 +191,7 @@ function ChallengeRow({ challenge }: { challenge: ChallengeProgress }) {
           {/* A finished challenge still earns progress, and the client still
               reports it, so the badge shows there too */}
           <div className="mt-0.5 flex items-center justify-end gap-1.5">
-            {maxed && <span className="text-[11px] text-lol-text">Complete</span>}
+            {maxed && <span className="text-[11px] text-lol-text">{t("challenges.complete")}</span>}
             <DeltaBadge delta={challenge.delta} />
           </div>
           {champions && (
@@ -199,7 +202,7 @@ function ChallengeRow({ challenge }: { challenge: ChallengeProgress }) {
               <ChevronDownIcon
                 className={`w-3 h-3 transition-transform ${expanded ? "" : "-rotate-90"}`}
               />
-              Champions
+              {t("challenges.champions")}
             </button>
           )}
         </div>
@@ -214,6 +217,7 @@ function ChallengeRow({ challenge }: { challenge: ChallengeProgress }) {
 }
 
 function GroupCard({ group }: { group: ChallengesData["groups"][number] }) {
+  const t = useT();
   const { summary } = group;
   const maxed = summary.nextThreshold == null;
 
@@ -237,7 +241,7 @@ function GroupCard({ group }: { group: ChallengesData["groups"][number] }) {
         <div className="flex items-center gap-2 text-right text-xs text-lol-text tabular-nums">
           <span>
             {maxed
-              ? "Maxed"
+              ? t("challenges.maxed")
               : `${formatValue(summary.value)} / ${formatValue(summary.nextThreshold!)}`}
           </span>
           <DeltaBadge delta={summary.delta} />
@@ -255,7 +259,8 @@ function GroupCard({ group }: { group: ChallengesData["groups"][number] }) {
 // ---- Headline cards ----
 
 function CapstoneCard({ capstone, since }: { capstone: ChallengeProgress; since: string | null }) {
-  const percentile = percentileLabel(capstone);
+  const t = useT();
+  const percentile = percentileLabel(t, capstone);
 
   return (
     <div className="relative overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-5">
@@ -278,7 +283,7 @@ function CapstoneCard({ capstone, since }: { capstone: ChallengeProgress; since:
           <TierBar challenge={capstone} className="mt-2.5" />
           {since && capstone.delta != null && (
             <div className="text-[11px] text-lol-text/70 mt-1">
-              Green figures are progress since {formatDay(since)}
+              {t("challenges.since", { date: formatDay(since) })}
             </div>
           )}
         </div>
@@ -289,6 +294,7 @@ function CapstoneCard({ capstone, since }: { capstone: ChallengeProgress; since:
 
 function PlayerBar({ data }: { data: ChallengesData }) {
   const { player } = data;
+  const t = useT();
   return (
     <div className="flex items-center gap-4 bg-lol-card rounded-xl border border-lol-border/60 px-4 py-3">
       <div className="flex items-center gap-2">
@@ -300,20 +306,20 @@ function PlayerBar({ data }: { data: ChallengesData }) {
             {levelName(player.level)}
           </div>
           <div className="text-[11px] text-lol-text">
-            {player.points.toLocaleString()} points
+            {t("challenges.points", { points: player.points.toLocaleString() })}
             {player.pointsUntilNextRank > 0 &&
-              ` · ${player.pointsUntilNextRank.toLocaleString()} to next rank`}
+              t("challenges.toNextRank", { points: player.pointsUntilNextRank.toLocaleString() })}
           </div>
         </div>
       </div>
       {player.percentile < 100 && (
         <div className="text-[11px] text-lol-text border-l border-lol-border/60 pl-4">
-          top {player.percentile.toFixed(1)}% overall
+          {t("challenges.topOverall", { percent: player.percentile.toFixed(1) })}
         </div>
       )}
       {player.title && (
         <div className="text-[11px] text-lol-text border-l border-lol-border/60 pl-4">
-          Title: <span className="text-lol-gold">{player.title}</span>
+          {t("challenges.titleLabel")} <span className="text-lol-gold">{player.title}</span>
         </div>
       )}
       {data.equipped.length > 0 && (
@@ -335,6 +341,7 @@ function PlayerBar({ data }: { data: ChallengesData }) {
 
 function SeasonalCard({ challenges }: { challenges: ChallengeProgress[] }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   if (challenges.length === 0) return null;
 
   return (
@@ -346,7 +353,9 @@ function SeasonalCard({ challenges }: { challenges: ChallengeProgress[] }) {
         <ChevronDownIcon
           className={`w-3.5 h-3.5 text-lol-text transition-transform ${open ? "" : "-rotate-90"}`}
         />
-        <span className="text-sm font-semibold text-lol-text-bright">Past seasons</span>
+        <span className="text-sm font-semibold text-lol-text-bright">
+          {t("challenges.pastSeasons")}
+        </span>
         <span className="text-[11px] text-lol-text">{challenges.length}</span>
       </button>
       {open && (
@@ -386,6 +395,7 @@ function SeasonalCard({ challenges }: { challenges: ChallengeProgress[] }) {
 
 export default function Challenges() {
   const status = useLcuStatus();
+  const t = useT();
   const [result, setResult] = useState<ChallengesResult | null>(null);
 
   // No refresh control, because there is nothing for one to do: the stored
@@ -409,10 +419,10 @@ export default function Challenges() {
   const data = result?.data ?? null;
   const waiting = result == null || (result.pending && data == null);
 
-  const header = <h1 className="text-xl font-bold text-lol-text-bright">Challenges</h1>;
+  const header = <h1 className="text-xl font-bold text-lol-text-bright">{t("nav.challenges")}</h1>;
 
   if (waiting) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   if (!data) {
@@ -420,9 +430,9 @@ export default function Challenges() {
       <div className="max-w-7xl space-y-4">
         {header}
         <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          Challenge progress comes from the League client, and it isn't running.
+          {t("challenges.notRunning")}
           <br />
-          Start it and this fills in. After that the last reading stays here.
+          {t("challenges.startIt")}
         </div>
       </div>
     );

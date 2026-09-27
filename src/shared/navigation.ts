@@ -1,16 +1,17 @@
 // The sidebar's pages, in their default order. Settings is not here: it must
 // always be reachable, or there would be no way back to this configuration.
+// Labels come from the dictionary under `nav.<id>`.
 export const NAV_ITEMS = [
-  { id: "history", path: "/", label: "Match History" },
-  { id: "live", path: "/live", label: "Live Game" },
-  { id: "champions", path: "/champions", label: "Champions" },
-  { id: "augments", path: "/augments", label: "Augments" },
-  { id: "friends", path: "/friends", label: "Friends" },
-  { id: "trends", path: "/trends", label: "Trends" },
-  { id: "records", path: "/records", label: "Records" },
-  { id: "widget", path: "/widget", label: "Widget / OBS" },
-  { id: "challenges", path: "/challenges", label: "Challenges" },
-  { id: "global", path: "/global", label: "Total Stats" },
+  { id: "history", path: "/" },
+  { id: "live", path: "/live" },
+  { id: "champions", path: "/champions" },
+  { id: "augments", path: "/augments" },
+  { id: "friends", path: "/friends" },
+  { id: "trends", path: "/trends" },
+  { id: "records", path: "/records" },
+  { id: "widget", path: "/widget" },
+  { id: "challenges", path: "/challenges" },
+  { id: "global", path: "/global" },
 ] as const;
 
 export type NavItemId = (typeof NAV_ITEMS)[number]["id"];

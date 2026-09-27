@@ -1,4 +1,5 @@
 import { scoreColor } from "../../shared/opScore";
+import { useT } from "../lib/i18n";
 
 type Badge = "MVP" | "ACE" | null;
 
@@ -24,6 +25,7 @@ export function ScoreBadge({ badge, large = false }: { badge: "MVP" | "ACE"; lar
 // unscored game (a remake, or one stored before scoring existed) leaves the
 // column empty rather than showing a zero.
 export default function ScoreCell({ score, badge }: { score: number | null; badge: Badge }) {
+  const t = useT();
   return (
     <div className="w-10 shrink-0 text-center">
       {score != null && (
@@ -32,7 +34,9 @@ export default function ScoreCell({ score, badge }: { score: number | null; badg
           {badge ? (
             <ScoreBadge badge={badge} />
           ) : (
-            <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
+            <div className="text-[10px] text-lol-text uppercase tracking-wider">
+              {t("history.score")}
+            </div>
           )}
         </>
       )}

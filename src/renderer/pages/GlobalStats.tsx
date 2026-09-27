@@ -22,6 +22,7 @@ import QueueSelect from "../components/QueueSelect";
 import RarityFilter, { type Rarity } from "../components/RarityFilter";
 import SortHeader from "../components/SortHeader";
 import { useSort } from "../hooks/useSort";
+import { useT } from "../lib/i18n";
 
 type Tab = "champions" | "augments" | "items";
 type ChampSortKey = "games" | "winRate" | "pickRate" | "name";
@@ -70,6 +71,7 @@ function SearchInput({
 }
 
 export default function GlobalStats() {
+  const t = useT();
   const champData = useChampionData();
   const augmentData = useAugmentData();
   const navigate = useNavigate();
@@ -218,7 +220,10 @@ export default function GlobalStats() {
     return filtered;
   }, [data, augSearch, augSortKey, augSortDir, augmentData, rarityFilter]);
 
-  const getItemName = useCallback((id: number) => itemData[id]?.name ?? `Item ${id}`, [itemData]);
+  const getItemName = useCallback(
+    (id: number) => itemData[id]?.name ?? t("global.itemId", { id }),
+    [itemData, t],
+  );
 
   const sortedItems = useMemo(() => {
     if (!data) return [];
@@ -246,17 +251,21 @@ export default function GlobalStats() {
   }, [data, itemSearch, itemSortKey, itemSortDir, getItemName]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-7xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Total Stats</h1>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("global.title")}</h1>
         <div className="flex items-center gap-3">
           <span className="text-xs text-lol-text">
-            {totalGames} games &middot; {data.champions.length} champions &middot;{" "}
-            {data.augments.length} augments &middot; {data.items.length} items
+            {t("global.summary", {
+              games: totalGames,
+              champions: data.champions.length,
+              augments: data.augments.length,
+              items: data.items.length,
+            })}
           </span>
           <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={setPatch} />
@@ -273,7 +282,7 @@ export default function GlobalStats() {
               : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
           }`}
         >
-          Champions
+          {t("champions.title")}
         </button>
         <button
           hidden={!hasAugments(queue)}
@@ -284,7 +293,7 @@ export default function GlobalStats() {
               : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
           }`}
         >
-          Augments
+          {t("scoreboard.augments")}
         </button>
         <button
           onClick={() => setTab("items")}
@@ -294,18 +303,20 @@ export default function GlobalStats() {
               : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
           }`}
         >
-          Items
+          {t("live.items")}
         </button>
       </div>
 
       {tab === "champions" && (
         <>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-lol-text">{sortedChampions.length} champions</span>
+            <span className="text-xs text-lol-text">
+              {t("global.championsCount", { count: sortedChampions.length })}
+            </span>
             <SearchInput
               value={champSearch}
               onChange={setChampSearch}
-              placeholder="Search champion..."
+              placeholder={t("champions.search")}
             />
           </div>
 
@@ -316,10 +327,15 @@ export default function GlobalStats() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-12">
                     #
                   </th>
-                  <SortHeader {...champSort} label="Champion" field="name" />
-                  <SortHeader {...champSort} label="Games" field="games" />
-                  <SortHeader {...champSort} label="Pick Rate" field="pickRate" />
-                  <SortHeader {...champSort} label="Win Rate" field="winRate" className="w-32" />
+                  <SortHeader {...champSort} label={t("champions.champion")} field="name" />
+                  <SortHeader {...champSort} label={t("champions.games")} field="games" />
+                  <SortHeader {...champSort} label={t("global.pickRate")} field="pickRate" />
+                  <SortHeader
+                    {...champSort}
+                    label={t("friends.winRate")}
+                    field="winRate"
+                    className="w-32"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -354,7 +370,7 @@ export default function GlobalStats() {
               </tbody>
             </table>
             {sortedChampions.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+              <div className="py-8 text-center text-sm text-lol-text">{t("champions.none")}</div>
             )}
           </div>
         </>
@@ -363,20 +379,31 @@ export default function GlobalStats() {
       {tab === "items" && (
         <>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-lol-text">{sortedItems.length} items</span>
-            <SearchInput value={itemSearch} onChange={setItemSearch} placeholder="Search item..." />
+            <span className="text-xs text-lol-text">
+              {t("global.itemsCount", { count: sortedItems.length })}
+            </span>
+            <SearchInput
+              value={itemSearch}
+              onChange={setItemSearch}
+              placeholder={t("global.searchItem")}
+            />
           </div>
 
           <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
-                  <SortHeader {...itemSort} label="Item" field="name" />
-                  <SortHeader {...itemSort} label="Picks" field="picks" />
+                  <SortHeader {...itemSort} label={t("global.item")} field="name" />
+                  <SortHeader {...itemSort} label={t("global.picks")} field="picks" />
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                    Pick Rate
+                    {t("global.pickRate")}
                   </th>
-                  <SortHeader {...itemSort} label="Win Rate" field="winRate" className="w-32" />
+                  <SortHeader
+                    {...itemSort}
+                    label={t("friends.winRate")}
+                    field="winRate"
+                    className="w-32"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -409,7 +436,7 @@ export default function GlobalStats() {
               </tbody>
             </table>
             {sortedItems.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No items found</div>
+              <div className="py-8 text-center text-sm text-lol-text">{t("global.noItems")}</div>
             )}
           </div>
         </>
@@ -420,13 +447,13 @@ export default function GlobalStats() {
           <div className="flex items-center gap-2">
             <RarityFilter value={rarityFilter} onChange={setRarityFilter} />
             <span className="text-xs text-lol-text self-center ml-2">
-              {sortedAugments.length} augments
+              {t("global.augmentsCount", { count: sortedAugments.length })}
             </span>
             <div className="ml-auto">
               <SearchInput
                 value={augSearch}
                 onChange={setAugSearch}
-                placeholder="Search augment..."
+                placeholder={t("global.searchAugment")}
               />
             </div>
           </div>
@@ -435,12 +462,17 @@ export default function GlobalStats() {
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
-                  <SortHeader {...augSort} label="Augment" field="name" />
-                  <SortHeader {...augSort} label="Picks" field="picks" />
+                  <SortHeader {...augSort} label={t("global.augment")} field="name" />
+                  <SortHeader {...augSort} label={t("global.picks")} field="picks" />
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                    Pick Rate
+                    {t("global.pickRate")}
                   </th>
-                  <SortHeader {...augSort} label="Win Rate" field="winRate" className="w-32" />
+                  <SortHeader
+                    {...augSort}
+                    label={t("friends.winRate")}
+                    field="winRate"
+                    className="w-32"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -468,7 +500,7 @@ export default function GlobalStats() {
               </tbody>
             </table>
             {sortedAugments.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+              <div className="py-8 text-center text-sm text-lol-text">{t("global.noAugments")}</div>
             )}
           </div>
         </>

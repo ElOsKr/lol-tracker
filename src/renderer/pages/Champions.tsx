@@ -14,6 +14,7 @@ import QueueSelect from "../components/QueueSelect";
 import SortHeader from "../components/SortHeader";
 import { formatKDA, formatDuration, formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { scoreColor } from "../../shared/opScore";
+import { useT } from "../lib/i18n";
 
 type SortKey =
   | "games"
@@ -41,6 +42,7 @@ function ChampionExpanded({
   queue?: number;
 }) {
   const augData = useAugmentData();
+  const t = useT();
   const [augStats, setAugStats] = useState<AugmentStats[] | null>(null);
   const [itemStats, setItemStats] = useState<ItemStats[] | null>(null);
   const [matches, setMatches] = useState<MatchListItem[] | null>(null);
@@ -56,7 +58,7 @@ function ChampionExpanded({
   if (!augStats || !itemStats || !matches) {
     return (
       <td colSpan={COLUMN_COUNT} className="px-4 py-4">
-        <div className="text-sm text-lol-text text-center">Loading...</div>
+        <div className="text-sm text-lol-text text-center">{t("common.loading")}</div>
       </td>
     );
   }
@@ -69,7 +71,9 @@ function ChampionExpanded({
       <div className="grid grid-cols-3 gap-6">
         {/* Augments */}
         <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Augments</h3>
+          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">
+            {t("champions.topAugments")}
+          </h3>
           <div className="space-y-1">
             {topAugments.length > 0 ? (
               topAugments.map((a) => (
@@ -78,7 +82,7 @@ function ChampionExpanded({
                     <AugmentIcon augmentId={a.augment_id} />
                   </div>
                   <span className="text-xs text-lol-text-bright truncate min-w-0">
-                    {augData[a.augment_id]?.name ?? `Augment ${a.augment_id}`}
+                    {augData[a.augment_id]?.name ?? t("champions.augmentId", { id: a.augment_id })}
                   </span>
                   <span className="text-[11px] text-lol-text shrink-0 ml-auto">{a.picks}x</span>
                   <div className="shrink-0">
@@ -87,14 +91,16 @@ function ChampionExpanded({
                 </div>
               ))
             ) : (
-              <span className="text-xs text-lol-text">No data</span>
+              <span className="text-xs text-lol-text">{t("champions.noData")}</span>
             )}
           </div>
         </div>
 
         {/* Items */}
         <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Items</h3>
+          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">
+            {t("champions.topItems")}
+          </h3>
           <div className="space-y-1">
             {topItems.length > 0 ? (
               topItems.map((item) => (
@@ -109,14 +115,16 @@ function ChampionExpanded({
                 </div>
               ))
             ) : (
-              <span className="text-xs text-lol-text">No data</span>
+              <span className="text-xs text-lol-text">{t("champions.noData")}</span>
             )}
           </div>
         </div>
 
         {/* Recent Games */}
         <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Recent Games</h3>
+          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">
+            {t("champions.recentGames")}
+          </h3>
           <div className="space-y-1">
             {matches.length > 0 ? (
               matches.map((m) => (
@@ -133,7 +141,7 @@ function ChampionExpanded({
                   <span
                     className={`font-bold shrink-0 w-4 text-center ${m.is_remake ? "text-gray-500" : m.win ? "text-lol-win" : "text-lol-loss"}`}
                   >
-                    {m.is_remake ? "-" : m.win ? "W" : "L"}
+                    {m.is_remake ? "-" : m.win ? t("common.w") : t("common.l")}
                   </span>
                   <span className="text-lol-text-bright shrink-0">
                     {formatKDA(m.kills, m.deaths, m.assists)}
@@ -150,7 +158,7 @@ function ChampionExpanded({
                 </div>
               ))
             ) : (
-              <span className="text-xs text-lol-text">No games</span>
+              <span className="text-xs text-lol-text">{t("common.noGames")}</span>
             )}
           </div>
         </div>
@@ -160,6 +168,7 @@ function ChampionExpanded({
 }
 
 export default function Champions() {
+  const t = useT();
   const champData = useChampionData();
   const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
   const [queue, setQueue] = useQueueSelection();
@@ -217,13 +226,13 @@ export default function Champions() {
   }, [data, search, sortKey, sortDir, champData]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Champions</h1>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("champions.title")}</h1>
         <div className="flex items-center gap-2">
           <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={setPatch} />
@@ -232,7 +241,7 @@ export default function Champions() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search champion..."
+              placeholder={t("champions.search")}
               className="input w-48 pr-7"
             />
             {search && (
@@ -266,19 +275,19 @@ export default function Champions() {
                 #
               </th>
               <th className="px-2 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap">
-                Champion
+                {t("champions.champion")}
               </th>
-              <SortHeader {...sort} compact label="Games" field="games" />
-              <SortHeader {...sort} compact label="Win %" field="wins" />
+              <SortHeader {...sort} compact label={t("champions.games")} field="games" />
+              <SortHeader {...sort} compact label={t("champions.winPct")} field="wins" />
               <SortHeader {...sort} compact label="K" field="avg_kills" />
               <SortHeader {...sort} compact label="D" field="avg_deaths" />
               <SortHeader {...sort} compact label="A" field="avg_assists" />
-              <SortHeader {...sort} compact label="KDA" field="kda" />
-              <SortHeader {...sort} compact label="Score" field="avg_score" />
+              <SortHeader {...sort} compact label={t("live.kda")} field="kda" />
+              <SortHeader {...sort} compact label={t("scoreboard.score")} field="avg_score" />
               <SortHeader {...sort} compact label="MVP / ACE" field="badges" />
-              <SortHeader {...sort} compact label="Dmg" field="avg_damage" />
-              <SortHeader {...sort} compact label="Gold" field="avg_gold" />
-              <SortHeader {...sort} compact label="Multikills" field="multikills" />
+              <SortHeader {...sort} compact label={t("champions.dmg")} field="avg_damage" />
+              <SortHeader {...sort} compact label={t("recap.gold")} field="avg_gold" />
+              <SortHeader {...sort} compact label={t("history.multikills")} field="multikills" />
             </tr>
           </thead>
           <tbody>
@@ -368,7 +377,7 @@ export default function Champions() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+          <div className="py-8 text-center text-sm text-lol-text">{t("champions.none")}</div>
         )}
       </div>
     </div>

@@ -5,6 +5,7 @@ import { formatDuration, kdaRatio, winRateColor } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
+import { useT } from "../lib/i18n";
 
 const GRID_COLS = "grid-cols-[44px_minmax(90px,1fr)_34px_72px_44px_minmax(176px,auto)_108px]";
 
@@ -39,6 +40,7 @@ function LiveTeam({
   players: LivePlayer[];
   champData: ChampionData;
 }) {
+  const t = useT();
   const ours = players.some((p) => p.isSelf);
   const kills = players.reduce((sum, p) => sum + p.kills, 0);
   const deaths = players.reduce((sum, p) => sum + p.deaths, 0);
@@ -53,19 +55,19 @@ function LiveTeam({
       >
         <span className={`text-xs font-bold ${ours ? "text-lol-win" : "text-lol-loss"}`}>
           {teamId === 100
-            ? "Blue Team"
+            ? t("live.blueTeam")
             : teamId === 200
-              ? "Red Team"
+              ? t("live.redTeam")
               : teamId > 0
-                ? `Equipo ${teamId}`
-                : "Equipo sin identificar"}
-          {ours && <span className="text-lol-text font-normal"> · yours</span>}
+                ? t("live.teamN", { n: teamId })
+                : t("live.teamUnknown")}
+          {ours && <span className="text-lol-text font-normal">{t("live.yours")}</span>}
         </span>
         <span className="ml-auto text-[11px] text-lol-text">
           <span className="text-lol-text-bright font-medium">
             {kills} / {deaths} / {assists}
           </span>{" "}
-          team KDA
+          {t("live.teamKda")}
         </span>
       </div>
 
@@ -73,12 +75,12 @@ function LiveTeam({
         className={`px-3 py-1 border-b border-lol-border/50 grid ${GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
       >
         <span />
-        <span>Player</span>
-        <span className="text-center">Lvl</span>
-        <span className="text-center">KDA</span>
-        <span className="text-center">CS</span>
-        <span>Items</span>
-        <span className="text-right">On this champ</span>
+        <span>{t("live.player")}</span>
+        <span className="text-center">{t("live.lvl")}</span>
+        <span className="text-center">{t("live.kda")}</span>
+        <span className="text-center">{t("live.cs")}</span>
+        <span>{t("live.items")}</span>
+        <span className="text-right">{t("live.onThisChamp")}</span>
       </div>
 
       {players.map((player) => (
@@ -89,6 +91,7 @@ function LiveTeam({
 }
 
 function LivePlayerRow({ player, champData }: { player: LivePlayer; champData: ChampionData }) {
+  const t = useT();
   const championName =
     player.championId > 0 ? getChampionName(champData, player.championId) : player.championName;
 
@@ -124,7 +127,7 @@ function LivePlayerRow({ player, champData }: { player: LivePlayer; champData: C
             <Link
               to={`/friends/${encodeURIComponent(player.friendKey)}`}
               className="hover:text-lol-gold transition-colors"
-              title={`${player.gamesWithUs} games on your team`}
+              title={t("live.gamesOnTeam", { count: player.gamesWithUs })}
             >
               {player.name}
             </Link>
@@ -166,11 +169,12 @@ function LivePlayerRow({ player, champData }: { player: LivePlayer; champData: C
 // than it is a record. It earns its column on the handful of rows where the
 // person on the other side of the bridge is someone we have notes on.
 function ChampionRecordCell({ player }: { player: LivePlayer }) {
+  const t = useT();
   const record = player.championRecord;
 
   if (!record || record.games === 0) {
     return (
-      <div className="text-right text-[11px] text-lol-text/40" title="No games on record">
+      <div className="text-right text-[11px] text-lol-text/40" title={t("live.noRecord")}>
         -
       </div>
     );
@@ -184,16 +188,18 @@ function ChampionRecordCell({ player }: { player: LivePlayer }) {
       className="text-right"
       title={
         seen
-          ? `${seen.games} games seen on any champion` +
-            (player.gamesWithUs > 0 ? `, ${player.gamesWithUs} on your team` : "")
+          ? t("live.seen", { count: seen.games }) +
+            (player.gamesWithUs > 0 ? t("live.seenWithUs", { count: player.gamesWithUs }) : "")
           : undefined
       }
     >
       <div className={`text-[11px] font-medium ${winRateColor(record.wins, record.games)}`}>
-        {record.wins}W {losses}L
+        {record.wins}
+        {t("common.w")} {losses}
+        {t("common.l")}
       </div>
       <div className="text-[10px] text-lol-text">
-        {kdaRatio(record.kills, record.deaths, record.assists)} KDA
+        {t("recap.kda", { ratio: kdaRatio(record.kills, record.deaths, record.assists) })}
       </div>
     </div>
   );
@@ -208,10 +214,9 @@ const EVENT_TONES: Record<LiveEvent["tone"], string> = {
 // Newest at the top, because the interesting one is always the one that just
 // happened.
 export function LiveEventFeed({ events }: { events: LiveEvent[] }) {
+  const t = useT();
   if (events.length === 0) {
-    return (
-      <div className="text-[11px] text-lol-text text-center py-6">Nothing has happened yet.</div>
-    );
+    return <div className="text-[11px] text-lol-text text-center py-6">{t("live.nothingYet")}</div>;
   }
 
   return (

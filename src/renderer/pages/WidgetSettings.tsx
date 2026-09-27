@@ -3,12 +3,14 @@ import { useEffect, useState } from "react";
 import type { MatchFilterOptions } from "../../shared/api";
 import type { WidgetState, WidgetPreferences } from "../../shared/widget";
 import { queueLabel } from "../components/QueueSelect";
+import { useT } from "../lib/i18n";
 
 export default function WidgetSettings() {
   const [state, setState] = useState<WidgetState | null>(null);
   const [options, setOptions] = useState<MatchFilterOptions | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const t = useT();
   useEffect(() => {
     let active = true;
     const refresh = () =>
@@ -35,11 +37,7 @@ export default function WidgetSettings() {
     try {
       setState(await action());
     } catch (err) {
-      setError(
-        String(err).includes("EADDRINUSE")
-          ? "El puerto local 4123 está ocupado. Cierra el widget antiguo u otra aplicación que lo utilice y vuelve a intentarlo."
-          : String(err),
-      );
+      setError(String(err).includes("EADDRINUSE") ? t("widget.portBusy") : String(err));
     } finally {
       setBusy(false);
     }
@@ -50,11 +48,8 @@ export default function WidgetSettings() {
   return (
     <div className="p-6 max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-lol-text-bright">Widget / OBS</h1>
-        <p className="mt-2">
-          Tu historial en una ventana compacta o como fuente de OBS. Los datos se actualizan cada
-          cinco segundos desde esta aplicación.
-        </p>
+        <h1 className="text-2xl font-bold text-lol-text-bright">{t("widget.title")}</h1>
+        <p className="mt-2">{t("widget.intro")}</p>
       </div>
       {error && (
         <p role="alert" className="text-lol-loss">
@@ -62,38 +57,38 @@ export default function WidgetSettings() {
         </p>
       )}
       {!state ? (
-        <p>Cargando configuración…</p>
+        <p>{t("widget.loading")}</p>
       ) : (
         <>
           <section className="p-5 rounded-lg border border-lol-border space-y-4">
-            <h2 className="text-lg font-semibold text-lol-text-bright">Historial mostrado</h2>
+            <h2 className="text-lg font-semibold text-lol-text-bright">
+              {t("widget.historyShown")}
+            </h2>
             <div className="flex flex-wrap gap-4">
               <label>
-                Cuenta
+                {t("widget.account")}
                 <br />
                 <select
                   className="select mt-2"
-                  aria-label="Cuenta del widget"
+                  aria-label={t("widget.accountAria")}
                   disabled={busy || !options?.accounts.length}
                   value={state.preferences.account}
                   onChange={(e) => select({ account: e.target.value })}
                 >
-                  {!options?.accounts.length && (
-                    <option value="">Abre LoL o importa un historial</option>
-                  )}
+                  {!options?.accounts.length && <option value="">{t("widget.openLol")}</option>}
                   {options?.accounts.map((a) => (
                     <option key={a.puuid} value={a.puuid}>
-                      {a.name ?? "Cuenta sin nombre"}
+                      {a.name ?? t("widget.unnamedAccount")}
                     </option>
                   ))}
                 </select>
               </label>
               <label>
-                Cola
+                {t("widget.queue")}
                 <br />
                 <select
                   className="select mt-2"
-                  aria-label="Cola del widget"
+                  aria-label={t("widget.queueAria")}
                   disabled={busy || !options?.accounts.length}
                   value={state.preferences.queue ?? ""}
                   onChange={(e) =>
@@ -108,18 +103,13 @@ export default function WidgetSettings() {
                 </select>
               </label>
             </div>
-            <p className="text-sm">
-              Muestra las últimas 15 partidas. El porcentaje se calcula con el historial almacenado
-              de la cuenta y cola seleccionadas, excluyendo remakes. No garantiza todas las partidas
-              jugadas. La cola seleccionada filtra el historial de LoL disponible; TFT no está
-              incluido.
-            </p>
+            <p className="text-sm">{t("widget.historyNote")}</p>
           </section>
           <section className="p-5 rounded-lg border border-lol-border space-y-3">
-            <h2 className="text-lg font-semibold text-lol-text-bright">Escritorio</h2>
+            <h2 className="text-lg font-semibold text-lol-text-bright">{t("widget.desktop")}</h2>
             <div className="flex flex-wrap gap-4">
               <label>
-                Altura del widget
+                {t("widget.height")}
                 <select
                   className="select block mt-2"
                   disabled={busy}
@@ -134,7 +124,7 @@ export default function WidgetSettings() {
                 </select>
               </label>
               <label>
-                Opacidad del widget
+                {t("widget.opacity")}
                 <select
                   className="select block mt-2"
                   disabled={busy}
@@ -149,39 +139,31 @@ export default function WidgetSettings() {
                 </select>
               </label>
             </div>
-            <p className="text-sm">
-              Se guardan automáticamente y se aplican a la ventana de escritorio. El ancho se
-              mantiene en 360 px. La opacidad afecta también al texto y los iconos.
-            </p>
-            <p>
-              Arrastra la cabecera para moverlo. Cerrar el widget mantiene abierta la aplicación.
-            </p>
+            <p className="text-sm">{t("widget.desktopNote")}</p>
+            <p>{t("widget.dragNote")}</p>
             <button
               className="px-4 py-2 rounded bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={busy}
               onClick={() => void run(() => window.api.openWidget())}
             >
-              Abrir widget
+              {t("widget.open")}
             </button>
           </section>
           <section className="p-5 rounded-lg border border-lol-border space-y-3">
-            <h2 className="text-lg font-semibold text-lol-text-bright">OBS en este ordenador</h2>
-            <p>
-              Activa la fuente y pega su dirección en una fuente Navegador de OBS: ancho 360 y alto
-              560. Mantén League Companion abierto.
-            </p>
+            <h2 className="text-lg font-semibold text-lol-text-bright">{t("widget.obs")}</h2>
+            <p>{t("widget.obsNote")}</p>
             <button
               className="px-4 py-2 rounded bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={busy}
               onClick={() => void run(() => window.api.setObsEnabled(!state.obsUrl))}
             >
-              {state.obsUrl ? "Detener fuente OBS" : "Activar fuente OBS"}
+              {state.obsUrl ? t("widget.stopObs") : t("widget.startObs")}
             </button>
             {state.obsUrl && (
               <label className="block">
-                Dirección de la fuente
+                {t("widget.sourceAddress")}
                 <input
-                  aria-label="Dirección OBS"
+                  aria-label={t("widget.obsAria")}
                   readOnly
                   value={state.obsUrl}
                   onFocus={(e) => e.target.select()}
@@ -189,10 +171,7 @@ export default function WidgetSettings() {
                 />
               </label>
             )}
-            <p className="text-sm">
-              Solo es accesible desde este PC. No requiere abrir puertos en el router. Se desactiva
-              al salir de la aplicación.
-            </p>
+            <p className="text-sm">{t("widget.obsPrivacy")}</p>
           </section>
         </>
       )}

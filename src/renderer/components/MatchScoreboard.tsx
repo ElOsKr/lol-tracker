@@ -17,6 +17,8 @@ import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 import MultikillBadge from "./MultikillBadge";
 import { ScoreBadge } from "./ScoreCell";
+import { useT, type Translate } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
 
 const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px]";
 // An eleventh column is only affordable where the rows are laid out wider than
@@ -37,6 +39,7 @@ export default function MatchScoreboard({
   // Off by default: only a caller that knows its rows are wide should ask
   multikills?: boolean;
 }) {
+  const t = useT();
   const participants = useMemo(
     () =>
       parseParticipants(detail.participants, puuids).map((p) => ({
@@ -69,9 +72,7 @@ export default function MatchScoreboard({
   }, [participants]);
 
   if (participants.length === 0) {
-    return (
-      <div className="text-sm text-lol-text text-center py-4">Full game data not available.</div>
-    );
+    return <div className="text-sm text-lol-text text-center py-4">{t("scoreboard.noData")}</div>;
   }
 
   return (
@@ -109,6 +110,7 @@ function TeamScoreboard({
   patch?: string | null;
   multikills: boolean;
 }) {
+  const t = useT();
   const isWin = players[0]?.win ?? false;
   const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
 
@@ -122,33 +124,43 @@ function TeamScoreboard({
         className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
       >
         <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
-          Equipo{" "}
-          {teamId === 100 ? "1" : teamId === 200 ? "2" : teamId > 0 ? teamId : "sin identificar"} —{" "}
-          {players[0]?.placement ? `Puesto ${players[0].placement}` : isWin ? "Victory" : "Defeat"}
+          {teamId === 100
+            ? t("live.teamN", { n: 1 })
+            : teamId === 200
+              ? t("live.teamN", { n: 2 })
+              : teamId > 0
+                ? t("live.teamN", { n: teamId })
+                : t("live.teamUnknown")}{" "}
+          —{" "}
+          {players[0]?.placement
+            ? t("scoreboard.place", { n: players[0].placement })
+            : isWin
+              ? t("common.victory")
+              : t("common.defeat")}
         </span>
         <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <TeamStat label="Avg score">
+          <TeamStat label={t("scoreboard.avgScore")}>
             <span
               className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
             >
               {totals.avgScore != null ? totals.avgScore.toFixed(1) : "-"}
             </span>
           </TeamStat>
-          <TeamStat label="KDA">
+          <TeamStat label={t("live.kda")}>
             <span className="text-lol-text-bright">
               {formatKDA(totals.kills, totals.deaths, totals.assists)}
             </span>
           </TeamStat>
-          <TeamStat label="Damage">
+          <TeamStat label={t("recap.damage")}>
             <span className="text-red-400">{formatCompact(totals.dmg)}</span>
           </TeamStat>
-          <TeamStat label="Taken">
+          <TeamStat label={t("recap.taken")}>
             <span className="text-sky-400">{formatCompact(totals.taken)}</span>
           </TeamStat>
-          <TeamStat label="Gold">
+          <TeamStat label={t("recap.gold")}>
             <span className="text-lol-gold">{formatCompact(totals.gold)}</span>
           </TeamStat>
-          <TeamStat label="Heal">
+          <TeamStat label={t("scoreboard.heal")}>
             <span className="text-emerald-400">{formatCompact(totals.heal)}</span>
           </TeamStat>
         </div>
@@ -161,16 +173,16 @@ function TeamScoreboard({
         } gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
       >
         <span></span>
-        <span>Player</span>
-        <span className="text-center">Score</span>
-        <span className="text-center">KDA</span>
-        <span className="text-center">Damage</span>
-        <span className="text-center">Taken</span>
-        <span className="text-right">Gold</span>
-        <span className="text-right">Heal</span>
-        <span>Items</span>
-        <span>Augments</span>
-        {multikills && <span>Multis</span>}
+        <span>{t("live.player")}</span>
+        <span className="text-center">{t("scoreboard.score")}</span>
+        <span className="text-center">{t("live.kda")}</span>
+        <span className="text-center">{t("recap.damage")}</span>
+        <span className="text-center">{t("recap.taken")}</span>
+        <span className="text-right">{t("recap.gold")}</span>
+        <span className="text-right">{t("scoreboard.heal")}</span>
+        <span>{t("live.items")}</span>
+        <span>{t("scoreboard.augments")}</span>
+        {multikills && <span>{t("scoreboard.multis")}</span>}
       </div>
 
       {/* Player rows */}
@@ -257,6 +269,7 @@ function PlayerRow({
   patch?: string | null;
   multikills: boolean;
 }) {
+  const t = useT();
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
 
   return (
@@ -284,7 +297,7 @@ function PlayerRow({
         <div className="text-[10px] text-lol-text truncate">
           {getChampionName(champData, p.championId)}
           {p.cs != null && ` · ${p.cs} CS`}
-          {p.vision != null && ` · Visión ${p.vision}`}
+          {p.vision != null && ` · ${t("scoreboard.vision", { count: p.vision })}`}
           {p.position && ` · ${p.position}`}
         </div>
       </div>
@@ -369,20 +382,22 @@ function ScoreCell({ score }: { score?: ScoreBreakdown }) {
   );
 }
 
-const COMPONENT_LABELS: Record<ScoreComponentKey, string> = {
-  kda: "KDA",
-  kp: "Kill participation",
-  dmg: "Damage dealt",
-  taken: "Damage taken",
-  heal: "Healing",
-  gold: "Gold earned",
+const COMPONENT_LABELS: Record<ScoreComponentKey, TranslationKey> = {
+  kda: "score.kda",
+  kp: "score.kp",
+  dmg: "score.dmg",
+  taken: "score.taken",
+  heal: "score.heal",
+  gold: "score.gold",
 };
 
 // How the player's stat and its full-credit reference read in the tooltip:
 // kda/kp are graded against fixed caps, the rest against the lobby's best.
-function componentValue(c: ScoreComponent): string {
-  if (c.key === "kda") return `${c.value.toFixed(1)} (full at 8)`;
-  if (c.key === "kp") return `${Math.round(c.value * 100)}% (full at 90%)`;
+function componentValue(c: ScoreComponent, t: Translate): string {
+  if (c.key === "kda") return t("score.fullAt", { value: c.value.toFixed(1), cap: "8" });
+  if (c.key === "kp") {
+    return t("score.fullAt", { value: `${Math.round(c.value * 100)}%`, cap: "90%" });
+  }
   return `${formatCompact(c.value)} / ${formatCompact(c.reference)}`;
 }
 
@@ -393,6 +408,7 @@ function ScoreBreakdownTooltip({
   breakdown: ScoreBreakdown;
   anchor: DOMRect;
 }) {
+  const t = useT();
   const rows =
     breakdown.components.length +
     (breakdown.multikill ? 1 : 0) +
@@ -415,16 +431,18 @@ function ScoreBreakdownTooltip({
       style={{ left, top, width }}
     >
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-xs font-semibold text-lol-text-bright">Score breakdown</span>
+        <span className="text-xs font-semibold text-lol-text-bright">{t("score.breakdown")}</span>
         <span className="text-[10px] text-lol-text">
-          {breakdown.cls ? `${breakdown.cls} weights` : "Standard weights"}
+          {breakdown.cls
+            ? t("score.classWeights", { cls: breakdown.cls })
+            : t("score.standardWeights")}
         </span>
       </div>
       {breakdown.components.map((c) => (
         <div key={c.key} className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
           <span className="text-[11px] text-lol-text truncate">
-            {COMPONENT_LABELS[c.key]}
-            <span className="ml-1.5 text-[10px] text-lol-text/70">{componentValue(c)}</span>
+            {t(COMPONENT_LABELS[c.key])}
+            <span className="ml-1.5 text-[10px] text-lol-text/70">{componentValue(c, t)}</span>
           </span>
           <span className="text-[11px] tabular-nums text-lol-text-bright">
             {c.points.toFixed(1)}
@@ -434,7 +452,9 @@ function ScoreBreakdownTooltip({
       ))}
       {breakdown.multikill && (
         <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
-          <span className="text-[11px] text-lol-text">{breakdown.multikill.label} bonus</span>
+          <span className="text-[11px] text-lol-text">
+            {t("score.multikillBonus", { label: breakdown.multikill.label })}
+          </span>
           <span className="text-[11px] tabular-nums text-lol-text-bright">
             +{breakdown.multikill.points.toFixed(1)}
           </span>
@@ -443,9 +463,9 @@ function ScoreBreakdownTooltip({
       {breakdown.carry && (
         <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
           <span className="text-[11px] text-lol-text">
-            Carry bonus
+            {t("score.carryBonus")}
             <span className="ml-1.5 text-[10px] text-lol-text/70">
-              {breakdown.carry.lead.toFixed(2)}× next best
+              {t("score.nextBest", { lead: breakdown.carry.lead.toFixed(2) })}
             </span>
           </span>
           <span className="text-[11px] tabular-nums text-lol-text-bright">
@@ -455,7 +475,7 @@ function ScoreBreakdownTooltip({
       )}
       {breakdown.win > 0 && (
         <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
-          <span className="text-[11px] text-lol-text">Victory bonus</span>
+          <span className="text-[11px] text-lol-text">{t("score.victoryBonus")}</span>
           <span className="text-[11px] tabular-nums text-lol-text-bright">
             +{breakdown.win.toFixed(1)}
           </span>
@@ -463,9 +483,11 @@ function ScoreBreakdownTooltip({
       )}
       <div className="mt-1 pt-1 border-t border-lol-border/50 grid grid-cols-[1fr_auto] gap-2 items-baseline">
         <span className="text-[11px] font-medium text-lol-text-bright">
-          Total
+          {t("score.total")}
           {clamped
-            ? ` ${breakdown.raw.toFixed(2)}, ${breakdown.raw > 10 ? "capped" : "floored"} at`
+            ? t(breakdown.raw > 10 ? "score.capped" : "score.floored", {
+                raw: breakdown.raw.toFixed(2),
+              })
             : ""}
         </span>
         <span className={`text-xs font-semibold tabular-nums ${scoreColor(breakdown.score)}`}>
