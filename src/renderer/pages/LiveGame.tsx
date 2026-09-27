@@ -12,6 +12,7 @@ import type {
 import { TRACKED_QUEUE_IDS } from "../../shared/queues";
 import { formatDuration } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
+import { useT } from "../lib/i18n";
 import GameRecap from "../components/GameRecap";
 import LiveScoreboard, { LiveEventFeed } from "../components/LiveScoreboard";
 import { MapPinIcon, RadioIcon, SwordsIcon } from "../components/icons";
@@ -41,6 +42,7 @@ export default function LiveGame() {
   const status = useLcuStatus();
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
+  const t = useT();
 
   useEffect(() => {
     window.api.getAllSummonerPuuids().then(setPuuids);
@@ -57,14 +59,16 @@ export default function LiveGame() {
   }, [snapshot]);
 
   // Nothing has been asked yet, as opposed to asked and answered with no game
-  if (!snapshot) return <div className="mt-20 text-center text-lol-text">Loading...</div>;
+  if (!snapshot)
+    return <div className="mt-20 text-center text-lol-text">{t("common.loading")}</div>;
 
   if ((snapshot.inGame || snapshot.starting) && snapshot.queueId !== queue) {
     return (
       <div className="p-6">
-        La partida actual pertenece a{" "}
-        {snapshot.queueId == null ? "una cola sin identificar" : queueLabel(snapshot.queueId)}.
-        Estás viendo {queueLabel(queue)}.
+        {t("live.otherQueue", {
+          queue: snapshot.queueId == null ? t("live.unknownQueue") : queueLabel(snapshot.queueId),
+          viewing: queueLabel(queue),
+        })}
         {snapshot.queueId != null && TRACKED_QUEUE_IDS.includes(snapshot.queueId) && (
           <button
             className="btn-secondary ml-3"
@@ -72,7 +76,7 @@ export default function LiveGame() {
               void setQueue(snapshot.queueId!);
             }}
           >
-            Ver esta cola
+            {t("live.viewQueue")}
           </button>
         )}
       </div>
@@ -114,6 +118,7 @@ function LiveView({
     return () => clearInterval(timer);
   }, []);
   const elapsed = snapshot.gameTime + Math.max(0, Math.floor((Date.now() - receivedAt) / 1000));
+  const t = useT();
 
   const teamKills = useMemo(() => {
     const totals = { 100: 0, 200: 0 } as Record<number, number>;
@@ -126,7 +131,7 @@ function LiveView({
       <div className="max-w-7xl space-y-4">
         <LiveHeader snapshot={snapshot} elapsed={0} teamKills={teamKills} />
         <div className="rounded-xl border border-lol-border/60 bg-lol-card p-10 text-center text-sm text-lol-text">
-          The game is loading. Champions, items and scores appear as soon as it starts.
+          {t("live.loadingGame")}
         </div>
       </div>
     );
@@ -142,7 +147,7 @@ function LiveView({
         <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
           <div className="mb-2 flex items-baseline gap-2">
             <SwordsIcon className="h-3.5 w-3.5 text-lol-text" />
-            <span className="text-sm font-semibold text-lol-text-bright">Feed</span>
+            <span className="text-sm font-semibold text-lol-text-bright">{t("live.feed")}</span>
           </div>
           <LiveEventFeed events={snapshot.events} />
         </div>
@@ -160,6 +165,7 @@ function LiveHeader({
   elapsed: number;
   teamKills: Record<number, number>;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-lol-border/60 bg-lol-card px-4 py-3">
       <span className="flex items-center gap-2 text-sm font-bold text-lol-text-bright">
@@ -167,7 +173,7 @@ function LiveHeader({
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lol-loss opacity-75" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-lol-loss" />
         </span>
-        {snapshot.inGame ? "Live" : "Starting"}
+        {snapshot.inGame ? t("live.live") : t("live.starting")}
       </span>
 
       {snapshot.mapName && (
@@ -184,7 +190,7 @@ function LiveHeader({
         {snapshot.inGame && snapshot.players.every((p) => p.teamId === 100 || p.teamId === 200) && (
           <span className="text-sm font-semibold">
             <span className="text-sky-400">{teamKills[100] ?? 0}</span>
-            <span className="mx-1.5 text-lol-text/40">vs</span>
+            <span className="mx-1.5 text-lol-text/40">{t("live.vs")}</span>
             <span className="text-lol-loss">{teamKills[200] ?? 0}</span>
           </span>
         )}
@@ -215,6 +221,7 @@ function RecapView({
   // Set when a game finished but its results never turned up, so the page can
   // say why it is showing an older one
   const [gaveUp, setGaveUp] = useState(false);
+  const t = useT();
 
   const resolved = target == null ? recap != null : recap?.detail.game.game_id === target;
 
@@ -274,10 +281,8 @@ function RecapView({
     return (
       <div className="max-w-7xl space-y-4">
         <div className="rounded-xl border border-lol-border/60 bg-lol-card p-10 text-center">
-          <div className="text-sm text-lol-text-bright">Game over. Fetching the results...</div>
-          <div className="mt-1 text-[11px] text-lol-text">
-            The client publishes the scoreboard a few seconds after the nexus falls.
-          </div>
+          <div className="text-sm text-lol-text-bright">{t("live.gameOver")}</div>
+          <div className="mt-1 text-[11px] text-lol-text">{t("live.publishes")}</div>
         </div>
         {recap && (
           <GameRecap
@@ -286,7 +291,7 @@ function RecapView({
             puuids={puuids}
             heading={
               <RecapHeading recap={recap} exporting={exporting}>
-                <span className="text-xs text-lol-text">Meanwhile, the game before it:</span>
+                <span className="text-xs text-lol-text">{t("live.meanwhile")}</span>
               </RecapHeading>
             }
           />
@@ -297,16 +302,14 @@ function RecapView({
   }
 
   if (loading && !recap) {
-    return <div className="mt-20 text-center text-lol-text">Loading...</div>;
+    return <div className="mt-20 text-center text-lol-text">{t("common.loading")}</div>;
   }
 
   if (!recap) {
     return (
       <div className="max-w-7xl">
         <div className="rounded-xl border border-lol-border/60 bg-lol-card py-16 text-center text-sm text-lol-text">
-          {status === "disconnected"
-            ? "Start the League client and this tab follows your next game live."
-            : "No recorded games yet. Play a Mayhem game and it shows up here the moment it ends."}
+          {status === "disconnected" ? t("live.startClient") : t("live.noGames")}
         </div>
       </div>
     );
@@ -322,9 +325,7 @@ function RecapView({
           <RecapHeading recap={recap} exporting={exporting}>
             <RadioIcon className="h-3.5 w-3.5 text-lol-text" />
             <span className="text-xs text-lol-text">
-              {gaveUp
-                ? "That game never produced results, so here is your most recent recorded one."
-                : "Your most recent game. This tab switches to a live scoreboard when the next one starts."}
+              {gaveUp ? t("live.gaveUp") : t("live.recent")}
             </span>
           </RecapHeading>
         }

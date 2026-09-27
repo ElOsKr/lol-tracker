@@ -10,11 +10,13 @@ import SummonerIcon from "../components/SummonerIcon";
 import WinRateBar from "../components/WinRateBar";
 import SortHeader from "../components/SortHeader";
 import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
+import { useT } from "../lib/i18n";
 
 type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
 
 export default function Friends() {
   const navigate = useNavigate();
+  const t = useT();
   const champData = useChampionData();
   const { data, loading, refetch } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats());
   const [search, setSearch] = useViewState("friends.search", "");
@@ -56,22 +58,24 @@ export default function Friends() {
   }, [data, search, sortKey, sortDir]);
 
   if (loading || !data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
   return (
     <div className="max-w-7xl space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-lol-text-bright">Friends</h1>
-          <span className="text-sm text-lol-text">{sorted.length} players · 2+ games together</span>
+          <h1 className="text-xl font-bold text-lol-text-bright">{t("friends.title")}</h1>
+          <span className="text-sm text-lol-text">
+            {t("friends.count", { count: sorted.length })}
+          </span>
         </div>
         <div className="relative">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search player..."
+            placeholder={t("friends.search")}
             className="input w-48 pr-7"
           />
           {search && (
@@ -104,15 +108,15 @@ export default function Friends() {
                 #
               </th>
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                Player
+                {t("friends.player")}
               </th>
-              <SortHeader {...sort} label="Games" field="games" />
-              <SortHeader {...sort} label="Win Rate" field="winRate" />
-              <SortHeader {...sort} label="Their KDA" field="kda" />
+              <SortHeader {...sort} label={t("friends.games")} field="games" />
+              <SortHeader {...sort} label={t("friends.winRate")} field="winRate" />
+              <SortHeader {...sort} label={t("friends.theirKda")} field="kda" />
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                Top Champions
+                {t("friends.topChampions")}
               </th>
-              <SortHeader {...sort} label="Last Played" field="lastPlayed" />
+              <SortHeader {...sort} label={t("friends.lastPlayed")} field="lastPlayed" />
             </tr>
           </thead>
           <tbody>
@@ -168,7 +172,7 @@ export default function Friends() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No players found</div>
+          <div className="py-8 text-center text-sm text-lol-text">{t("friends.none")}</div>
         )}
       </div>
     </div>

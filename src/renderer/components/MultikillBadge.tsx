@@ -1,3 +1,5 @@
+import { useT } from "../lib/i18n";
+
 interface MultikillBadgeProps {
   doubles: number;
   triples: number;
@@ -16,26 +18,47 @@ export default function MultikillBadge({
   pentas,
   compact = false,
 }: MultikillBadgeProps) {
-  const badges: { label: string; count: number; color: string }[] = [];
+  const t = useT();
+  const badges: { label: string; title: string; count: number; color: string }[] = [];
 
   if (doubles > 0)
-    badges.push({ label: "DOUBLE", count: doubles, color: "bg-sky-500/20 text-sky-400" });
+    badges.push({
+      label: t("multikill.double"),
+      title: t("multikill.doubleKill"),
+      count: doubles,
+      color: "bg-sky-500/20 text-sky-400",
+    });
   if (triples > 0)
-    badges.push({ label: "TRIPLE", count: triples, color: "bg-amber-500/20 text-amber-400" });
+    badges.push({
+      label: t("multikill.triple"),
+      title: t("multikill.tripleKill"),
+      count: triples,
+      color: "bg-amber-500/20 text-amber-400",
+    });
   if (quadras > 0)
-    badges.push({ label: "QUADRA", count: quadras, color: "bg-purple-500/20 text-purple-400" });
+    badges.push({
+      label: t("multikill.quadra"),
+      title: t("multikill.quadraKill"),
+      count: quadras,
+      color: "bg-purple-500/20 text-purple-400",
+    });
   if (pentas > 0)
-    badges.push({ label: "PENTA", count: pentas, color: "bg-red-500/20 text-red-400" });
+    badges.push({
+      label: t("multikill.penta"),
+      title: t("multikill.pentaKill"),
+      count: pentas,
+      color: "bg-red-500/20 text-red-400",
+    });
 
   if (badges.length === 0) return null;
 
   if (compact) {
     return (
       <div className="flex gap-1">
-        {badges.map(({ label, count, color }) => (
+        {badges.map(({ label, title, count, color }) => (
           <span
             key={label}
-            title={`${label[0]}${label.slice(1).toLowerCase()} kill${count > 1 ? `s x${count}` : ""}`}
+            title={count > 1 ? `${title} x${count}` : title}
             className={`text-[10px] font-bold leading-none px-1 py-[3px] rounded tabular-nums ${color}`}
           >
             {label[0]}

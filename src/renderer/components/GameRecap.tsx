@@ -23,6 +23,7 @@ import {
   formatChallengeValue,
 } from "../lib/challenges";
 import { ordinal } from "../../shared/text";
+import { useT, type Translate } from "../lib/i18n";
 import { scoreColor } from "../../shared/opScore";
 import { queueLabel } from "./QueueSelect";
 import ChallengeToken from "./ChallengeToken";
@@ -50,6 +51,7 @@ import {
 // A stat against the average of every game on record. Small differences aren't
 // worth colouring, so anything inside a tenth of the average reads as neutral.
 function Delta({ value, average, format }: { value: number; average: number; format?: "compact" }) {
+  const t = useT();
   if (average <= 0) return null;
   const diff = value - average;
   const meaningful = Math.abs(diff) > average * 0.1;
@@ -59,8 +61,7 @@ function Delta({ value, average, format }: { value: number; average: number; for
     <span
       className={!meaningful ? "text-lol-text" : diff > 0 ? "text-lol-win" : "text-lol-loss/80"}
     >
-      {diff >= 0 ? "+" : "-"}
-      {text} vs avg
+      {t("recap.vsAvg", { sign: diff >= 0 ? "+" : "-", text })}
     </span>
   );
 }
@@ -76,6 +77,7 @@ export default function GameRecap({
   puuids: string[] | null;
   heading?: ReactNode;
 }) {
+  const t = useT();
   const { detail, career, champion, session, streak } = recap;
   const stats = detail.stats;
   const isRemake = !!detail.game.is_remake;
@@ -126,7 +128,7 @@ export default function GameRecap({
                   isRemake ? "text-lol-text" : isWin ? "text-lol-win" : "text-lol-loss"
                 }`}
               >
-                {isRemake ? "REMAKE" : isWin ? "VICTORY" : "DEFEAT"}
+                {isRemake ? t("recap.remake") : isWin ? t("recap.victory") : t("recap.defeat")}
               </span>
               {recap.scoreBadge && <ScoreBadge badge={recap.scoreBadge} large />}
             </div>
@@ -137,7 +139,7 @@ export default function GameRecap({
               <span
                 className={`ml-2 ${kdaColor(deaths === 0 ? Infinity : (kills + assists) / deaths)}`}
               >
-                {kdaRatio(kills, deaths, assists)} KDA
+                {t("recap.kda", { ratio: kdaRatio(kills, deaths, assists) })}
               </span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-lol-text">
@@ -191,7 +193,7 @@ export default function GameRecap({
 
         <div className="relative mt-4 flex flex-wrap items-start gap-4">
           <HeadlineStat
-            label="Damage"
+            label={t("recap.damage")}
             value={formatCompact(stats?.total_damage_dealt ?? 0)}
             delta={
               <Delta
@@ -202,7 +204,7 @@ export default function GameRecap({
             }
           />
           <HeadlineStat
-            label="Taken"
+            label={t("recap.taken")}
             value={formatCompact(stats?.total_damage_taken ?? 0)}
             delta={
               <Delta
@@ -213,20 +215,23 @@ export default function GameRecap({
             }
           />
           <HeadlineStat
-            label="Healing"
+            label={t("recap.healing")}
             value={formatCompact(stats?.total_heal ?? 0)}
             delta={
               <Delta value={stats?.total_heal ?? 0} average={career.avgHeal} format="compact" />
             }
           />
           <HeadlineStat
-            label="Gold"
+            label={t("recap.gold")}
             value={formatCompact(stats?.gold_earned ?? 0)}
             delta={
               <Delta value={stats?.gold_earned ?? 0} average={career.avgGold} format="compact" />
             }
           />
-          <HeadlineStat label="Best spree" value={String(stats?.largest_killing_spree ?? 0)} />
+          <HeadlineStat
+            label={t("recap.bestSpree")}
+            value={String(stats?.largest_killing_spree ?? 0)}
+          />
           <div className="ml-auto self-center">
             <MultikillBadge
               doubles={stats?.double_kills ?? 0}
@@ -258,8 +263,8 @@ export default function GameRecap({
 
       {recap.placements.length > 0 && (
         <Panel
-          title="Where it lands"
-          subtitle={`among ${career.games.toLocaleString()} recorded games`}
+          title={t("recap.whereItLands")}
+          subtitle={t("recap.among", { count: career.games.toLocaleString() })}
           icon={<MedalIcon className="h-3 w-3" />}
           accent="gold"
         >
@@ -273,8 +278,8 @@ export default function GameRecap({
 
       {recap.challenges.length > 0 && (
         <Panel
-          title="Challenge progress"
-          subtitle={`${recap.challenges.length} moved by this game`}
+          title={t("recap.challengeProgress")}
+          subtitle={t("recap.movedBy", { count: recap.challenges.length })}
           icon={<AwardIcon className="h-3 w-3" />}
           accent="purple"
         >
@@ -288,8 +293,8 @@ export default function GameRecap({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Panel
-          title="This session"
-          subtitle={sessionSubtitle(session.games.length, session.duration)}
+          title={t("recap.thisSession")}
+          subtitle={sessionSubtitle(t, session.games.length, session.duration)}
           icon={<TimerIcon className="h-3 w-3" />}
           accent="sky"
         >
@@ -300,7 +305,9 @@ export default function GameRecap({
                 <span className="text-lol-loss/70">{session.losses}L</span>
               </div>
               <div className="mt-1 text-[11px] text-lol-text">
-                {winRatePercent(session.wins, session.wins + session.losses)} win rate
+                {t("recap.winRate", {
+                  percent: winRatePercent(session.wins, session.wins + session.losses),
+                })}
               </div>
             </div>
             <div>
@@ -308,7 +315,9 @@ export default function GameRecap({
                 {formatKDA(session.kills, session.deaths, session.assists)}
               </div>
               <div className="text-[11px] text-lol-text">
-                {kdaRatio(session.kills, session.deaths, session.assists)} KDA
+                {t("recap.kda", {
+                  ratio: kdaRatio(session.kills, session.deaths, session.assists),
+                })}
               </div>
             </div>
             {session.avgScore != null && (
@@ -316,7 +325,7 @@ export default function GameRecap({
                 <div className={`text-sm font-semibold ${scoreColor(session.avgScore)}`}>
                   {session.avgScore.toFixed(1)}
                 </div>
-                <div className="text-[11px] text-lol-text">avg score</div>
+                <div className="text-[11px] text-lol-text">{t("recap.avgScore")}</div>
               </div>
             )}
             {streak && (
@@ -332,20 +341,23 @@ export default function GameRecap({
                       streak.kind === "win" ? "text-lol-win" : "text-lol-loss"
                     }`}
                   >
-                    {streak.length}{" "}
-                    {streak.kind === "win"
-                      ? streak.length === 1
-                        ? "win"
-                        : "wins"
-                      : streak.length === 1
-                        ? "loss"
-                        : "losses"}{" "}
-                    in a row
+                    {t(
+                      streak.kind === "win"
+                        ? streak.length === 1
+                          ? "recap.streakWin"
+                          : "recap.streakWins"
+                        : streak.length === 1
+                          ? "recap.streakLoss"
+                          : "recap.streakLosses",
+                      { count: streak.length },
+                    )}
                   </div>
                   <div className="text-[11px] text-lol-text">
                     {streak.isRecord
-                      ? `Your longest ${streak.kind} streak ever`
-                      : `${streak.kind === "win" ? "Best" : "Worst"}: ${streak.best}`}
+                      ? t(streak.kind === "win" ? "recap.longestWin" : "recap.longestLoss")
+                      : t(streak.kind === "win" ? "recap.best" : "recap.worst", {
+                          count: streak.best,
+                        })}
                   </div>
                 </div>
               </div>
@@ -357,7 +369,11 @@ export default function GameRecap({
 
         <Panel
           title={getChampionName(champData, champion.championId)}
-          subtitle={`${champion.games} ${champion.games === 1 ? "game" : "games"} on record`}
+          subtitle={
+            champion.games === 1
+              ? t("recap.gameOnRecord")
+              : t("recap.gamesOnRecord", { count: champion.games })
+          }
           icon={<SwordsIcon className="h-3 w-3" />}
           accent="purple"
         >
@@ -369,7 +385,7 @@ export default function GameRecap({
             {champion.avgScore != null && (
               <span className={`text-sm font-semibold ${scoreColor(champion.avgScore)}`}>
                 {champion.avgScore.toFixed(1)}
-                <span className="ml-1 font-normal text-lol-text">avg score</span>
+                <span className="ml-1 font-normal text-lol-text">{t("recap.avgScore")}</span>
               </span>
             )}
           </div>
@@ -377,29 +393,33 @@ export default function GameRecap({
             <WinRateBar wins={champion.wins} total={champion.games} />
           </div>
           <div className="mt-2 text-[11px] text-lol-text">
-            {formatKDA(champion.kills, champion.deaths, champion.assists)} lifetime
+            {t("recap.lifetime", {
+              kda: formatKDA(champion.kills, champion.deaths, champion.assists),
+            })}
             {champion.previousBest != null && recap.score != null && (
               <>
                 {" · "}
-                {recap.score > champion.previousBest
-                  ? `beat your previous best of ${champion.previousBest.toFixed(1)}`
-                  : `best on this champion: ${champion.previousBest.toFixed(1)}`}
+                {t(recap.score > champion.previousBest ? "recap.beatBest" : "recap.bestOnChamp", {
+                  score: champion.previousBest.toFixed(1),
+                })}
               </>
             )}
           </div>
         </Panel>
       </div>
 
-      <Panel title="Scoreboard" icon={<FlameIcon className="h-3 w-3" />} accent="gold">
+      <Panel title={t("recap.scoreboard")} icon={<FlameIcon className="h-3 w-3" />} accent="gold">
         <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
       </Panel>
     </div>
   );
 }
 
-function sessionSubtitle(games: number, duration: number): string {
-  const played = `${games} ${games === 1 ? "game" : "games"}`;
-  return duration > 0 ? `${played} · ${formatPlaytime(duration)} played` : played;
+function sessionSubtitle(t: Translate, games: number, duration: number): string {
+  const played = games === 1 ? t("recap.sessionGame") : t("recap.sessionGames", { count: games });
+  return duration > 0
+    ? `${played} · ${t("recap.played", { time: formatPlaytime(duration) })}`
+    : played;
 }
 
 function HeadlineStat({
@@ -479,6 +499,7 @@ function placementValue(placement: RecapPlacement, recap: GameRecapData): string
 }
 
 function PlacementCard({ placement, recap }: { placement: RecapPlacement; recap: GameRecapData }) {
+  const t = useT();
   const style = placement.good ? RANK_STYLES[placement.rank - 1] : undefined;
 
   return (
@@ -503,9 +524,12 @@ function PlacementCard({ placement, recap }: { placement: RecapPlacement; recap:
       >
         {placement.rank === 1
           ? placement.good
-            ? "Best ever"
-            : "Most ever"
-          : `${ordinal(placement.rank)} of ${placement.total.toLocaleString()}`}
+            ? t("recap.bestEver")
+            : t("recap.mostEver")
+          : t("recap.ordinalOf", {
+              ordinal: ordinal(placement.rank),
+              total: placement.total.toLocaleString(),
+            })}
       </div>
     </div>
   );
@@ -514,6 +538,7 @@ function PlacementCard({ placement, recap }: { placement: RecapPlacement; recap:
 // What this one game moved. The client hands over the before and after itself,
 // so the gain is exact rather than inferred from a daily snapshot.
 function ChallengeCard({ challenge }: { challenge: RecapChallenge }) {
+  const t = useT();
   const gain = challenge.currentValue - challenge.previousValue;
   const tierUp = challenge.previousLevel !== challenge.currentLevel;
 
@@ -541,15 +566,19 @@ function ChallengeCard({ challenge }: { challenge: RecapChallenge }) {
                 className="font-semibold"
                 style={{ color: CHALLENGE_LEVEL_COLORS[challenge.currentLevel] }}
               >
-                {challengeLevelName(challenge.previousLevel)} to{" "}
-                {challengeLevelName(challenge.currentLevel)}
+                {t("recap.levelTo", {
+                  from: challengeLevelName(challenge.previousLevel),
+                  to: challengeLevelName(challenge.currentLevel),
+                })}
               </span>
             ) : challenge.nextThreshold == null ? (
-              `${formatChallengeValue(challenge.currentValue)} · complete`
+              t("recap.complete", { value: formatChallengeValue(challenge.currentValue) })
             ) : (
-              `${formatChallengeValue(challenge.currentValue)} / ${formatChallengeValue(
-                challenge.nextThreshold,
-              )} to ${challengeLevelName(challenge.nextLevel)}`
+              t("recap.toLevel", {
+                value: formatChallengeValue(challenge.currentValue),
+                threshold: formatChallengeValue(challenge.nextThreshold),
+                level: challengeLevelName(challenge.nextLevel),
+              })
             )}
           </div>
         </div>
@@ -569,6 +598,7 @@ function SessionStrip({
   index: number;
   champData: ChampionData;
 }) {
+  const t = useT();
   if (games.length <= 1) return null;
 
   return (
@@ -580,7 +610,7 @@ function SessionStrip({
             game.kills,
             game.deaths,
             game.assists,
-          )}${game.score != null ? ` · ${game.score.toFixed(1)} score` : ""}`}
+          )}${game.score != null ? t("recap.scoreTitle", { score: game.score.toFixed(1) }) : ""}`}
           className={`h-6 w-6 rounded ${
             game.win ? "bg-lol-win/70" : "bg-lol-loss/60"
           } ${i === index ? "ring-2 ring-lol-gold ring-offset-1 ring-offset-lol-card" : ""}`}
