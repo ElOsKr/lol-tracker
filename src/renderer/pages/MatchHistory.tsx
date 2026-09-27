@@ -498,7 +498,7 @@ export default function MatchHistory() {
     <div className="max-w-7xl space-y-4">
       {/* Stat Cards */}
       {dashboard && dashboard.totalGames > 0 && (
-        <div className="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-4 items-stretch">
+        <div className="grid grid-cols-1 gap-4 items-stretch @xl:grid-cols-2 @5xl:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <StatCard
@@ -624,9 +624,9 @@ export default function MatchHistory() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-lol-text-bright">{t("history.title")}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {filterOptions.hasFavorites && (
             <button
               onClick={() => setFavoritesOnly((v) => !v)}
@@ -1117,12 +1117,12 @@ function GameRow({
           <SummonerSpellIcon spellId={match.spell1} size={17} />
           <SummonerSpellIcon spellId={match.spell2} size={17} />
         </div>
-        <div className="w-24 shrink-0">
+        <div className="w-20 shrink-0 @lg:w-24">
           <div className="text-sm text-lol-text-bright truncate">
             {getChampionName(champData, match.champion_id)}
           </div>
         </div>
-        <div className="w-24 shrink-0">
+        <div className="w-20 shrink-0 @lg:w-24">
           <div className="text-sm text-lol-text-bright">
             <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
           </div>
@@ -1132,26 +1132,28 @@ function GameRow({
         {/* Score — a remake is scored by nothing, so it shows none */}
         <ScoreCell score={isRemake ? null : match.score} badge={match.score_badge} />
 
-        {/* Stat bars */}
-        <StatBars
-          damage={match.total_damage_dealt}
-          taken={match.total_damage_taken}
-          heal={match.total_heal}
-          max={{
-            dmg: match.game_max_dmg,
-            taken: match.game_max_taken,
-            heal: match.game_max_heal,
-          }}
-          className="w-40"
-        />
+        {/* Stat bars: only with room to spare; the row keeps what identifies the game */}
+        <div className="hidden @4xl:block">
+          <StatBars
+            damage={match.total_damage_dealt}
+            taken={match.total_damage_taken}
+            heal={match.total_heal}
+            max={{
+              dmg: match.game_max_dmg,
+              taken: match.game_max_taken,
+              heal: match.game_max_heal,
+            }}
+            className="w-40"
+          />
+        </div>
 
         {/* Augments – reserve 3 columns so mixed-queue lists stay aligned */}
-        <div className="w-[70px] shrink-0">
+        <div className="hidden w-[70px] shrink-0 @3xl:block">
           <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
         </div>
 
         {/* Items – 3x2 grid, no trinket (slot 6) */}
-        <div className="shrink-0 grid grid-cols-3 gap-0.5">
+        <div className="hidden shrink-0 grid-cols-3 gap-0.5 @2xl:grid">
           {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
             (itemId, i) => (
               <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />
@@ -1160,12 +1162,14 @@ function GameRow({
         </div>
 
         <div className="flex-1 min-w-0">
-          <MultikillBadge
-            doubles={match.double_kills}
-            triples={match.triple_kills}
-            quadras={match.quadra_kills}
-            pentas={match.penta_kills}
-          />
+          <div className="hidden @lg:block">
+            <MultikillBadge
+              doubles={match.double_kills}
+              triples={match.triple_kills}
+              quadras={match.quadra_kills}
+              pentas={match.penta_kills}
+            />
+          </div>
         </div>
         <div className="text-xs text-lol-text text-right shrink-0">
           <div className="tabular-nums">{formatDuration(match.game_duration)}</div>
@@ -1180,7 +1184,9 @@ function GameRow({
           {detailLoading ? (
             <div className="text-sm text-lol-text text-center py-4">{t("common.loading")}</div>
           ) : detail ? (
-            <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+            <div className="overflow-x-auto">
+              <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
+            </div>
           ) : null}
         </div>
       )}
