@@ -4,16 +4,16 @@ Lista viva de lo que queremos hacer, ordenada en hitos. Cada hito se convierte e
 
 Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte a entender _tus_ partidas.** Sin Overwolf, sin anuncios, sin cuenta ni servidor.
 
-## Hito 1 — Base limpia (v0.3.0)
+## Hito 1 — Base limpia (v0.3.0) — completado el 2026-09-27
 
-| #   | Qué                                                                                                                                            | Tamaño |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 1   | **Interfaz en español.** Traducciones es/en con selector en Ajustes; idioma por defecto el del sistema. Cubre interfaz, widget y diálogos.     | M      |
-| 2   | **Pestañas configurables.** Mostrar/ocultar y reordenar las entradas de la barra lateral; elegir la pestaña de inicio. Guardado en `settings`. | S–M    |
-| 3   | **Notas de release limpias.** Filtrar el comentario HTML que GitHub antepone a las notas en el diálogo de actualización.                       | S      |
-| 4   | **Etiquetas en las PR.** Plantilla de PR y etiquetas `enhancement` / `bug` / `documentation` para que las notas de release se agrupen bien.    | S      |
-| 5   | **Limpieza del repo.** Borrar las ramas viejas ya integradas; retirar la automatización externa duplicada de novedades de upstream.            | S      |
-| 6   | **Recordar tamaño y posición de la ventana.**                                                                                                  | S      |
+| #   | Qué                                                                                                                                                     | Tamaño |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | ✅ **Interfaz en español. (#13)** Traducciones es/en con selector en Ajustes; idioma por defecto el del sistema. Cubre interfaz, widget y diálogos.     | M      |
+| 2   | ✅ **Pestañas configurables. (#14)** Mostrar/ocultar y reordenar las entradas de la barra lateral; elegir la pestaña de inicio. Guardado en `settings`. | S–M    |
+| 3   | ✅ **Notas de release limpias. (#15)** Filtrar el comentario HTML que GitHub antepone a las notas en el diálogo de actualización.                       | S      |
+| 4   | ✅ **Etiquetas en las PR. (#16)** Plantilla de PR y etiquetas `enhancement` / `bug` / `documentation` para que las notas de release se agrupen bien.    | S      |
+| 5   | ✅ **Limpieza del repo. (#17)** Borrar las ramas viejas ya integradas; retirar la automatización externa duplicada de novedades de upstream.            | S      |
+| 6   | ✅ **Recordar tamaño y posición de la ventana. (#18)**                                                                                                  | S      |
 
 ## Hito 2 — Pulido de interfaz (v0.4.0)
 
