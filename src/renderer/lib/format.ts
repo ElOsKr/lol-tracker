@@ -1,5 +1,10 @@
 import { t } from "./i18n";
 
+// Windows' regional format, passed in by the main process (src/main/locale.ts).
+// Every date and number the UI prints names it, since the page's own default
+// is en-US in the packaged app whatever Windows is set to.
+export const LOCALE = window.api.locale;
+
 export function formatKDA(kills: number, deaths: number, assists: number): string {
   return `${kills} / ${deaths} / ${assists}`;
 }
@@ -22,6 +27,13 @@ export function kdaColor(ratio: number): string {
   return "text-slate-300";
 }
 
+export function scoreColor(score: number): string {
+  if (score >= 9) return "text-amber-400";
+  if (score >= 7) return "text-sky-400";
+  if (score >= 5) return "text-emerald-400";
+  return "text-slate-400";
+}
+
 // Large stats at a glance, for table cells and bar labels: 12345 reads "12.3k".
 export function formatCompact(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : Math.round(value).toString();
@@ -39,7 +51,7 @@ export function formatPlaytime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   if (hours === 0) return `${mins}m`;
-  if (hours >= 100) return `${hours.toLocaleString()}h`;
+  if (hours >= 100) return `${hours.toLocaleString(LOCALE)}h`;
   return `${hours}h ${mins}m`;
 }
 
@@ -52,18 +64,18 @@ export function formatTimeAgo(timestamp: number): string {
   if (minutes < 60) return t("format.minutesAgo", { n: minutes });
   if (hours < 24) return t("format.hoursAgo", { n: hours });
   if (days < 30) return t("format.daysAgo", { n: days });
-  return new Date(timestamp).toLocaleDateString();
+  return new Date(timestamp).toLocaleDateString(LOCALE);
 }
 
 // The exact moment behind a relative timestamp, for tooltips
 export function formatDateTime(timestamp: number): string {
   const date = new Date(timestamp);
-  return `${date.toLocaleDateString(undefined, {
+  return `${date.toLocaleDateString(LOCALE, {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
-  })} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  })} ${date.toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit" })}`;
 }
 
 // Riot switched displayed patch numbers to year-based in 2025 (internal 15.x

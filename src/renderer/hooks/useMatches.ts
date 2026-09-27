@@ -13,16 +13,32 @@ export function useMatches(filters: MatchFilters = {}) {
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
 
+  // New filters mark the list as loading the moment they change, before the
+  // effect below has asked for their first page
+  const filtersKey = JSON.stringify([
+    championId,
+    patch,
+    queue,
+    account,
+    sort,
+    sortDir,
+    multikillsKey,
+    favorites,
+  ]);
+  const [loadingFor, setLoadingFor] = useState(filtersKey);
+  if (loadingFor !== filtersKey) {
+    setLoadingFor(filtersKey);
+    setLoading(true);
+  }
+
   // How many rows are already loaded. Held in a ref rather than read from
   // matches.length so that appending a page doesn't change `load`'s identity —
   // if it did, the effect below would re-run on every page and reset the list.
   const offsetRef = useRef(0);
-  const generation = useRef(0);
 
+  // Whoever starts a load has already marked the list as loading
   const load = useCallback(
     async (reset = false) => {
-      const version = generation.current;
-      setLoading(true);
       const offset = reset ? 0 : offsetRef.current;
       try {
         const result = await window.api.getMatchHistory(PAGE_SIZE, offset, {
@@ -36,7 +52,6 @@ export function useMatches(filters: MatchFilters = {}) {
           // Safe to narrow: the key was joined from these same values
           multikills: multikillsKey ? (multikillsKey.split(",") as MultikillType[]) : [],
         });
-        if (version !== generation.current) return;
         if (reset) {
           setMatches(result.matches);
         } else {
@@ -45,7 +60,7 @@ export function useMatches(filters: MatchFilters = {}) {
         offsetRef.current = offset + result.matches.length;
         setHasMore(offset + result.matches.length < result.total);
       } finally {
-        if (version === generation.current) setLoading(false);
+        setLoading(false);
       }
     },
     [championId, patch, queue, account, sort, sortDir, multikillsKey, favorites],
@@ -54,23 +69,25 @@ export function useMatches(filters: MatchFilters = {}) {
   // `load` changes only when a filter changes, so this both loads the first
   // page and resets to it whenever the filters move.
   useEffect(() => {
-    const currentGeneration = ++generation.current;
-    offsetRef.current = 0;
-    setMatches([]);
     load(true);
 
-    const unsub = window.api.onGamesUpdated(() => load(true));
-    return () => {
-      generation.current = currentGeneration + 1;
-      unsub();
-    };
+    const unsub = window.api.onGamesUpdated(() => {
+      setLoading(true);
+      load(true);
+    });
+    return unsub;
   }, [load]);
 
   const loadMore = useCallback(() => {
-    if (!loading && hasMore) load(false);
-  }, [loading, hasMore, load]);
+    if (loading || !hasMore) return;
+    setLoading(true);
+    load(false);
+  }, [loading, hasMore, load, setLoading]);
 
-  const reload = useCallback(() => load(true), [load]);
+  const reload = useCallback(() => {
+    setLoading(true);
+    return load(true);
+  }, [load, setLoading]);
 
   return { matches, loading, hasMore, loadMore, reload };
 }

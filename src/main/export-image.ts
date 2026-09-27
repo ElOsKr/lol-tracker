@@ -1,8 +1,16 @@
-import { BrowserWindow, clipboard, dialog, session, type NativeImage } from "electron";
+import {
+  BrowserWindow,
+  ClipboardItem,
+  clipboard,
+  dialog,
+  session,
+  type NativeImage,
+} from "electron";
 import fs from "fs";
 import path from "path";
 import * as db from "./db";
 import * as dragon from "./dragon";
+import { localeArguments } from "./locale";
 import { hardenSession } from "./security";
 import { t } from "./i18n";
 import { CARD_STATUS_KEY, cardRoute, type CardStatus } from "../shared/card";
@@ -77,6 +85,7 @@ function createCardWindow(): BrowserWindow {
     backgroundColor: "#0b0e14",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
+      additionalArguments: localeArguments(),
       // Renders into a bitmap instead of onto the screen: a hidden on-screen
       // window is not guaranteed to paint at all, and this one exists only to
       // be photographed.
@@ -185,7 +194,10 @@ export async function exportGameImage(
 // clean up afterwards when all you wanted was to paste it into a chat.
 export async function copyGameImage(gameId: number): Promise<ExportImageResult> {
   try {
-    clipboard.writeImage(await renderCard(gameId));
+    const png = (await renderCard(gameId)).toPNG();
+    await clipboard.write([
+      new ClipboardItem({ "image/png": new Blob([png], { type: "image/png" }) }),
+    ]);
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

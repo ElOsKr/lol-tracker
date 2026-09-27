@@ -4,33 +4,30 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const Module = require("node:module");
-const ts = require("typescript");
+const esbuild = require("esbuild");
+const transpile = (code) =>
+  esbuild.transformSync(code, { loader: "ts", format: "cjs", target: "es2022" }).code;
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "loleanding-aram-test-"));
 require.extensions[".ts"] = (mod, filename) => {
-  mod._compile(
-    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2022,
-        esModuleInterop: true,
-      },
-    }).outputText,
-    filename,
-  );
+  mod._compile(transpile(fs.readFileSync(filename, "utf8")), filename);
 };
 const load = Module._load;
 let history = [];
 const requested = [];
 Module._load = function (name, parent, main) {
-  if (name === "./paths") return { getDataDir: () => directory };
-  if (name === "./dragon")
+  if (name === "./paths" || name === "../paths") return { getDataDir: () => directory };
+  if (name === "./dragon" || name === "../dragon")
     return {
       getChampionClasses: () => ({ 1: "Tank", 2: "Support", 3: "Marksman" }),
       getChampionDataVersion: () => "test",
       loadAugmentData: async () => ({}),
       loadItemData: async () => ({}),
     };
+  // The import module snapshots the database and reports progress to a window;
+  // neither exists here.
+  if (name === "./backup") return { backupQuietly: async () => {} };
+  if (name === "./ipc") return { sendToRenderer: () => {}, handle: () => {} };
   if (name === "league-connect")
     return {
       authenticate: async () => ({}),
@@ -49,7 +46,8 @@ Module._load = function (name, parent, main) {
     };
   return load.call(this, name, parent, main);
 };
-const db = require("../src/main/db.ts");
+const db = require("../src/main/db");
+const { importBackupFile } = require("../src/main/import.ts");
 const lcu = require("../src/main/lcu.ts");
 const account = "fixture-owner";
 
@@ -269,7 +267,8 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     assert.equal(exported.games.length, 5);
     const savedTotals = totals.getQueueLifetimeTotals();
     sql.prepare("DELETE FROM queue_lifetime_totals").run();
-    assert.equal(db.importData(exported), 0);
+    // The real import path: streamed from the file, nothing new since every game is stored
+    assert.equal(await importBackupFile(file, null), 0);
     assert.deepEqual(totals.getQueueLifetimeTotals(), savedTotals);
     db.repairPuuids();
     assert.equal(db.getMatchDetail(1).stats.score, aramScore);

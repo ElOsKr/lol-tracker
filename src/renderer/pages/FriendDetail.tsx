@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type {
+  ChampionData,
   TeammateChampionStats,
   TeammateDetail,
   TeammateMatch,
@@ -17,12 +18,12 @@ import WinRateBar from "../components/WinRateBar";
 import {
   formatDuration,
   formatTimeAgo,
-  formatKDA,
   kdaRatio,
   kdaColor,
   kdaHighlight,
+  scoreColor,
 } from "../lib/format";
-import { scoreColor } from "../../shared/opScore";
+import Kda from "../components/Kda";
 import { gamesLabel, useT } from "../lib/i18n";
 
 export default function FriendDetail() {
@@ -65,7 +66,10 @@ export default function FriendDetail() {
     [expandedId],
   );
 
-  if (loading) {
+  // Only before the first answer: a refetch after a new game keeps showing the
+  // page it is about to update. null is an answer too ("no games together"), so
+  // the check can't be on data alone.
+  if (loading && !data) {
     return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
   }
 
@@ -202,7 +206,13 @@ export default function FriendDetail() {
   );
 }
 
-function ChampionRow({ champ, champData }: { champ: TeammateChampionStats; champData: any }) {
+function ChampionRow({
+  champ,
+  champData,
+}: {
+  champ: TeammateChampionStats;
+  champData: ChampionData;
+}) {
   const t = useT();
   const ratio =
     champ.deaths > 0 ? (champ.kills + champ.assists) / champ.deaths : champ.kills + champ.assists;
@@ -256,7 +266,7 @@ function PlayerBlock({
 }: {
   label: string;
   championId: number;
-  champData: any;
+  champData: ChampionData;
   kills: number;
   deaths: number;
   assists: number;
@@ -282,7 +292,9 @@ function PlayerBlock({
         </div>
       </div>
       <div className="w-20 shrink-0">
-        <div className="text-xs text-lol-text-bright">{formatKDA(kills, deaths, assists)}</div>
+        <div className="text-xs text-lol-text-bright">
+          <Kda kills={kills} deaths={deaths} assists={assists} />
+        </div>
         <div className={`text-[10px] ${kdaHighlight(kda)}`}>{t("recap.kda", { ratio: kda })}</div>
       </div>
       <ScoreCell score={score} badge={badge} />
@@ -302,7 +314,7 @@ function SharedGameRow({
   onToggle,
 }: {
   match: TeammateMatch;
-  champData: any;
+  champData: ChampionData;
   friendName: string;
   expanded: boolean;
   detail: MatchDetail | null;
@@ -371,7 +383,7 @@ function SharedGameRow({
 
         <div className="flex-1" />
         <div className="text-xs text-lol-text text-right shrink-0">
-          <div>{formatDuration(match.game_duration)}</div>
+          <div className="tabular-nums">{formatDuration(match.game_duration)}</div>
           <div>{formatTimeAgo(match.game_creation)}</div>
         </div>
       </button>

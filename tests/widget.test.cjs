@@ -5,7 +5,9 @@ const path = require("node:path");
 const Module = require("node:module");
 const http = require("node:http");
 const { EventEmitter } = require("node:events");
-const ts = require("typescript");
+const esbuild = require("esbuild");
+const transpile = (code) =>
+  esbuild.transformSync(code, { loader: "ts", format: "cjs", target: "es2022" }).code;
 
 function load(file, mocks = {}) {
   const filename = path.resolve(__dirname, "..", file);
@@ -14,29 +16,11 @@ function load(file, mocks = {}) {
   mod.paths = Module._nodeModulePaths(path.dirname(filename));
   const original = mod.require.bind(mod);
   mod.require = (name) => (Object.hasOwn(mocks, name) ? mocks[name] : original(name));
-  mod._compile(
-    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2022,
-        esModuleInterop: true,
-      },
-    }).outputText,
-    filename,
-  );
+  mod._compile(transpile(fs.readFileSync(filename, "utf8")), filename);
   return mod.exports;
 }
 require.extensions[".ts"] = (mod, filename) => {
-  mod._compile(
-    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2022,
-        esModuleInterop: true,
-      },
-    }).outputText,
-    filename,
-  );
+  mod._compile(transpile(fs.readFileSync(filename, "utf8")), filename);
 };
 const { startWidgetServer } = load("src/main/widget-server.ts");
 const root = path.resolve(__dirname, "../public-widget");

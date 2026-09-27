@@ -1,5 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useChampionData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useLiveGame } from "../hooks/useLiveGame";
@@ -38,7 +38,7 @@ function isTrackedQueue(queueId: number | null): boolean {
 
 export default function LiveGame() {
   const [queue, setQueue] = useQueueSelection();
-  const { snapshot, receivedAt } = useLiveGame();
+  const { snapshot, receivedAt, lastGame } = useLiveGame();
   const status = useLcuStatus();
   const champData = useChampionData();
   const [puuids, setPuuids] = useState<string[] | null>(null);
@@ -47,16 +47,6 @@ export default function LiveGame() {
   useEffect(() => {
     window.api.getAllSummonerPuuids().then(setPuuids);
   }, []);
-
-  // The game the page is following. Remembered here rather than read back off
-  // the snapshot, because the snapshot that says the match is over is the same
-  // one that has stopped describing it.
-  const watched = useRef<{ gameId: number; tracked: boolean } | null>(null);
-  useEffect(() => {
-    if (snapshot?.inGame && snapshot.gameId) {
-      watched.current = { gameId: snapshot.gameId, tracked: isTrackedQueue(snapshot.queueId) };
-    }
-  }, [snapshot]);
 
   // Nothing has been asked yet, as opposed to asked and answered with no game
   if (!snapshot)
@@ -91,11 +81,14 @@ export default function LiveGame() {
   // The snapshot carries the last game the main process saw, which is what
   // covers leaving the tab and coming back before the results have landed.
   const watching =
-    watched.current ??
-    (snapshot.gameId != null
-      ? { gameId: snapshot.gameId, tracked: isTrackedQueue(snapshot.queueId) }
-      : null);
-  const target = watching?.tracked && snapshot.queueId === queue ? watching.gameId : null;
+    lastGame ??
+    (snapshot.gameId != null ? { gameId: snapshot.gameId, queueId: snapshot.queueId } : null);
+  // Only a game in the queue being viewed is waited for; the page above already
+  // offers to switch queues when the running game is elsewhere.
+  const target =
+    watching && isTrackedQueue(watching.queueId) && watching.queueId === queue
+      ? watching.gameId
+      : null;
 
   return <RecapView target={target} champData={champData} puuids={puuids} status={status} />;
 }
@@ -112,12 +105,12 @@ function LiveView({
   champData: ChampionData;
 }) {
   // The clock runs between polls rather than jumping three seconds at a time
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState(receivedAt);
   useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
-  const elapsed = snapshot.gameTime + Math.max(0, Math.floor((Date.now() - receivedAt) / 1000));
+  const elapsed = snapshot.gameTime + Math.max(0, Math.floor((now - receivedAt) / 1000));
   const t = useT();
 
   const teamKills = useMemo(() => {
@@ -239,10 +232,14 @@ function RecapView({
     });
   }, [target]);
 
-  useEffect(() => {
+  // A new target starts a wait of its own. The recap already on screen stays
+  // until the new one arrives, which is what lets it stand in meanwhile.
+  const [waitingFor, setWaitingFor] = useState(target);
+  if (waitingFor !== target) {
+    setWaitingFor(target);
     setGaveUp(false);
     setLoading(true);
-  }, [target]);
+  }
 
   useEffect(() => {
     let cancelled = false;

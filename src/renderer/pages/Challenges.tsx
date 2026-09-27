@@ -5,6 +5,7 @@ import type { ChallengeProgress, ChallengesData, ChallengesResult } from "../lib
 import ChallengeToken from "../components/ChallengeToken";
 import ChampionIcon from "../components/ChampionIcon";
 import { AwardIcon, ChevronDownIcon } from "../components/icons";
+import { LOCALE } from "../lib/format";
 import {
   CHALLENGE_LEVEL_COLORS as LEVEL_COLORS,
   challengeLevelName as levelName,
@@ -16,7 +17,7 @@ import { useT, type Translate } from "../lib/i18n";
 // Snapshot days are stored as YYYY-MM-DD, which is a key, not a date to read.
 function formatDay(day: string): string {
   const [year, month, date] = day.split("-").map(Number);
-  return new Date(year, month - 1, date).toLocaleDateString(undefined, {
+  return new Date(year, month - 1, date).toLocaleDateString(LOCALE, {
     month: "short",
     day: "numeric",
   });
@@ -306,9 +307,11 @@ function PlayerBar({ data }: { data: ChallengesData }) {
             {levelName(player.level)}
           </div>
           <div className="text-[11px] text-lol-text">
-            {t("challenges.points", { points: player.points.toLocaleString() })}
+            {t("challenges.points", { points: player.points.toLocaleString(LOCALE) })}
             {player.pointsUntilNextRank > 0 &&
-              t("challenges.toNextRank", { points: player.pointsUntilNextRank.toLocaleString() })}
+              t("challenges.toNextRank", {
+                points: player.pointsUntilNextRank.toLocaleString(LOCALE),
+              })}
           </div>
         </div>
       </div>

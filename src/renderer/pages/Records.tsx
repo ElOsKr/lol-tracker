@@ -1,8 +1,8 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
-import { useSearchParams } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useIpc } from "../hooks/useIpc";
+import { useViewState } from "../hooks/useViewState";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type {
   ChampionData,
@@ -33,14 +33,14 @@ import {
   XIcon,
   ZapIcon,
 } from "../components/icons";
-import { formatDuration, formatKDA, kdaRatio } from "../lib/format";
-import { scoreColor } from "../../shared/opScore";
+import { LOCALE, formatDuration, kdaRatio, scoreColor } from "../lib/format";
+import Kda from "../components/Kda";
 import { gamesLabel, useT, type Translate } from "../lib/i18n";
 
 // Records are moments, not recency — "3 months ago" undersells a trophy, so
 // they get a real date.
 function recordDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(undefined, {
+  return new Date(ts).toLocaleDateString(LOCALE, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -100,7 +100,7 @@ function RecordCard({
               {match.win ? t("common.w") : t("common.l")}
             </span>
             {" · "}
-            {formatKDA(match.kills, match.deaths, match.assists)}
+            <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
             {" · "}
             {recordDate(match.game_creation)}
           </div>
@@ -125,7 +125,7 @@ function MatchModal({
   puuids: string[] | null;
   onClose: () => void;
 }) {
-  const { data: detail } = useIpc<MatchDetail>(
+  const { data: detail } = useIpc<MatchDetail | null>(
     () => window.api.getMatchDetail(match.game_id),
     [match.game_id],
   );
@@ -157,7 +157,7 @@ function MatchModal({
               </span>
               {" — "}
               {getChampionName(champData, match.champion_id)}{" "}
-              {formatKDA(match.kills, match.deaths, match.assists)}
+              <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
             </div>
             <div className="text-xs text-lol-text truncate">
               {queueLabel(match.queue_id)} · {formatDuration(match.game_duration)} ·{" "}
@@ -203,7 +203,7 @@ function statCards(bests: RecordsData["bests"], t: Translate): CardDef[] {
   ) => {
     if (record) cards.push({ ...def, value: def.value(record), match: record.match });
   };
-  const n = (v: number) => Math.round(v).toLocaleString();
+  const n = (v: number) => Math.round(v).toLocaleString(LOCALE);
 
   add(bests.kills, {
     key: "kills",
@@ -318,24 +318,11 @@ function streakCard(streak: StreakRecord, win: boolean, t: Translate): CardDef {
 }
 
 export default function Records() {
-  // La cola viene de la seleccion global de la aplicacion, compartida con el
-  // resto de paginas. La cuenta es propia de esta vista, asi que viaja en la
-  // URL como la dejo el proyecto original.
+  // The queue comes from the app-wide selector; the account is this page's own
+  // and is remembered like any other filter.
   const [queue, setQueue] = useQueueSelection();
   const t = useT();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const account = searchParams.get("account") ?? undefined;
-  const setAccount = (a: string | undefined) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (a == null) next.delete("account");
-        else next.set("account", a);
-        return next;
-      },
-      { replace: true },
-    );
-  };
+  const [account, setAccount] = useViewState<string | undefined>("records.account", undefined);
 
   const { data, refetch } = useIpc<RecordsData>(
     () => window.api.getRecords(queue, account),

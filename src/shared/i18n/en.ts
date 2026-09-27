@@ -563,6 +563,16 @@ export const en = {
 
   // Widget queue
   "widget.queueFollowApp": "Same as the app",
+
+  // Import progress (upstream 1.13.1)
+  "settings.importing": "Importing game {current} of {total}, {imported} new so far",
+
+  // Troubleshooting and search (upstream 1.13.1)
+  "settings.troubleshooting": "Troubleshooting",
+  "settings.logFile": "Log file",
+  "settings.logFileDesc":
+    "A record of what the program does in the background, like connecting to the client and recording games. If something goes wrong, main.log is the file to attach to a bug report.",
+  "common.clearSearch": "Clear search",
 } as const;
 
 export type TranslationKey = keyof typeof en;
