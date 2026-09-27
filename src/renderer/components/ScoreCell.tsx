@@ -1,4 +1,4 @@
-import { scoreColor } from "../../shared/opScore";
+import { scoreColor } from "../lib/format";
 import { useT } from "../lib/i18n";
 
 type Badge = "MVP" | "ACE" | null;
@@ -30,7 +30,9 @@ export default function ScoreCell({ score, badge }: { score: number | null; badg
     <div className="w-10 shrink-0 text-center">
       {score != null && (
         <>
-          <div className={`text-sm font-semibold ${scoreColor(score)}`}>{score.toFixed(1)}</div>
+          <div className={`text-sm font-semibold tabular-nums ${scoreColor(score)}`}>
+            {score.toFixed(1)}
+          </div>
           {badge ? (
             <ScoreBadge badge={badge} />
           ) : (

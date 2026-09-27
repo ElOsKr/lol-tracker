@@ -5,6 +5,9 @@ import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } fro
 import { MIN_HEIGHT, MIN_WIDTH, readWindowState, trackWindowState } from "./window-state";
 import { migrateLegacyUserData } from "./paths";
 import { registerIpcHandlers } from "./ipc-handlers";
+import { sendToRenderer } from "./ipc";
+import { localeArguments } from "./locale";
+import { startLogging } from "./log";
 import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
 import { startLiveTracking, stopLiveTracking } from "./live";
 import { startChallengeTracking } from "./challenges";
@@ -32,6 +35,9 @@ if (!gotTheLock) {
   // instance that owns the app, leaving nothing here worth shutting down cleanly.
   app.exit(0);
 } else {
+  // Only the instance that holds the lock writes the log
+  startLogging();
+
   app.on("second-instance", () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -63,9 +69,10 @@ function createWindow(): BrowserWindow {
     backgroundColor: "#0b0e14",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
-      // The preload only touches contextBridge and ipcRenderer, so it runs
-      // fine sandboxed. These are all Electron defaults; stated explicitly so
-      // a future default change can't quietly relax them.
+      additionalArguments: localeArguments(),
+      // The preload only touches contextBridge, ipcRenderer and process.argv,
+      // so it runs fine sandboxed. These are all Electron defaults; stated
+      // explicitly so a future default change can't quietly relax them.
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -119,10 +126,8 @@ function createWindow(): BrowserWindow {
 
   // Paired with the window:is-maximized handler so the custom title bar can
   // track state it can't observe from the renderer
-  mainWindow.on("maximize", () => mainWindow?.webContents.send("window:maximized-changed", true));
-  mainWindow.on("unmaximize", () =>
-    mainWindow?.webContents.send("window:maximized-changed", false),
-  );
+  mainWindow.on("maximize", () => sendToRenderer(mainWindow, "window:maximized-changed", true));
+  mainWindow.on("unmaximize", () => sendToRenderer(mainWindow, "window:maximized-changed", false));
 
   return mainWindow;
 }
@@ -171,9 +176,7 @@ app.whenReady().then(async () => {
   // Recompute stored scores once champion class data is available, so the
   // backfill uses the same class weights as insert-time scoring.
   waitForChampionData().then(() => {
-    if (checkScoreBackfill()) {
-      mainWindow?.webContents.send("lcu:games-updated");
-    }
+    if (checkScoreBackfill()) sendToRenderer(mainWindow, "lcu:games-updated");
   });
 
   // Registered once, outside createWindow: ipcMain.handle throws if the same
@@ -225,6 +228,9 @@ app.on("before-quit", async (event) => {
 // Runs after before-quit has settled, so the final fetch has already written
 // whatever it found by the time the database closes.
 app.on("will-quit", () => {
+  // A clean exit ends the log on this line, so a log that stops anywhere else
+  // stopped in a crash
+  console.log("Shutting down");
   stopLiveTracking();
   stopBackupSchedule();
   stopWidget();

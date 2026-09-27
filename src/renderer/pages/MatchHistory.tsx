@@ -7,6 +7,7 @@ import { useIpc } from "../hooks/useIpc";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
 import { useViewState } from "../hooks/useViewState";
+import { EMPTY_FILTER_OPTIONS } from "../hooks/useFilterOptions";
 import type {
   MatchListItem,
   MatchDetail,
@@ -18,6 +19,7 @@ import type {
   MultikillType,
   LcuStatus,
   BackfillProgress,
+  ChampionData,
 } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
@@ -40,6 +42,7 @@ import {
 } from "../components/icons";
 import { ExportImageMessage, useGameImageExport } from "../components/ExportImage";
 import {
+  LOCALE,
   formatDateTime,
   formatDuration,
   formatPlaytime,
@@ -49,9 +52,9 @@ import {
   kdaColor,
   kdaHighlight,
   formatPatch,
+  scoreColor,
 } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
-import { scoreColor } from "../../shared/opScore";
 import { gamesLabel, useT, type Translate } from "../lib/i18n";
 import type { TranslationKey } from "../../shared/i18n";
 import {
@@ -62,6 +65,7 @@ import {
   sessionWeek,
   type SessionGrouping,
 } from "../../shared/session";
+import Kda from "../components/Kda";
 
 // An empty list means something different depending on whether we're still
 // waiting on the client, mid-import, or genuinely out of games.
@@ -182,7 +186,7 @@ function dayLabel(day: number, t: Translate): string {
   yesterday.setDate(today.getDate() - 1);
   if (d.toDateString() === today.toDateString()) return t("history.today");
   if (d.toDateString() === yesterday.toDateString()) return t("history.yesterday");
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(LOCALE, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -198,7 +202,7 @@ function weekLabel(week: number, t: Translate): string {
   lastWeek.setDate(thisWeek.getDate() - 7);
   if (d.toDateString() === thisWeek.toDateString()) return t("history.thisWeek");
   if (d.toDateString() === lastWeek.toDateString()) return t("history.lastWeek");
-  const start = d.toLocaleDateString(undefined, {
+  const start = d.toLocaleDateString(LOCALE, {
     month: "short",
     day: "numeric",
     ...(d.getFullYear() !== thisWeek.getFullYear() && { year: "numeric" }),
@@ -280,13 +284,10 @@ export default function MatchHistory() {
     [championFilter, patchFilter, queueFilter, accountFilter, multikillFilter, favoritesOnly],
   );
 
-  const [filterOptions, setFilterOptions] = useState<MatchFilterOptions>({
-    patches: [],
-    champions: [],
-    queues: [],
-    accounts: [],
-    hasFavorites: false,
-  });
+  // Null until the first answer. The effects below drop selections the data no
+  // longer supports, and an empty stand-in would read as data supporting none.
+  const [loadedOptions, setLoadedOptions] = useState<MatchFilterOptions | null>(null);
+  const filterOptions = loadedOptions ?? EMPTY_FILTER_OPTIONS;
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -340,7 +341,7 @@ export default function MatchHistory() {
           queue: queueFilter,
           account: accountFilter,
         })
-        .then(setFilterOptions),
+        .then(setLoadedOptions),
     [championFilter, patchFilter, queueFilter, accountFilter],
   );
 
@@ -357,24 +358,23 @@ export default function MatchHistory() {
 
   // Clear a selection if new data leaves it without any matching games
   useEffect(() => {
-    if (filterOptions.champions.length === 0 && filterOptions.patches.length === 0) return;
-    if (championFilter !== undefined && !filterOptions.champions.includes(championFilter)) {
+    if (!loadedOptions) return;
+    if (championFilter !== undefined && !loadedOptions.champions.includes(championFilter)) {
       setChampionFilter(undefined);
     }
-    if (patchFilter !== undefined && !filterOptions.patches.includes(patchFilter)) {
+    if (patchFilter !== undefined && !loadedOptions.patches.includes(patchFilter)) {
       setPatchFilter(undefined);
     }
-
     if (
       accountFilter !== undefined &&
-      !filterOptions.accounts.some((a) => a.puuid === accountFilter)
+      !loadedOptions.accounts.some((a) => a.puuid === accountFilter)
     ) {
       setAccountFilter(undefined);
     }
     // Settles rather than loops: clearing a filter sets it to undefined, and
     // the undefined branch does nothing on the re-run.
   }, [
-    filterOptions,
+    loadedOptions,
     championFilter,
     patchFilter,
     queueFilter,
@@ -387,9 +387,10 @@ export default function MatchHistory() {
 
   // Unfavoriting the last game takes the toggle button away with it, so the
   // filter can't be left on with no way to turn it off.
+  const hasFavorites = loadedOptions?.hasFavorites;
   useEffect(() => {
-    if (!filterOptions.hasFavorites) setFavoritesOnly(false);
-  }, [filterOptions.hasFavorites, setFavoritesOnly]);
+    if (hasFavorites === false) setFavoritesOnly(false);
+  }, [hasFavorites, setFavoritesOnly]);
 
   const championOptions = useMemo(
     () =>
@@ -532,11 +533,7 @@ export default function MatchHistory() {
               /* Three numbers where the other cards show one — a notch smaller
                  keeps it on one line in the narrowest column */
               <span className="text-xl">
-                {avgKills}
-                <Slash />
-                {avgDeaths}
-                <Slash />
-                {avgAssists}
+                <Kda kills={avgKills} deaths={avgDeaths} assists={avgAssists} />
               </span>
             }
             subtext={
@@ -891,10 +888,6 @@ function ProfileCard({
 }
 
 // Muted separators keep the three averages on one line in a narrow card
-function Slash() {
-  return <span className="text-lol-text/40 mx-0.5">/</span>;
-}
-
 // 0-10 track for the average score, warming up as the score climbs
 function ScoreMeter({ score }: { score: number | null }) {
   return (
@@ -1038,7 +1031,7 @@ function SessionHeader({ session }: { session: Session }) {
 
 interface GameRowProps {
   match: MatchListItem;
-  champData: any;
+  champData: ChampionData;
   expanded: boolean;
   detail: MatchDetail | null;
   detailLoading: boolean;
@@ -1131,7 +1124,7 @@ function GameRow({
         </div>
         <div className="w-24 shrink-0">
           <div className="text-sm text-lol-text-bright">
-            {formatKDA(match.kills, match.deaths, match.assists)}
+            <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
           </div>
           <div className={`text-xs ${kdaHighlight(kda)}`}>{t("recap.kda", { ratio: kda })}</div>
         </div>
@@ -1175,7 +1168,7 @@ function GameRow({
           />
         </div>
         <div className="text-xs text-lol-text text-right shrink-0">
-          <div>{formatDuration(match.game_duration)}</div>
+          <div className="tabular-nums">{formatDuration(match.game_duration)}</div>
           <div className="w-fit ml-auto" title={formatDateTime(match.game_creation)}>
             {formatTimeAgo(match.game_creation)}
           </div>

@@ -4,10 +4,11 @@ import { saveHomePath, saveNavLayout, useHomePath, useNavLayout } from "../hooks
 import { setLanguageChoice, useLanguageChoice, useT, type Translate } from "../lib/i18n";
 import { moveNavItem, setNavItemHidden, visibleNavItems } from "../../shared/navigation";
 import { LANGUAGE_CHOICES, type LanguageChoice } from "../../shared/i18n";
+import { LOCALE } from "../lib/format";
 
 import { setRemembering } from "../lib/viewState";
 import { SGP_HISTORY_CAP } from "../lib/types";
-import type { BackupInfo } from "../lib/types";
+import type { BackupInfo, ImportProgress } from "../lib/types";
 import {
   DEFAULT_SESSION_GROUPING,
   SESSION_GROUPING_SETTING,
@@ -30,7 +31,7 @@ function formatSize(bytes: number): string {
 
 function formatTaken(timestamp: number): string {
   const date = new Date(timestamp);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
+  return `${date.toLocaleDateString(LOCALE)} ${date.toLocaleTimeString(LOCALE, {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
@@ -84,6 +85,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [repairStatus, setRepairStatus] = useState<string | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
@@ -202,8 +205,11 @@ export default function Settings() {
     }
   }, [t, errorWith]);
 
+  useEffect(() => window.api.onImportProgress(setImportProgress), []);
+
   const handleImport = useCallback(async () => {
     setImportStatus(null);
+    setImporting(true);
     try {
       const result = await window.api.importData();
       if (result.success) {
@@ -215,21 +221,34 @@ export default function Settings() {
       refreshBackups();
     } catch (err: any) {
       setImportStatus(errorWith(err.message));
+    } finally {
+      setImporting(false);
+      setImportProgress(null);
     }
   }, [refreshBackups, t, errorWith]);
 
-  useEffect(() => {
-    if (!progress) return;
-    setBackfillStatus(
-      progress.total === 0
-        ? t("settings.nothingNew")
-        : t("settings.checking", {
-            current: progress.current,
-            total: progress.total,
-            added: progress.added,
-          }),
-    );
-  }, [progress, t]);
+  // A run in progress reports how far it has got; the outcome takes over once
+  // it is done
+  const backfillLine = progress
+    ? progress.total === 0
+      ? t("settings.nothingNew")
+      : t("settings.checking", {
+          current: progress.current,
+          total: progress.total,
+          added: progress.added,
+        })
+    : backfillStatus;
+
+  // Like the backfill line: how far the import has got while it runs, then the
+  // outcome
+  const importLine =
+    importing && importProgress
+      ? t("settings.importing", {
+          current: importProgress.current,
+          total: importProgress.total,
+          imported: importProgress.imported,
+        })
+      : importStatus;
 
   const handleBackfill = useCallback(async () => {
     setBackfillStatus(t("settings.fetchingList"));
@@ -469,7 +488,7 @@ export default function Settings() {
               {backfilling ? t("settings.working") : t("settings.backfillButton")}
             </button>
           </div>
-          {backfillStatus && <p className="text-xs text-lol-text">{backfillStatus}</p>}
+          {backfillLine && <p className="text-xs text-lol-text">{backfillLine}</p>}
 
           <div className="border-t border-lol-border" />
 
@@ -491,11 +510,11 @@ export default function Settings() {
               <p className="text-sm text-lol-text-bright">{t("settings.import")}</p>
               <p className="text-xs text-lol-text mt-0.5">{t("settings.importDesc")}</p>
             </div>
-            <button onClick={handleImport} className={actionButton}>
-              {t("settings.importButton")}
+            <button onClick={handleImport} disabled={importing} className={actionButton}>
+              {importing ? t("settings.working") : t("settings.importButton")}
             </button>
           </div>
-          {importStatus && <p className="text-xs text-lol-text">{importStatus}</p>}
+          {importLine && <p className="text-xs text-lol-text">{importLine}</p>}
 
           <div className="border-t border-lol-border" />
 
@@ -591,6 +610,25 @@ export default function Settings() {
             </button>
           </div>
           {backupStatus && <p className="text-xs text-lol-text">{backupStatus}</p>}
+        </div>
+      </div>
+
+      {/* Troubleshooting */}
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">
+          {t("settings.troubleshooting")}
+        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-lol-text-bright">{t("settings.logFile")}</p>
+            <p className="text-xs text-lol-text mt-0.5">{t("settings.logFileDesc")}</p>
+          </div>
+          <button
+            onClick={() => window.api.openLogsFolder()}
+            className="px-4 py-1.5 rounded text-sm shrink-0 bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
+          >
+            {t("settings.openFolder")}
+          </button>
         </div>
       </div>
     </div>

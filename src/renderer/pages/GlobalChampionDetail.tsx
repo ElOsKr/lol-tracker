@@ -1,7 +1,8 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
-import { useMemo, useEffect, useCallback, type ReactNode } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useMemo, useEffect, type ReactNode } from "react";
+import { useParams, Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
+import { useQueryFilters } from "../hooks/useQueryFilters";
 import { useViewState } from "../hooks/useViewState";
 import {
   useChampionData,
@@ -21,7 +22,8 @@ import QueueSelect from "../components/QueueSelect";
 import RarityFilter, { type Rarity } from "../components/RarityFilter";
 import SortHeader from "../components/SortHeader";
 import { useSort, type SortDir } from "../hooks/useSort";
-import { kdaRatio } from "../lib/format";
+import { LOCALE, kdaRatio } from "../lib/format";
+import Kda from "../components/Kda";
 import { useT } from "../lib/i18n";
 
 type SortKey = "picks" | "winRate" | "name";
@@ -123,8 +125,15 @@ function ItemSection({
           <thead className="bg-lol-dark/50">
             <tr>
               <SortHeader {...sort} label={t("global.item")} field="name" compact />
-              <SortHeader {...sort} label={t("global.picks")} field="picks" compact />
-              <th className="px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider">
+              <SortHeader
+                {...sort}
+                label={t("global.picks")}
+                field="picks"
+                compact
+                numeric
+                className="w-16"
+              />
+              <th className="px-2 py-2 text-right text-[11px] font-medium text-lol-text uppercase tracking-wider w-16">
                 {t("global.build")}
               </th>
               <SortHeader
@@ -132,6 +141,7 @@ function ItemSection({
                 label={t("friends.winRate")}
                 field="winRate"
                 compact
+                numeric
                 className="w-28"
               />
             </tr>
@@ -147,8 +157,10 @@ function ItemSection({
                     </span>
                   </div>
                 </td>
-                <td className="px-2 py-1.5 text-xs text-lol-text-bright">{item.picks}</td>
-                <td className="px-2 py-1.5 text-xs text-lol-text">
+                <td className="px-2 py-1.5 text-xs text-lol-text-bright text-right tabular-nums">
+                  {item.picks}
+                </td>
+                <td className="px-2 py-1.5 text-xs text-lol-text text-right tabular-nums">
                   {games > 0 ? percent(item.picks / games) : "0.0%"}
                 </td>
                 <td className="px-2 py-1.5 w-28">
@@ -199,8 +211,15 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
           <thead className="bg-lol-dark/50">
             <tr>
               <SortHeader {...sort} label={t("global.augment")} field="name" compact />
-              <SortHeader {...sort} label={t("global.picks")} field="picks" compact />
-              <th className="px-2 py-2 text-left text-[11px] font-medium text-lol-text uppercase tracking-wider">
+              <SortHeader
+                {...sort}
+                label={t("global.picks")}
+                field="picks"
+                compact
+                numeric
+                className="w-16"
+              />
+              <th className="px-2 py-2 text-right text-[11px] font-medium text-lol-text uppercase tracking-wider w-16">
                 {t("global.pick")}
               </th>
               <SortHeader
@@ -208,6 +227,7 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
                 label={t("friends.winRate")}
                 field="winRate"
                 compact
+                numeric
                 className="w-28"
               />
             </tr>
@@ -218,8 +238,10 @@ function AugmentSection({ augments, games }: { augments: AugmentStats[]; games: 
                 <td className="px-2 py-1.5 max-w-0 w-full">
                   <AugmentIcon augmentId={a.augment_id} size={24} showName />
                 </td>
-                <td className="px-2 py-1.5 text-xs text-lol-text-bright">{a.picks}</td>
-                <td className="px-2 py-1.5 text-xs text-lol-text">
+                <td className="px-2 py-1.5 text-xs text-lol-text-bright text-right tabular-nums">
+                  {a.picks}
+                </td>
+                <td className="px-2 py-1.5 text-xs text-lol-text text-right tabular-nums">
                   {games > 0 ? percent(a.picks / games) : "0.0%"}
                 </td>
                 <td className="px-2 py-1.5 w-28">
@@ -244,26 +266,10 @@ export default function GlobalChampionDetailPage() {
   const id = Number(championId);
   const t = useT();
   const champData = useChampionData();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const patch = searchParams.get("patch") ?? undefined;
   const [queue, setQueue] = useQueueSelection();
 
   // Filters live in the URL so the back link returns to the same view
-  const setFilter = useCallback(
-    (key: "patch" | "queue", value: string | number | undefined) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (value == null || value === "") next.delete(key);
-          else next.set(key, String(value));
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  const { searchParams, setParam, patch } = useQueryFilters();
 
   const { data, refetch } = useIpc<GlobalChampionDetail>(
     () => window.api.getGlobalChampionDetail(id, patch, queue),
@@ -312,7 +318,7 @@ export default function GlobalChampionDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           <QueueSelect value={queue} onChange={setQueue} />
-          <PatchSelect value={patch} onChange={(p) => setFilter("patch", p)} />
+          <PatchSelect value={patch} onChange={(p) => setParam("patch", p)} />
         </div>
       </div>
 
@@ -330,7 +336,13 @@ export default function GlobalChampionDetailPage() {
             />
             <StatCard
               label={t("live.kda")}
-              value={`${avg(data.kills)} / ${avg(data.deaths)} / ${avg(data.assists)}`}
+              value={
+                <Kda
+                  kills={avg(data.kills)}
+                  deaths={avg(data.deaths)}
+                  assists={avg(data.assists)}
+                />
+              }
               subtext={t("global.kdaSub", {
                 ratio: kdaRatio(data.kills, data.deaths, data.assists),
                 kills: data.kills,
@@ -340,7 +352,7 @@ export default function GlobalChampionDetailPage() {
             />
             <StatCard
               label={t("recap.damage")}
-              value={data.avgDamage.toLocaleString()}
+              value={data.avgDamage.toLocaleString(LOCALE)}
               subtext={t("global.teamDamage", { percent: percent(data.damageShare) })}
             />
             <StatCard
@@ -355,9 +367,13 @@ export default function GlobalChampionDetailPage() {
 
           <div className="grid grid-cols-5 gap-2">
             <MiniStat label={t("global.killPart")}>{percent(data.killParticipation)}</MiniStat>
-            <MiniStat label={t("global.avgGold")}>{data.avgGold.toLocaleString()}</MiniStat>
-            <MiniStat label={t("global.avgTaken")}>{data.avgDamageTaken.toLocaleString()}</MiniStat>
-            <MiniStat label={t("global.avgHealing")}>{data.avgHeal.toLocaleString()}</MiniStat>
+            <MiniStat label={t("global.avgGold")}>{data.avgGold.toLocaleString(LOCALE)}</MiniStat>
+            <MiniStat label={t("global.avgTaken")}>
+              {data.avgDamageTaken.toLocaleString(LOCALE)}
+            </MiniStat>
+            <MiniStat label={t("global.avgHealing")}>
+              {data.avgHeal.toLocaleString(LOCALE)}
+            </MiniStat>
             <MiniStat label={t("history.multikills")}>
               <MultikillCounts
                 doubles={data.doubleKills}

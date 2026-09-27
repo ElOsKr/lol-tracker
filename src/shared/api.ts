@@ -48,6 +48,14 @@ export interface PlayerStatsRecord {
   gold_earned: number;
   total_heal: number;
   largest_killing_spree: number;
+  // Null for a remake, and for a game without the other players' stats to
+  // grade against
+  score: number | null;
+  // Unclamped, for ordering only; never shown
+  score_raw: number | null;
+  score_badge: "MVP" | "ACE" | null;
+  spell1: number | null;
+  spell2: number | null;
   item0: number | null;
   item1: number | null;
   item2: number | null;
@@ -265,14 +273,12 @@ export interface DashboardData {
   accounts: number;
   // Newest first
   recentForm: { win: number; game_id: number }[];
-  topChampions: ChampionStats[];
   multikills: {
     doubles: number;
     triples: number;
     quadras: number;
     pentas: number;
   };
-  topAugments: AugmentStats[];
 }
 
 export interface ChampionData {
@@ -510,6 +516,14 @@ export interface BackfillProgress {
   current: number;
   total: number;
   added: number;
+}
+
+// How far an import from a backup file has got: games read of the file's
+// total, and how many of those were new
+export interface ImportProgress {
+  current: number;
+  total: number;
+  imported: number;
 }
 
 // Riot's match history service holds only this many matches per account, and
@@ -866,6 +880,10 @@ export interface ElectronAPI {
   openWidget(): Promise<WidgetState>;
   setWidgetPreferences(value: WidgetPreferences): Promise<WidgetState>;
   setObsEnabled(enabled: boolean): Promise<WidgetState>;
+  // Windows' regional format, for every date and number the page prints.
+  // Undefined when Windows reports something that isn't a locale tag, which
+  // leaves formatting to the page's own default.
+  locale: string | undefined;
   getMatchHistory: (
     limit: number,
     offset: number,
@@ -877,7 +895,7 @@ export interface ElectronAPI {
   ) => Promise<MatchFilterOptions>;
   getStoredQueues: () => Promise<number[]>;
   getQueueLifetimeTotals: () => Promise<QueueLifetimeTotal[]>;
-  getMatchDetail: (gameId: number) => Promise<MatchDetail>;
+  getMatchDetail: (gameId: number) => Promise<MatchDetail | null>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
   getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
@@ -948,6 +966,7 @@ export interface ElectronAPI {
     error?: string;
   }>;
   importData: () => Promise<{ success: boolean; imported?: number; error?: string }>;
+  onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
   repairPuuids: () => Promise<{
     repairedGames: number;
     discoveredAccounts: number;
@@ -958,6 +977,7 @@ export interface ElectronAPI {
   restoreBackup: (file: string) => Promise<{ success: boolean; games?: number; error?: string }>;
   getRecoveryReport: () => Promise<RecoveryReport | null>;
   openBackupFolder: () => Promise<void>;
+  openLogsFolder: () => Promise<void>;
   getVersion: () => Promise<string>;
   checkForUpdate: () => Promise<UpdateInfo>;
   downloadUpdate: (assetUrl: string) => Promise<{ success: boolean; error?: string }>;
@@ -969,3 +989,100 @@ export interface ElectronAPI {
   isWindowMaximized: () => Promise<boolean>;
   onMaximizedChanged: (callback: (maximized: boolean) => void) => () => void;
 }
+
+// ---- Channels ----
+
+// The ElectronAPI methods that ask the main process for something, as opposed
+// to the on* ones that subscribe to what it pushes and the values the preload
+// hands over as they are.
+export type InvokeMethod = {
+  [K in keyof ElectronAPI]: ElectronAPI[K] extends (...args: never[]) => Promise<unknown>
+    ? K
+    : never;
+}[keyof ElectronAPI];
+
+// The channel each request travels on. The preload builds its methods from this
+// and ipc-handlers registers each handler by method name, so the two sides can't
+// pair a method with different channels, and each handler's arguments and
+// result are checked against the signature of the method it answers.
+export const INVOKE_CHANNELS = {
+  getMatchHistory: "db:match-history",
+  getMatchSessions: "db:match-sessions",
+  getMatchFilterOptions: "db:match-filters",
+  getStoredQueues: "db:stored-queues",
+  getMatchDetail: "db:match-detail",
+  toggleFavorite: "db:toggle-favorite",
+  getChampionStats: "db:champion-stats",
+  getAugmentStats: "db:augment-stats",
+  getAugmentStatsDetailed: "db:augment-stats-detailed",
+  getDashboard: "db:dashboard",
+  getChampionMatchHistory: "db:champion-match-history",
+  getChampionItemStats: "db:champion-item-stats",
+  getTeammateStats: "db:teammate-stats",
+  getTeammateDetail: "db:teammate-detail",
+  getGlobalStats: "db:global-stats",
+  getTrends: "db:trends",
+  getRecords: "db:records",
+  getLiveGame: "live:snapshot",
+  getGameRecap: "db:game-recap",
+  getGameCard: "db:game-card",
+  getGlobalChampionDetail: "db:global-champion-detail",
+  getChallenges: "challenges:get",
+  getAllSummonerPuuids: "db:all-summoner-puuids",
+  getProfile: "db:profile",
+  refreshGames: "lcu:refresh",
+  backfillHistory: "lcu:backfill",
+  cancelBackfill: "lcu:cancel-backfill",
+  isBackfillRunning: "lcu:backfill-running",
+  getLcuStatus: "lcu:status",
+  getChampionData: "dragon:champions",
+  getAugmentData: "dragon:augments",
+  resolveAugmentIcon: "dragon:augment-icon",
+  getItemData: "dragon:items",
+  getSummonerSpellData: "dragon:summoner-spells",
+  getSetting: "settings:get",
+  isAutoStartSupported: "autostart:supported",
+  setSetting: "settings:set",
+  exportGameImage: "export:game-image",
+  copyGameImage: "export:copy-game-image",
+  exportData: "data:export",
+  importData: "data:import",
+  repairPuuids: "data:repair-puuids",
+  listBackups: "backup:list",
+  createBackup: "backup:create",
+  restoreBackup: "backup:restore",
+  getRecoveryReport: "backup:recovery-report",
+  openBackupFolder: "backup:open-folder",
+  openLogsFolder: "app:open-logs-folder",
+  getVersion: "app:version",
+  checkForUpdate: "app:check-update",
+  downloadUpdate: "app:download-update",
+  openUrl: "app:open-url",
+  minimizeWindow: "window:minimize",
+  toggleMaximizeWindow: "window:toggle-maximize",
+  closeWindow: "window:close",
+  isWindowMaximized: "window:is-maximized",
+  // LoLeanding additions: the per-queue lifetime counters and the desktop/OBS widget
+  getQueueLifetimeTotals: "db:queue-lifetime-totals",
+  getWidgetState: "widget:state",
+  openWidget: "widget:open",
+  setWidgetPreferences: "widget:preferences",
+  setObsEnabled: "widget:obs",
+} as const satisfies Record<InvokeMethod, string>;
+
+// What the main process pushes to the window, and the payload each one carries
+export interface RendererEvents {
+  "lcu:status-changed": LcuStatus;
+  "lcu:games-updated": void;
+  "lcu:backfill-progress": BackfillProgress;
+  "lcu:backfill-done": BackfillResult | { error: string };
+  "live:changed": LiveGameSnapshot;
+  "challenges:changed": ChallengesResult;
+  "update:progress": number;
+  "window:maximized-changed": boolean;
+  "data:import-progress": ImportProgress;
+}
+
+// The command-line switch every window is created with to carry
+// ElectronAPI.locale to the preload
+export const LOCALE_SWITCH = "--mayhem-locale";

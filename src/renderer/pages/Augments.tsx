@@ -1,5 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { useSort } from "../hooks/useSort";
@@ -18,6 +18,7 @@ import QueueSelect from "../components/QueueSelect";
 import SortHeader from "../components/SortHeader";
 import { useT } from "../lib/i18n";
 import type { TranslationKey } from "../../shared/i18n";
+import SearchInput from "../components/SearchInput";
 
 type SortKey = "picks" | "winRate" | "name";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
@@ -146,34 +147,7 @@ export default function Augments() {
           <QueueSelect value={queue} onChange={setQueue} />
           <PatchSelect value={patch} onChange={setPatch} />
         </div>
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("global.searchAugment")}
-            className="input w-48 pr-7"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-lol-text/50 hover:text-lol-text-bright transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 16 16"
-                fill="currentColor"
-                className="w-3.5 h-3.5"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
+        <SearchInput value={search} onChange={setSearch} placeholder={t("global.searchAugment")} />
       </div>
 
       <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
@@ -182,11 +156,23 @@ export default function Augments() {
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-8"></th>
               <SortHeader {...sort} label={t("global.augment")} field="name" />
-              <SortHeader {...sort} label={t("global.picks")} field="picks" />
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
+              <SortHeader
+                {...sort}
+                numeric
+                label={t("global.picks")}
+                field="picks"
+                className="w-24"
+              />
+              <th className="px-3 py-2 text-right text-xs font-medium text-lol-text uppercase tracking-wider w-24">
                 {t("global.pickRate")}
               </th>
-              <SortHeader {...sort} label={t("friends.winRate")} field="winRate" className="w-32" />
+              <SortHeader
+                {...sort}
+                numeric
+                label={t("friends.winRate")}
+                field="winRate"
+                className="w-32"
+              />
             </tr>
           </thead>
           <tbody>
@@ -194,9 +180,8 @@ export default function Augments() {
               const isExpanded = expanded.has(a.augment_id);
               const pickRate = totalGames > 0 ? ((a.picks / totalGames) * 100).toFixed(1) : "0.0";
               return (
-                <>
+                <Fragment key={a.augment_id}>
                   <tr
-                    key={a.augment_id}
                     onClick={() => toggleExpand(a.augment_id)}
                     className="border-t border-lol-border/50 hover:bg-lol-card-hover cursor-pointer transition-colors"
                   >
@@ -210,8 +195,12 @@ export default function Augments() {
                     <td className="px-3 py-2">
                       <AugmentIcon augmentId={a.augment_id} showName />
                     </td>
-                    <td className="px-3 py-2 text-sm text-lol-text-bright">{a.picks}</td>
-                    <td className="px-3 py-2 text-sm text-lol-text">{pickRate}%</td>
+                    <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums">
+                      {a.picks}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-lol-text text-right tabular-nums">
+                      {pickRate}%
+                    </td>
                     <td className="px-3 py-2 w-32">
                       <WinRateBar wins={a.wins} total={a.picks} />
                     </td>
@@ -231,14 +220,16 @@ export default function Augments() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-3 py-1.5 text-xs text-lol-text">{c.picks}</td>
+                        <td className="px-3 py-1.5 text-xs text-lol-text text-right tabular-nums">
+                          {c.picks}
+                        </td>
                         <td></td>
                         <td className="px-3 py-1.5 w-32">
                           <WinRateBar wins={c.wins} total={c.picks} />
                         </td>
                       </tr>
                     ))}
-                </>
+                </Fragment>
               );
             })}
           </tbody>

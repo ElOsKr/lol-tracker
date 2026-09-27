@@ -8,6 +8,7 @@ import type {
 } from "../lib/types";
 import { getChampionName } from "../hooks/useChampions";
 import {
+  LOCALE,
   formatCompact,
   formatDuration,
   formatKDA,
@@ -16,6 +17,7 @@ import {
   kdaColor,
   kdaRatio,
   winRatePercent,
+  scoreColor,
 } from "../lib/format";
 import {
   CHALLENGE_LEVEL_COLORS,
@@ -24,7 +26,6 @@ import {
 } from "../lib/challenges";
 import { ordinal } from "../../shared/text";
 import { useT, type Translate } from "../lib/i18n";
-import { scoreColor } from "../../shared/opScore";
 import { queueLabel } from "./QueueSelect";
 import ChallengeToken from "./ChallengeToken";
 import ChampionIcon from "./ChampionIcon";
@@ -47,6 +48,7 @@ import {
   TrendingDownIcon,
   TrendingUpIcon,
 } from "./icons";
+import Kda from "./Kda";
 
 // A stat against the average of every game on record. Small differences aren't
 // worth colouring, so anything inside a tenth of the average reads as neutral.
@@ -135,7 +137,7 @@ export default function GameRecap({
             <div className="mt-1 text-sm text-lol-text-bright">
               {getChampionName(champData, stats?.champion_id ?? 0)}
               <span className="mx-2 text-lol-text/40">·</span>
-              {formatKDA(kills, deaths, assists)}
+              <Kda kills={kills} deaths={deaths} assists={assists} />
               <span
                 className={`ml-2 ${kdaColor(deaths === 0 ? Infinity : (kills + assists) / deaths)}`}
               >
@@ -264,7 +266,7 @@ export default function GameRecap({
       {recap.placements.length > 0 && (
         <Panel
           title={t("recap.whereItLands")}
-          subtitle={t("recap.among", { count: career.games.toLocaleString() })}
+          subtitle={t("recap.among", { count: career.games.toLocaleString(LOCALE) })}
           icon={<MedalIcon className="h-3 w-3" />}
           accent="gold"
         >
@@ -318,7 +320,7 @@ export default function GameRecap({
             </div>
             <div>
               <div className="text-sm text-lol-text-bright">
-                {formatKDA(session.kills, session.deaths, session.assists)}
+                <Kda kills={session.kills} deaths={session.deaths} assists={session.assists} />
               </div>
               <div className="text-[11px] text-lol-text">
                 {t("recap.kda", {
@@ -506,7 +508,7 @@ function placementValue(placement: RecapPlacement, recap: GameRecapData): string
         recap.detail.stats?.assists ?? 0,
       );
     default:
-      return Math.round(placement.value).toLocaleString();
+      return Math.round(placement.value).toLocaleString(LOCALE);
   }
 }
 
@@ -540,7 +542,7 @@ function PlacementCard({ placement, recap }: { placement: RecapPlacement; recap:
             : t("recap.mostEver")
           : t("recap.ordinalOf", {
               ordinal: ordinal(placement.rank),
-              total: placement.total.toLocaleString(),
+              total: placement.total.toLocaleString(LOCALE),
             })}
       </div>
     </div>

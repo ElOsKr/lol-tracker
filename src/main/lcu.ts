@@ -4,13 +4,14 @@ import {
   ClientElevatedPermsError,
   ClientNotFoundError,
   createHttp1Request,
-  createWebSocketConnection,
   Credentials,
   HttpRequestOptions,
   LeagueWebSocket,
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
+import { sendToRenderer } from "./ipc";
+import { findClient, installDirCandidates } from "./lockfile";
 import { TRACKED_QUEUE_IDS, CAPTURE_POLICY_VERSION } from "../shared/queues";
 import { SGP_HISTORY_CAP } from "../shared/api";
 import type { BackfillLimit, BackfillResult, LcuStatus } from "../shared/api";
@@ -34,9 +35,7 @@ export function onLcuStatusChange(listener: StatusListener) {
 function setStatus(newStatus: typeof status, win?: BrowserWindow | null) {
   const changed = status !== newStatus;
   status = newStatus;
-  if (win && !win.isDestroyed()) {
-    win.webContents.send("lcu:status-changed", status);
-  }
+  sendToRenderer(win, "lcu:status-changed", status);
   if (!changed) return;
   for (const listener of statusListeners) {
     try {
@@ -70,9 +69,41 @@ export function friendlyErrorMessage(err: unknown): string {
   return message;
 }
 
+// Where the client said it was installed, the last time authenticate() had to
+// find it. A client in a folder the Riot Client's records don't mention is then
+// found by its lockfile, like any other, from the next lookup on.
+const INSTALL_DIR_SETTING = "lcu_install_dir";
+
+// authenticate() only runs when no lockfile can settle the question, and this
+// spaces out the PowerShell launches it costs for as long as that stays true.
+const AUTHENTICATE_INTERVAL_MS = 30_000;
+let nextAuthenticateAt = 0;
+
 async function connect(): Promise<Credentials> {
+  const client = await findClient(installDirCandidates(db.getSetting(INSTALL_DIR_SETTING)));
+  if (client.state === "running") {
+    credentials = client.credentials;
+    return credentials;
+  }
+  // An install with no live lockfile is a closed client, and asking PowerShell
+  // would only say so more slowly
+  if (client.state === "closed") {
+    credentials = null;
+    throw new ClientNotFoundError();
+  }
+  if (Date.now() < nextAuthenticateAt) throw new ClientNotFoundError();
+
+  nextAuthenticateAt = Date.now() + AUTHENTICATE_INTERVAL_MS;
   credentials = await authenticate({ windowsShell: "powershell" });
+  void rememberInstallDir();
   return credentials;
+}
+
+// The client knows where it runs from, and remembering its answer is what lets
+// every later lookup read the lockfile instead of launching PowerShell again
+async function rememberInstallDir(): Promise<void> {
+  const dir = await lcuJson("/data-store/v1/install-dir");
+  if (typeof dir === "string" && dir) db.setSetting(INSTALL_DIR_SETTING, dir);
 }
 
 async function lcuRequest(url: string, method: HttpRequestOptions["method"] = "GET") {
@@ -213,12 +244,6 @@ let backfillCancelled = false;
 // Suppresses only the *automatic* backfill. Cleared on restart, and a manual
 // run from Settings always ignores it.
 let autoBackfillPausedUntil = 0;
-
-function notifyGamesUpdated(win?: BrowserWindow | null) {
-  if (win && !win.isDestroyed()) {
-    win.webContents.send("lcu:games-updated");
-  }
-}
 
 function sgpMatchIdsUrl(
   host: string,
@@ -442,8 +467,6 @@ export async function backfillHistory(
   backfillCancelled = false;
 
   try {
-    await connect();
-
     const summoner = await fetchCurrentSummoner();
     db.upsertSummoner(summoner);
 
@@ -519,11 +542,8 @@ export async function backfillHistory(
 
     const pending = ids.filter((id) => !known.has(id));
 
-    const progress = (current: number, added: number) => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("lcu:backfill-progress", { current, total: pending.length, added });
-      }
-    };
+    const progress = (current: number, added: number) =>
+      sendToRenderer(win, "lcu:backfill-progress", { current, total: pending.length, added });
     // A periodic check that finds nothing has no progress to report, and
     // announcing one anyway would flash an import bar at the user every few
     // hours for work that never happened.
@@ -554,7 +574,7 @@ export async function backfillHistory(
       // Let the app fill in as it goes rather than staying empty for minutes
       if (added - announced >= GAMES_UPDATED_BATCH) {
         announced = added;
-        notifyGamesUpdated(win);
+        sendToRenderer(win, "lcu:games-updated");
       }
       progress(i + 1, added);
     }
@@ -577,7 +597,7 @@ export async function backfillHistory(
       autoBackfillPausedUntil = Infinity;
     }
 
-    if (added > announced) notifyGamesUpdated(win);
+    if (added > announced) sendToRenderer(win, "lcu:games-updated");
 
     const dashboard = db.getDashboardData();
     const result: BackfillResult = {
@@ -589,14 +609,10 @@ export async function backfillHistory(
       cancelled,
     };
 
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("lcu:backfill-done", result);
-    }
+    sendToRenderer(win, "lcu:backfill-done", result);
     return result;
   } catch (err) {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send("lcu:backfill-done", { error: friendlyErrorMessage(err) });
-    }
+    sendToRenderer(win, "lcu:backfill-done", { error: friendlyErrorMessage(err) });
     throw err;
   } finally {
     backfillRunning = false;
@@ -616,8 +632,6 @@ export async function fetchNewGames(
   win?: BrowserWindow | null,
   knownSummoner?: any,
 ): Promise<RecentSyncResult> {
-  await connect();
-
   const summoner = knownSummoner ?? (await fetchCurrentSummoner());
   db.upsertSummoner(summoner);
 
@@ -660,7 +674,10 @@ export async function fetchNewGames(
     try {
       fullGame = await fetchGameDetails(game.gameId);
     } catch {
-      fullGame = game;
+      // The list entry carries only our own participant. Stored, it would
+      // mark the game known with nine players missing, and nothing refetches
+      // a known game; left unrecorded, the next sync tries it again.
+      continue;
     }
 
     const inserted = db.insertGameFull(fullGame, summoner.puuid);
@@ -670,9 +687,7 @@ export async function fetchNewGames(
     }
   }
 
-  if (newGamesCount > 0 && win && !win.isDestroyed()) {
-    win.webContents.send("lcu:games-updated");
-  }
+  if (newGamesCount > 0) sendToRenderer(win, "lcu:games-updated");
 
   const dashboard = db.getDashboardData();
   return {
@@ -816,7 +831,7 @@ async function captureEogGame(
 
     if (db.insertGameFull(game, summoner.puuid)) {
       console.log(`Stored LoL game ${gameId} from the post-game screen`);
-      notifyGamesUpdated(win);
+      sendToRenderer(win, "lcu:games-updated");
     }
     eogPending.delete(gameId);
   } catch (err) {
@@ -865,7 +880,7 @@ function captureQueueTotals(win: BrowserWindow, data: any) {
       if (game.gameId !== data.gameId) return;
       if (saveQueueLifetimeTotal(data, game, summoner.puuid)) {
         db.upsertSummoner(summoner);
-        notifyGamesUpdated(win);
+        sendToRenderer(win, "lcu:games-updated");
       }
     })
     .catch(() => {
@@ -911,41 +926,41 @@ function handleFrame(win: BrowserWindow, payload: any): void {
 // the in-game status down with it.
 const EOG_ATTACH_TIMEOUT_MS = 15_000;
 
-function connectEogSocket(): Promise<LeagueWebSocket> {
-  const pending = createWebSocketConnection({
-    authenticationOptions: { windowsShell: "powershell" },
-    // The connect loop in startPolling is already the retry policy; a second
-    // one inside the socket would stack reconnect attempts on top of it.
-    maxRetries: 0,
+// One attempt with no retry of its own: the poll is what tries again. Opened
+// with the credentials connect() found, since league-connect's
+// createWebSocketConnection runs an authenticate() of its own and so launches
+// PowerShell on every attempt.
+function connectEogSocket(creds: Credentials): Promise<LeagueWebSocket> {
+  const socket = new LeagueWebSocket(`wss://127.0.0.1:${creds.port}`, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`riot:${creds.password}`).toString("base64")}`,
+    },
+    ca: creds.certificate,
   });
 
   return new Promise<LeagueWebSocket>((resolve, reject) => {
-    let settled = false;
+    const onOpen = () => {
+      clearTimeout(timer);
+      socket.off("error", onError);
+      resolve(socket);
+    };
+    const onError = (err: Error) => {
+      clearTimeout(timer);
+      socket.off("open", onOpen);
+      reject(err);
+    };
 
     const timer = setTimeout(() => {
-      settled = true;
-      // Abandoned rather than cancelled — a connection in flight can't be
-      // called off — so a socket that does open later still has to be closed,
-      // or it would sit there holding a subscription nothing reads.
-      pending.then((socket) => socket.close()).catch(() => {});
+      socket.off("open", onOpen);
+      // Still mid-handshake, so terminating it reports one more error, which
+      // onError stays attached to absorb
+      socket.terminate();
       reject(new Error("Timed out connecting to the League client event socket"));
     }, EOG_ATTACH_TIMEOUT_MS);
     timer.unref?.();
 
-    pending.then(
-      (socket) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(socket);
-      },
-      (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
+    socket.once("open", onOpen);
+    socket.on("error", onError);
   });
 }
 
@@ -962,10 +977,10 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
   eogAttaching = true;
 
   try {
-    const socket = await connectEogSocket();
+    const socket = await connectEogSocket(credentials ?? (await connect()));
 
-    // league-connect drops its own error handler once the socket is open, and
-    // an emitter with no 'error' listener throws — which here would crash the
+    // connectEogSocket drops its own error handler once the socket is open, and
+    // an emitter with no 'error' listener throws, which here would crash the
     // app every time the League client closes.
     socket.on("error", () => socket.close());
     socket.on("close", () => {
@@ -1024,8 +1039,8 @@ async function attachEogListener(win: BrowserWindow): Promise<void> {
 async function handleSocketDrop(win: BrowserWindow) {
   if ((await fetchGameflowPhase()) !== null) return;
 
-  // Forces the loop to authenticate again, since a client that comes back comes
-  // back on a different port
+  // Forces the loop to look for the client again, since one that comes back
+  // comes back on a different port
   credentials = null;
   restartConnectLoop(win);
 }
@@ -1157,10 +1172,10 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
   // Show "connecting" only on the very first attempt after app launch
   setStatus(firstAttempt ? "connecting" : "disconnected", win);
 
-  // authenticate() shells out to PowerShell, which can take longer than a tick
-  // on a busy machine. Without this, the slow tick and the one behind it both
-  // go on to install a poll timer, and whichever loses the race runs on with
-  // nothing left holding a handle to cancel it.
+  // connect() can take longer than a tick when it falls back to authenticate(),
+  // which shells out to PowerShell. Without this, the slow tick and the one
+  // behind it both go on to install a poll timer, and whichever loses the race
+  // runs on with nothing left holding a handle to cancel it.
   let connecting = false;
 
   connectTimer = setInterval(async () => {
@@ -1185,11 +1200,12 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
       connectTimer = null;
     }
 
-    // Installed before the first sync runs, never after. The client answers
-    // authenticate() from its command line the moment it starts, seconds before
-    // its HTTP server is listening, so the first sync of a session is the one
-    // most likely to fail. The connect timer has already been cleared above, so
-    // this is the only thing left that will retry it.
+    // Installed before the first sync runs, never after. The client can be found
+    // before it is ready to answer (authenticate() reads its command line the
+    // moment it starts, seconds before its HTTP server is listening), so the
+    // first sync of a session is the one most likely to fail. The connect timer
+    // has already been cleared above, so this is the only thing left that will
+    // retry it.
     pollTimer = setInterval(() => {
       void pollTick(win);
     }, POLL_INTERVAL_MS);

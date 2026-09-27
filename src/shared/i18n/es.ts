@@ -573,4 +573,14 @@ export const es: Dictionary = {
 
   // Cola del widget
   "widget.queueFollowApp": "La misma que la aplicación",
+
+  // Progreso de importación (upstream 1.13.1)
+  "settings.importing": "Importando la partida {current} de {total}; {imported} nuevas hasta ahora",
+
+  // Resolución de problemas y búsqueda (upstream 1.13.1)
+  "settings.troubleshooting": "Resolución de problemas",
+  "settings.logFile": "Archivo de registro",
+  "settings.logFileDesc":
+    "Un registro de lo que hace el programa en segundo plano, como conectarse al cliente y guardar partidas. Si algo falla, main.log es el archivo que hay que adjuntar al informe.",
+  "common.clearSearch": "Borrar búsqueda",
 };

@@ -1,5 +1,5 @@
 import { resolve } from "path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { defineConfig } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import type { Plugin } from "vite";
@@ -14,7 +14,7 @@ import type { Plugin } from "vite";
 const BASE_CSP = [
   "default-src 'none'",
   "style-src 'self' file: 'unsafe-inline'",
-  "img-src 'self' file: data: https://raw.communitydragon.org https://www.league-of-data-base.com",
+  "img-src 'self' file: data: https://raw.communitydragon.org",
   "font-src 'self' file: data:",
   "object-src 'none'",
   "base-uri 'none'",
@@ -52,7 +52,6 @@ function cspPlugin(policy: string, apply: "serve" | "build"): Plugin {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         external: ["better-sqlite3"],
@@ -65,7 +64,6 @@ export default defineConfig({
         input: { index: resolve("src/preload/index.ts"), widget: resolve("src/preload/widget.ts") },
       },
     },
-    plugins: [externalizeDepsPlugin()],
   },
   renderer: {
     root: resolve("src/renderer"),
