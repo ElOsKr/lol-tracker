@@ -65,7 +65,7 @@ export default function Friends() {
 
   return (
     <div className="max-w-7xl space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-lol-text-bright">{t("friends.title")}</h1>
           <span className="text-sm text-lol-text">
@@ -75,7 +75,7 @@ export default function Friends() {
         <SearchInput value={search} onChange={setSearch} placeholder={t("friends.search")} />
       </div>
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-x-auto">
         <table className="w-full">
           <thead className="bg-lol-dark/50">
             <tr>
@@ -99,8 +99,13 @@ export default function Friends() {
                 field="winRate"
                 className="w-32"
               />
-              <SortHeader {...sort} label={t("friends.theirKda")} field="kda" className="w-32" />
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-36">
+              <SortHeader
+                {...sort}
+                label={t("friends.theirKda")}
+                field="kda"
+                className="hidden w-32 @lg:table-cell"
+              />
+              <th className="hidden px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-36 @2xl:table-cell">
                 {t("friends.topChampions")}
               </th>
               <SortHeader
@@ -141,7 +146,7 @@ export default function Friends() {
                   <td className="px-3 py-2 w-32">
                     <WinRateBar wins={t.wins} total={t.games} />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="hidden px-3 py-2 @lg:table-cell">
                     <div className="flex flex-col">
                       <span className={`text-sm ${kdaColor(ratio)}`}>{ratioStr}</span>
                       <span className="text-[10px] text-lol-text">
@@ -153,7 +158,7 @@ export default function Friends() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="hidden px-3 py-2 @2xl:table-cell">
                     <div className="flex items-center gap-1">
                       {t.champions.slice(0, 3).map((c) => (
                         <div key={c.champion_id} className="relative group">
