@@ -23,6 +23,8 @@ import {
   RadioIcon,
   HourglassIcon,
   AwardIcon,
+  PanelLeftIcon,
+  XIcon,
 } from "./icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -60,13 +62,30 @@ const statusLabels = {
   disconnected: "status.disconnected",
 } as const satisfies Record<LcuStatus, string>;
 
-function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: IconComponent }) {
+// How the sidebar is shown: the full column, the same column folded down to
+// its icons, or a drawer pulled over a narrow window from its menu button.
+export type SidebarMode = "expanded" | "collapsed" | "drawer";
+
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  iconsOnly,
+}: {
+  to: string;
+  label: string;
+  icon: IconComponent;
+  iconsOnly: boolean;
+}) {
   return (
     <NavLink
       to={to}
       end={to === "/"}
+      title={iconsOnly ? label : undefined}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
+        `flex items-center gap-3 rounded-md text-[13px] font-medium transition-colors ${
+          iconsOnly ? "justify-center px-0 py-2.5" : "px-3 py-2"
+        } ${
           isActive
             ? "bg-lol-gold/10 text-lol-gold"
             : "text-lol-text hover:bg-white/5 hover:text-lol-text-bright"
@@ -74,12 +93,22 @@ function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: I
       }
     >
       <Icon className="w-4 h-4 shrink-0" />
-      <span>{label}</span>
+      {!iconsOnly && <span>{label}</span>}
     </NavLink>
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  mode,
+  onToggleCollapse,
+  onClose,
+}: {
+  mode: SidebarMode;
+  // Expanded and collapsed only: folds the column or unfolds it
+  onToggleCollapse?: () => void;
+  // Drawer only: the close button and what a navigation does
+  onClose?: () => void;
+}) {
   const [queue] = useQueueSelection();
   const layout = useNavLayout();
   const t = useT();
@@ -90,6 +119,7 @@ export default function Sidebar() {
   const [version, setVersion] = useState("");
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const iconsOnly = mode === "collapsed";
 
   // Read inside the poll instead of as an effect dep, so opening the dialog
   // doesn't restart the interval
@@ -161,22 +191,85 @@ export default function Sidebar() {
     }
   }, []);
 
+  const statusText = t(statusLabels[status]);
+  const syncButton = backfilling ? (
+    <button
+      onClick={() => window.api.cancelBackfill()}
+      title={iconsOnly ? t("sidebar.cancel") : undefined}
+      className={`flex items-center gap-1.5 text-xs rounded-md border border-lol-border bg-white/5 text-lol-text hover:text-lol-text-bright hover:bg-white/10 transition-colors ${
+        iconsOnly ? "h-8 w-8 justify-center" : "px-2.5 py-1"
+      }`}
+    >
+      {iconsOnly ? <XIcon className="w-3 h-3" /> : t("sidebar.cancel")}
+    </button>
+  ) : (
+    <button
+      onClick={handleRefresh}
+      disabled={refreshing}
+      title={iconsOnly ? (refreshing ? t("sidebar.syncing") : t("sidebar.sync")) : undefined}
+      className={`flex items-center gap-1.5 text-xs rounded-md border border-lol-gold/25 bg-lol-gold/10 text-lol-gold hover:bg-lol-gold/20 disabled:opacity-50 transition-colors ${
+        iconsOnly ? "h-8 w-8 justify-center" : "px-2.5 py-1"
+      }`}
+    >
+      <RefreshIcon className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+      {!iconsOnly && (refreshing ? t("sidebar.syncing") : t("sidebar.sync"))}
+    </button>
+  );
+
   return (
-    <nav className="w-56 bg-lol-card/60 border-r border-lol-border/60 flex flex-col shrink-0">
-      <div className="titlebar-drag h-14 shrink-0 flex items-center gap-2.5 px-4 border-b border-lol-border/40">
+    <nav
+      className={`border-r border-lol-border/60 flex flex-col shrink-0 h-full ${
+        mode === "drawer"
+          ? "w-64 bg-lol-dark shadow-xl shadow-black/50"
+          : `bg-lol-card/60 ${iconsOnly ? "w-14" : "w-56"}`
+      }`}
+    >
+      <div
+        className={`${mode === "drawer" ? "" : "titlebar-drag"} h-14 shrink-0 flex items-center gap-2.5 border-b border-lol-border/40 ${
+          iconsOnly ? "justify-center px-0" : "px-4"
+        }`}
+      >
         <div className="w-7 h-7 rounded-lg border border-lol-gold/40 bg-lol-gold/10 flex items-center justify-center shrink-0">
           <LoLeandingIcon className="w-5 h-5" />
         </div>
-        <div className="flex flex-col justify-center leading-none">
-          <span className="font-bold text-[15px] tracking-[0.02em] text-lol-text-bright">
-            LoLeanding
-          </span>
-          <span className="text-[8px] font-semibold uppercase tracking-[0.35em] text-lol-text/80 mt-1">
-            {t("sidebar.tracker")}
-          </span>
-        </div>
+        {!iconsOnly && (
+          <div className="flex flex-col justify-center leading-none min-w-0">
+            <span className="font-bold text-[15px] tracking-[0.02em] text-lol-text-bright">
+              LoLeanding
+            </span>
+            <span className="text-[8px] font-semibold uppercase tracking-[0.35em] text-lol-text/80 mt-1">
+              {t("sidebar.tracker")}
+            </span>
+          </div>
+        )}
+        {mode === "drawer" && (
+          <button
+            onClick={onClose}
+            title={t("sidebar.closeMenu")}
+            aria-label={t("sidebar.closeMenu")}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-lol-text hover:bg-white/5 hover:text-lol-text-bright transition-colors"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        )}
       </div>
-      <div className="flex flex-col gap-0.5 p-3 mt-1 flex-1">
+      {mode !== "drawer" && (
+        <div
+          className={`titlebar-no-drag flex px-3 pt-2 ${iconsOnly ? "justify-center" : "justify-end"}`}
+        >
+          <button
+            onClick={onToggleCollapse}
+            title={iconsOnly ? t("sidebar.expand") : t("sidebar.collapse")}
+            aria-label={iconsOnly ? t("sidebar.expand") : t("sidebar.collapse")}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-lol-text/70 hover:bg-white/5 hover:text-lol-text-bright transition-colors"
+          >
+            <PanelLeftIcon
+              className={`w-4 h-4 transition-transform ${iconsOnly ? "rotate-180" : ""}`}
+            />
+          </button>
+        </div>
+      )}
+      <div className={`flex flex-col gap-0.5 mt-1 flex-1 ${iconsOnly ? "px-2 py-2" : "p-3"}`}>
         {visibleNavItems(layout)
           .filter((item) => hasAugments(queue) || item.id !== "augments")
           .map((item) => (
@@ -185,28 +278,40 @@ export default function Sidebar() {
               to={item.path}
               label={t(`nav.${item.id}`)}
               icon={icons[item.id]}
+              iconsOnly={iconsOnly}
             />
           ))}
       </div>
-      <div className="px-3 pb-1">
-        <NavItem to="/settings" label={t("nav.settings")} icon={SettingsIcon} />
+      <div className={`pb-1 ${iconsOnly ? "px-2" : "px-3"}`}>
+        <NavItem
+          to="/settings"
+          label={t("nav.settings")}
+          icon={SettingsIcon}
+          iconsOnly={iconsOnly}
+        />
       </div>
-      <div className="p-3 border-t border-lol-border/60 flex flex-col gap-2">
-        {lastResult && !backfilling && (
+      <div
+        className={`border-t border-lol-border/60 flex flex-col gap-2 ${
+          iconsOnly ? "items-center p-2" : "p-3"
+        }`}
+      >
+        {!iconsOnly && lastResult && !backfilling && (
           <span className="text-xs text-lol-text truncate" title={lastResult}>
             {lastResult}
           </span>
         )}
         {backfilling && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-lol-text truncate">
-              {progress && progress.total > 0
-                ? t("sidebar.importingProgress", {
-                    current: progress.current,
-                    total: progress.total,
-                  })
-                : t("sidebar.importing")}
-            </span>
+          <div className="flex flex-col gap-1.5 w-full">
+            {!iconsOnly && (
+              <span className="text-xs text-lol-text truncate">
+                {progress && progress.total > 0
+                  ? t("sidebar.importingProgress", {
+                      current: progress.current,
+                      total: progress.total,
+                    })
+                  : t("sidebar.importing")}
+              </span>
+            )}
             <div className="h-1 rounded-full bg-lol-border overflow-hidden">
               <div
                 className="h-full bg-lol-gold transition-all duration-300"
@@ -215,47 +320,49 @@ export default function Sidebar() {
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
-            <span className="text-xs text-lol-text">{t(statusLabels[status])}</span>
-          </div>
-          {backfilling ? (
-            <button
-              onClick={() => window.api.cancelBackfill()}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-lol-border bg-white/5 text-lol-text hover:text-lol-text-bright hover:bg-white/10 transition-colors"
-            >
-              {t("sidebar.cancel")}
-            </button>
-          ) : (
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-lol-gold/25 bg-lol-gold/10 text-lol-gold hover:bg-lol-gold/20 disabled:opacity-50 transition-colors"
-            >
-              <RefreshIcon className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? t("sidebar.syncing") : t("sidebar.sync")}
-            </button>
-          )}
-        </div>
-        <div className="flex items-center justify-between mt-1">
-          <button
-            onClick={() =>
-              window.api.openUrl(`https://github.com/ElOsKr/lol-tracker/releases/tag/v${version}`)
-            }
-            className="text-[10px] text-lol-text/50 hover:text-lol-text transition-colors cursor-pointer"
-          >
-            v{version}
-          </button>
-          {update?.hasUpdate && (
-            <button
-              onClick={() => setShowUpdateDialog(true)}
-              className="text-[10px] text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
-            >
-              {t("sidebar.updateAvailable", { version: update.latest ?? "" })}
-            </button>
-          )}
-        </div>
+        {iconsOnly ? (
+          <>
+            <div className={`w-2 h-2 rounded-full ${statusColors[status]}`} title={statusText} />
+            {syncButton}
+            {update?.hasUpdate && (
+              <button
+                onClick={() => setShowUpdateDialog(true)}
+                title={t("sidebar.updateAvailable", { version: update.latest ?? "" })}
+                className="h-2 w-2 rounded-full bg-lol-gold hover:bg-lol-gold-light transition-colors cursor-pointer"
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
+                <span className="text-xs text-lol-text">{statusText}</span>
+              </div>
+              {syncButton}
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <button
+                onClick={() =>
+                  window.api.openUrl(
+                    `https://github.com/ElOsKr/lol-tracker/releases/tag/v${version}`,
+                  )
+                }
+                className="text-[10px] text-lol-text/50 hover:text-lol-text transition-colors cursor-pointer"
+              >
+                v{version}
+              </button>
+              {update?.hasUpdate && (
+                <button
+                  onClick={() => setShowUpdateDialog(true)}
+                  className="text-[10px] text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
+                >
+                  {t("sidebar.updateAvailable", { version: update.latest ?? "" })}
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
       {showUpdateDialog && update && (
         <UpdateDialog update={update} onClose={() => setShowUpdateDialog(false)} />

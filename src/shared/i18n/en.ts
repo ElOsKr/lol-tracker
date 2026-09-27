@@ -581,6 +581,12 @@ export const en = {
   "global.seenIn": "Seen in {count} of your {total} games",
   "global.playedByYou": "{count} played by you",
   "global.playedByYouOne": "1 played by you",
+
+  // Responsive layout
+  "sidebar.collapse": "Collapse the sidebar",
+  "sidebar.expand": "Expand the sidebar",
+  "sidebar.menu": "Menu",
+  "sidebar.closeMenu": "Close the menu",
 } as const;
 
 export type TranslationKey = keyof typeof en;

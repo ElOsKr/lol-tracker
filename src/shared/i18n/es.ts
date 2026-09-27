@@ -590,4 +590,10 @@ export const es: Dictionary = {
   "global.seenIn": "Visto en {count} de tus {total} partidas",
   "global.playedByYou": "{count} las jugaste tú",
   "global.playedByYouOne": "1 la jugaste tú",
+
+  // Diseño adaptable
+  "sidebar.collapse": "Plegar la barra lateral",
+  "sidebar.expand": "Desplegar la barra lateral",
+  "sidebar.menu": "Menú",
+  "sidebar.closeMenu": "Cerrar el menú",
 };
