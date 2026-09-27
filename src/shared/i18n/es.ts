@@ -478,7 +478,7 @@ export const es: Dictionary = {
     "Solo es accesible desde este PC. No requiere abrir puertos en el router. Se desactiva al salir de la aplicación.",
   "global.title": "Estadísticas globales",
   "global.summary":
-    "{games} partidas · {champions} campeones · {augments} aumentos · {items} objetos",
+    "Los diez jugadores de tus {games} partidas · {champions} campeones · {augments} aumentos · {items} objetos",
   "global.championsCount": "{count} campeones",
   "global.augmentsCount": "{count} aumentos",
   "global.itemsCount": "{count} objetos",
@@ -495,7 +495,6 @@ export const es: Dictionary = {
   "global.pick": "Elección",
   "global.noItemsRecorded": "Sin objetos registrados",
   "global.noAugmentsRecorded": "Sin aumentos registrados",
-  "global.playedAcross": "{count} partidas jugadas en todas las partidas guardadas",
   "global.noGamesChampion": "No hay partidas con este campeón para los filtros seleccionados.",
   "global.record": "{wins}V {losses}D",
   "global.kdaSub": "ratio {ratio} · {kills} / {deaths} / {assists} en total",
@@ -583,4 +582,10 @@ export const es: Dictionary = {
   "settings.logFileDesc":
     "Un registro de lo que hace el programa en segundo plano, como conectarse al cliente y guardar partidas. Si algo falla, main.log es el archivo que hay que adjuntar al informe.",
   "common.clearSearch": "Borrar búsqueda",
+
+  // Estadísticas totales: qué se cuenta
+  "global.appearances": "Apariciones",
+  "global.ownGames": "{count} tuyas",
+  "global.seenIn": "Visto en {count} de tus {total} partidas",
+  "global.playedByYou": "{count} las jugaste tú",
 };

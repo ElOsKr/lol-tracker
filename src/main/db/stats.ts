@@ -285,9 +285,43 @@ function participantFilter(patch?: string, queue?: number, alias = "mp") {
   return { where, params, sql: where.join(" AND ") };
 }
 
+// Our own games per champion under the same filters, so the global table can
+// say how many of a champion's appearances were ours.
+function ownGamesByChampion(patch?: string, queue?: number): Map<number, number> {
+  const where = ["g.is_remake = 0"];
+  const params: any[] = [];
+  if (patch) {
+    where.push("g.game_version = ?");
+    params.push(patch);
+  }
+  applyQueueFilter(where, params, queue);
+  const rows = db
+    .prepare(`
+      SELECT ps.champion_id, COUNT(*) as games
+      FROM player_stats ps
+      JOIN games g ON g.game_id = ps.game_id
+      WHERE ${where.join(" AND ")}
+      GROUP BY ps.champion_id
+    `)
+    .all(...params) as { champion_id: number; games: number }[];
+  return new Map(rows.map((r) => [r.champion_id, r.games]));
+}
+
+// How many stored games the participant rows under a filter come from. Not
+// slots / 10: Arena games seat sixteen.
+function distinctGames(mp: { sql: string; params: any[] }): number {
+  const row = db
+    .prepare(
+      `SELECT COUNT(DISTINCT mp.game_id) as count FROM match_participants mp WHERE ${mp.sql}`,
+    )
+    .get(...mp.params) as { count: number };
+  return row.count;
+}
+
 export function getGlobalStats(patch?: string, queue?: number): GlobalStats {
   const mp = participantFilter(patch, queue);
   const mpa = participantFilter(patch, queue, "mpa");
+  const own = ownGamesByChampion(patch, queue);
 
   const champions = db
     .prepare(`
@@ -298,6 +332,10 @@ export function getGlobalStats(patch?: string, queue?: number): GlobalStats {
       ORDER BY games DESC
     `)
     .all(...mp.params) as { champion_id: number; games: number; wins: number }[];
+  const championsWithOwn = champions.map((c) => ({
+    ...c,
+    ownGames: own.get(c.champion_id) ?? 0,
+  }));
 
   const augments = db
     .prepare(`
@@ -337,7 +375,13 @@ export function getGlobalStats(patch?: string, queue?: number): GlobalStats {
     `)
     .get(...mp.params) as { count: number };
 
-  return { champions, augments, items, totalParticipantSlots: slots.count };
+  return {
+    champions: championsWithOwn,
+    augments,
+    items,
+    totalParticipantSlots: slots.count,
+    totalGames: distinctGames(mp),
+  };
 }
 
 // Everything we know about one champion across every stored game, counting all
@@ -436,6 +480,7 @@ export function getGlobalChampionDetail(
   return {
     champion_id: championId,
     games,
+    ownGames: ownGamesByChampion(patch, queue).get(championId) ?? 0,
     wins: totals?.wins ?? 0,
     kills: totals?.kills ?? 0,
     deaths: totals?.deaths ?? 0,
@@ -451,6 +496,7 @@ export function getGlobalChampionDetail(
     quadraKills: totals?.quadraKills ?? 0,
     pentaKills: totals?.pentaKills ?? 0,
     totalParticipantSlots: slots.count,
+    totalGames: distinctGames(mp),
     items,
     augments,
   };

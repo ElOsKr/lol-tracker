@@ -105,8 +105,6 @@ export default function GlobalStats() {
     return unsub;
   }, [refetch]);
 
-  const totalGames = data ? Math.round(data.totalParticipantSlots / 10) : 0;
-
   const sortedChampions = useMemo(() => {
     if (!data) return [];
     let filtered = data.champions.filter((c) => {
@@ -211,7 +209,7 @@ export default function GlobalStats() {
         <div className="flex items-center gap-3">
           <span className="text-xs text-lol-text">
             {t("global.summary", {
-              games: totalGames,
+              games: data.totalGames,
               champions: data.champions.length,
               augments: data.augments.length,
               items: data.items.length,
@@ -281,9 +279,9 @@ export default function GlobalStats() {
                   <SortHeader
                     {...champSort}
                     numeric
-                    label={t("champions.games")}
+                    label={t("global.appearances")}
                     field="games"
-                    className="w-24"
+                    className="w-36"
                   />
                   <SortHeader
                     {...champSort}
@@ -324,8 +322,13 @@ export default function GlobalStats() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums">
+                      <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums whitespace-nowrap">
                         {c.games}
+                        {c.ownGames > 0 && (
+                          <span className="ml-1.5 text-[11px] text-lol-text">
+                            {t("global.ownGames", { count: c.ownGames })}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-sm text-lol-text text-right tabular-nums">
                         {pickRate}%

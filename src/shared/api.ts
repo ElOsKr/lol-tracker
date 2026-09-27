@@ -449,17 +449,24 @@ export interface RecordsData {
   lossStreak: StreakRecord | null;
 }
 
+// Counts every player of every stored game, not just us: `games` is how many
+// games a champion appeared in, `ownGames` how many of those we played it in.
 export interface GlobalStats {
-  champions: { champion_id: number; games: number; wins: number }[];
+  champions: { champion_id: number; games: number; wins: number; ownGames: number }[];
   augments: { augment_id: number; picks: number; wins: number }[];
   items: { item_id: number; picks: number; wins: number }[];
   totalParticipantSlots: number;
+  // Distinct stored games behind those slots, for the page header
+  totalGames: number;
 }
 
 // One champion across every stored game, counting all ten players per game.
 export interface GlobalChampionDetail {
   champion_id: number;
+  // Games the champion appeared in, by anyone
   games: number;
+  // ...of which we were the one playing it
+  ownGames: number;
   wins: number;
   kills: number;
   deaths: number;
@@ -476,6 +483,7 @@ export interface GlobalChampionDetail {
   quadraKills: number;
   pentaKills: number;
   totalParticipantSlots: number;
+  totalGames: number;
   items: ItemStats[];
   augments: AugmentStats[];
 }

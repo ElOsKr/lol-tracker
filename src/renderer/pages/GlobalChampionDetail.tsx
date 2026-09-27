@@ -312,7 +312,8 @@ export default function GlobalChampionDetailPage() {
               {getChampionName(champData, id)}
             </h1>
             <span className="text-sm text-lol-text">
-              {t("global.playedAcross", { count: data.games })}
+              {t("global.seenIn", { count: data.games, total: data.totalGames })}
+              {data.ownGames > 0 && ` · ${t("global.playedByYou", { count: data.ownGames })}`}
             </span>
           </div>
         </div>
