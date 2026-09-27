@@ -34,6 +34,10 @@ Match data lives in `%APPDATA%\loleanding\data`, with automatic backups alongsid
 
 Electron + React + TypeScript, built with electron-vite. Uses Tailwind CSS for styling, better-sqlite3 for local storage, and league-connect for LCU integration.
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for what is planned, grouped by milestone.
+
 ## Development
 
 ```bash
