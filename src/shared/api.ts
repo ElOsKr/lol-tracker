@@ -595,6 +595,72 @@ export interface RecoveryReport {
   detail?: string;
 }
 
+// ---- Home page ----
+
+// One of the last games played, as the home page lists them: enough to read
+// the result and open the history, nothing a full row carries.
+export interface HomeRecentGame {
+  game_id: number;
+  game_creation: number;
+  game_duration: number;
+  champion_id: number;
+  win: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  score: number | null;
+  score_badge: "MVP" | "ACE" | null;
+}
+
+export interface HomeStreak {
+  kind: "win" | "loss";
+  length: number;
+  // Longest streak of the same kind on record
+  best: number;
+}
+
+// The most recent day of play, under the same "day starts at 5am" rule the
+// match list groups by.
+export interface HomeSession {
+  day: number;
+  games: number;
+  wins: number;
+  losses: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  avgScore: number | null;
+  // Seconds of game time
+  duration: number;
+}
+
+export interface HomeChampion {
+  championId: number;
+  games: number;
+  wins: number;
+  avgScore: number | null;
+  // What put this champion first: the average score where the queue has one,
+  // otherwise the win rate
+  rankedBy: "score" | "winRate";
+}
+
+// What the home page shows for the selected queue. Everything is computed from
+// the player's own games, so a queue with none leaves every card empty.
+export interface HomeSummary {
+  totalGames: number;
+  lastGameAt: number | null;
+  streak: HomeStreak | null;
+  // Results of the last games, oldest first, 1 for a win
+  recentResults: number[];
+  session: HomeSession | null;
+  bestChampion: HomeChampion | null;
+  // How many days back the best champion is picked from
+  championWindowDays: number;
+  // Games played inside that window
+  windowGames: number;
+  recentGames: HomeRecentGame[];
+}
+
 // ---- Live game ----
 
 // How often a player has played one champion, as far as this app has seen.
@@ -929,6 +995,7 @@ export interface ElectronAPI {
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getTrends: (queue?: number) => Promise<TrendsData>;
   getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
+  getHomeSummary: (queue?: number) => Promise<HomeSummary>;
   getLiveGame: () => Promise<LiveGameSnapshot>;
   onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => () => void;
   getGameRecap: (gameId?: number) => Promise<GameRecap | null>;
@@ -1032,6 +1099,7 @@ export const INVOKE_CHANNELS = {
   getGlobalStats: "db:global-stats",
   getTrends: "db:trends",
   getRecords: "db:records",
+  getHomeSummary: "db:home-summary",
   getLiveGame: "live:snapshot",
   getGameRecap: "db:game-recap",
   getGameCard: "db:game-card",
