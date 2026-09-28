@@ -166,6 +166,8 @@ export function registerIpcHandlers() {
 
   handle("getRecords", (_event, queue, account) => db.getRecords(queue, account));
 
+  handle("getHomeSummary", (_event, queue) => db.getHomeSummary(queue));
+
   // A fresh look rather than the cached snapshot: the page can be opened in
   // the middle of a match the poll loop has not started for, and the answer to
   // "is a game running" is the whole reason it asked. With no client there is

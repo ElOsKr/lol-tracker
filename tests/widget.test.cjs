@@ -211,11 +211,13 @@ test("the sidebar layout tolerates stale ids and never hides every page", () => 
   assert.deepEqual(nav.parseNavLayout(null), nav.DEFAULT_NAV_LAYOUT);
   assert.deepEqual(nav.parseNavLayout("{not json"), nav.DEFAULT_NAV_LAYOUT);
 
-  // Un id retirado se descarta y una pagina nueva se anade al final
+  // Un id retirado se descarta y una pagina nueva se anade al final, salvo
+  // la de inicio, que se coloca delante de todo
   const parsed = nav.parseNavLayout(
     JSON.stringify({ order: ["trends", "old-page", "history"], hidden: ["widget", "old-page"] }),
   );
-  assert.deepEqual(parsed.order.slice(0, 2), ["trends", "history"]);
+  assert.deepEqual(parsed.order.slice(0, 3), ["home", "trends", "history"]);
+  assert.equal(parsed.order.includes("live"), true);
   assert.deepEqual([...parsed.order].sort(), [...all].sort());
   assert.deepEqual(parsed.hidden, ["widget"]);
 
@@ -234,8 +236,9 @@ test("the sidebar layout tolerates stale ids and never hides every page", () => 
   // La pagina de inicio solo vale mientras siga visible
   assert.equal(nav.resolveHomePath("/trends", nav.DEFAULT_NAV_LAYOUT), "/trends");
   const noTrends = nav.setNavItemHidden(nav.DEFAULT_NAV_LAYOUT, "trends", true);
-  assert.equal(nav.resolveHomePath("/trends", noTrends), "/");
-  assert.equal(nav.resolveHomePath("/nowhere", nav.DEFAULT_NAV_LAYOUT), "/");
+  assert.equal(nav.resolveHomePath("/trends", noTrends), "/home");
+  assert.equal(nav.resolveHomePath("/nowhere", nav.DEFAULT_NAV_LAYOUT), "/home");
+  assert.equal(nav.resolveHomePath("/", nav.DEFAULT_NAV_LAYOUT), "/");
   assert.equal(nav.resolveHomePath(null, layout), nav.visibleNavItems(layout)[0].path);
 });
 
@@ -548,6 +551,91 @@ test("migrateLegacyUserData resolves the old folder next to the new one and only
   } finally {
     fs.rmSync(appData, { recursive: true, force: true });
   }
+});
+
+test("the home summary reads streak, session and best champion off the career rows", () => {
+  const home = load("src/main/db/home.ts", {
+    "./filters": { selectedQueue: () => 450 },
+    "./records": { careerRows: () => [] },
+  });
+  const day = 24 * 60 * 60 * 1000;
+  // Two in the morning, so the last session started the evening before
+  const now = Date.UTC(2026, 8, 28, 0);
+  let id = 0;
+  const row = (champion, win, at, score = null) => ({
+    game_id: ++id,
+    game_creation: at,
+    game_duration: 1200,
+    queue_id: 450,
+    champion_id: champion,
+    win: win ? 1 : 0,
+    kills: 5,
+    deaths: 2,
+    assists: 8,
+    total_damage_dealt: 0,
+    total_damage_taken: 0,
+    gold_earned: 0,
+    total_heal: 0,
+    largest_killing_spree: 0,
+    score,
+    score_raw: score,
+    score_badge: null,
+    double_kills: 0,
+    triple_kills: 0,
+    quadra_kills: 0,
+    penta_kills: 0,
+  });
+
+  const empty = home.summarizeHome([], 450, now);
+  assert.equal(empty.totalGames, 0);
+  assert.equal(empty.streak, null);
+  assert.equal(empty.session, null);
+  assert.equal(empty.bestChampion, null);
+  assert.deepEqual(empty.recentGames, []);
+
+  const rows = [
+    // Old games outside the champion window, with the longest win streak ever
+    row(1, true, now - 60 * day, 9),
+    row(1, true, now - 59 * day, 9),
+    row(1, true, now - 58 * day, 9),
+    // Inside the window: champion 2 has one great game, champion 3 three decent ones
+    row(2, false, now - 10 * day, 10),
+    row(3, true, now - 9 * day, 7),
+    row(3, false, now - 8 * day, 6),
+    row(3, true, now - 7 * day, 8),
+    // The last session: an evening that ran past midnight and still counts as one day
+    row(4, false, now - 4 * 3600 * 1000, 5),
+    row(4, true, now - 2 * 3600 * 1000, 6),
+    row(4, true, now - 1 * 3600 * 1000, 8),
+  ];
+  const summary = home.summarizeHome(rows, 450, now);
+  assert.equal(summary.totalGames, 10);
+  assert.equal(summary.lastGameAt, rows[9].game_creation);
+  assert.deepEqual(summary.streak, { kind: "win", length: 2, best: 3 });
+  assert.deepEqual(summary.recentResults, [1, 1, 1, 0, 1, 0, 1, 0, 1, 1]);
+  assert.equal(summary.session.games, 3);
+  assert.equal(summary.session.wins, 2);
+  assert.equal(summary.session.losses, 1);
+  assert.equal(summary.session.duration, 3600);
+  assert.equal(summary.session.avgScore.toFixed(2), "6.33");
+  assert.equal(summary.windowGames, 7);
+  // Champion 2's single 10 doesn't beat champion 3's three games
+  assert.equal(summary.bestChampion.championId, 3);
+  assert.equal(summary.bestChampion.games, 3);
+  assert.equal(summary.bestChampion.wins, 2);
+  assert.equal(summary.bestChampion.rankedBy, "score");
+  assert.deepEqual(
+    summary.recentGames.map((g) => g.game_id),
+    [10, 9, 8],
+  );
+
+  // A queue without a score ranks on win rate instead, and with nobody at the
+  // minimum the most played champion stands in
+  const few = [row(7, false, now - day), row(8, true, now - day), row(8, false, now - 2 * day)];
+  const fallback = home.summarizeHome(few, 400, now);
+  assert.equal(fallback.bestChampion.championId, 8);
+  assert.equal(fallback.bestChampion.rankedBy, "winRate");
+  assert.equal(fallback.streak.kind, "loss");
 });
 
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {

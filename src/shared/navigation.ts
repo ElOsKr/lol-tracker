@@ -2,6 +2,7 @@
 // always be reachable, or there would be no way back to this configuration.
 // Labels come from the dictionary under `nav.<id>`.
 export const NAV_ITEMS = [
+  { id: "home", path: "/home" },
   { id: "history", path: "/" },
   { id: "live", path: "/live" },
   { id: "champions", path: "/champions" },
@@ -38,6 +39,8 @@ export const DEFAULT_NAV_LAYOUT: NavLayout = {
  * Reads the stored layout leniently: unknown ids (from a page that no longer
  * exists) are dropped, ids missing from the order (a page added since) are
  * appended in default order, and anything unparseable falls back to the default.
+ * The home page is the one exception: a layout saved before it existed gets
+ * it at the top, where a front door belongs, rather than at the bottom.
  */
 export function parseNavLayout(raw: string | null | undefined): NavLayout {
   if (!raw) return DEFAULT_NAV_LAYOUT;
@@ -53,7 +56,11 @@ export function parseNavLayout(raw: string | null | undefined): NavLayout {
   if (Array.isArray(rawOrder)) {
     for (const id of rawOrder) if (isId(id) && !order.includes(id)) order.push(id);
   }
-  for (const item of NAV_ITEMS) if (!order.includes(item.id)) order.push(item.id);
+  for (const item of NAV_ITEMS) {
+    if (order.includes(item.id)) continue;
+    if (item.id === "home") order.unshift(item.id);
+    else order.push(item.id);
+  }
   const hidden = Array.isArray(rawHidden) ? rawHidden.filter(isId) : [];
   return { order, hidden: [...new Set(hidden)] };
 }

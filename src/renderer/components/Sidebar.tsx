@@ -11,6 +11,7 @@ import type { LcuStatus, UpdateInfo } from "../lib/types";
 import UpdateDialog from "./UpdateDialog";
 import {
   LoLeandingIcon,
+  HomeIcon,
   SwordsIcon,
   TrophyIcon,
   CrosshairIcon,
@@ -32,6 +33,7 @@ type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 // Paths and labels live in shared/navigation so Settings can list the same
 // pages; only the icons are the sidebar's business.
 const icons: Record<NavItemId, IconComponent> = {
+  home: HomeIcon,
   history: SwordsIcon,
   live: RadioIcon,
   champions: TrophyIcon,
