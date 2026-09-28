@@ -28,6 +28,12 @@ Module._load = function (name, parent, main) {
   // neither exists here.
   if (name === "./backup") return { backupQuietly: async () => {} };
   if (name === "./ipc") return { sendToRenderer: () => {}, handle: () => {} };
+  // The client is looked for by its lockfile before authenticate() is asked. On
+  // a machine with League installed and closed that lookup answers "closed" and
+  // the mocked authenticate below is never reached, so the lookup itself is
+  // mocked to defer to it, whatever this machine has installed.
+  if (name === "./lockfile")
+    return { findClient: async () => ({ state: "unknown" }), installDirCandidates: () => [] };
   if (name === "league-connect")
     return {
       authenticate: async () => ({}),
