@@ -1033,6 +1033,9 @@ export interface ElectronAPI {
   onGamesUpdated: (callback: () => void) => () => void;
   getSetting: (key: string) => Promise<string | null>;
   isAutoStartSupported: () => Promise<boolean>;
+  // Whether a combined League shortcut can be written on this machine
+  isLeagueShortcutSupported: () => Promise<boolean>;
+  createLeagueShortcut: () => Promise<{ success: boolean; path?: string; error?: string }>;
   setSetting: (key: string, value: string) => Promise<void>;
   // No error alongside success: false means the save dialog was dismissed
   exportGameImage: (gameId: number) => Promise<{
@@ -1132,6 +1135,8 @@ export const INVOKE_CHANNELS = {
   getSummonerSpellData: "dragon:summoner-spells",
   getSetting: "settings:get",
   isAutoStartSupported: "autostart:supported",
+  isLeagueShortcutSupported: "autostart:league-shortcut-supported",
+  createLeagueShortcut: "autostart:create-league-shortcut",
   setSetting: "settings:set",
   exportGameImage: "export:game-image",
   copyGameImage: "export:copy-game-image",
