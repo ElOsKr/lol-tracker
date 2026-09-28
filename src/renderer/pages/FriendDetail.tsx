@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState, PageLoading } from "../components/PageState";
 import { useParams, Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
@@ -70,16 +71,14 @@ export default function FriendDetail() {
   // page it is about to update. null is an answer too ("no games together"), so
   // the check can't be on data alone.
   if (loading && !data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   if (!data) {
     return (
       <div className="max-w-6xl space-y-4">
         <BackLink />
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
-          {t("friend.noGames")}
-        </div>
+        <EmptyState>{t("friend.noGames")}</EmptyState>
       </div>
     );
   }
@@ -391,7 +390,7 @@ function SharedGameRow({
       {expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
           {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">{t("common.loading")}</div>
+            <PageLoading compact />
           ) : detail ? (
             <div className="overflow-x-auto">
               <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />

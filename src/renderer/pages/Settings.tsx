@@ -9,6 +9,14 @@ import { LOCALE } from "../lib/format";
 import { setRemembering } from "../lib/viewState";
 import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../../shared/notice";
 import { OPEN_ON_CLIENT_SETTING } from "../../shared/startup";
+import {
+  DEFAULT_UI_SCALE,
+  UI_SCALES,
+  UI_SCALE_SETTING,
+  parseUiScale,
+  type UiScale,
+} from "../../shared/density";
+import { applyUiScale } from "../lib/density";
 import { SGP_HISTORY_CAP } from "../lib/types";
 import type { BackupInfo, ImportProgress } from "../lib/types";
 import {
@@ -96,6 +104,7 @@ export default function Settings() {
   const [gameNotice, setGameNotice] = useState(true);
   const [gameNoticeObs, setGameNoticeObs] = useState(false);
   const [openOnClient, setOpenOnClient] = useState(false);
+  const [uiScale, setUiScale] = useState<UiScale>(DEFAULT_UI_SCALE);
   const [leagueShortcutSupported, setLeagueShortcutSupported] = useState(false);
   const [shortcutStatus, setShortcutStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +134,7 @@ export default function Settings() {
       window.api.getSetting(GAME_NOTICE_OBS_SETTING),
       window.api.getSetting(OPEN_ON_CLIENT_SETTING),
       window.api.isLeagueShortcutSupported(),
+      window.api.getSetting(UI_SCALE_SETTING),
     ]).then(
       ([
         startup,
@@ -138,6 +148,7 @@ export default function Settings() {
         noticeObs,
         openClient,
         shortcutSupported,
+        scale,
       ]) => {
         setAutoStart(startup === "true");
         setAutoStartSupported(startupSupported);
@@ -150,10 +161,19 @@ export default function Settings() {
         setGameNoticeObs(noticeObs === "true");
         setOpenOnClient(openClient === "true");
         setLeagueShortcutSupported(shortcutSupported);
+        setUiScale(parseUiScale(scale));
         setLoading(false);
       },
     );
   }, []);
+
+  // Applied as it changes rather than on save, so the choice is made by
+  // looking at it.
+  const handleUiScale = (next: UiScale) => {
+    setUiScale(next);
+    applyUiScale(next);
+    void window.api.setSetting(UI_SCALE_SETTING, next);
+  };
 
   const handleLeagueShortcut = async () => {
     setShortcutStatus(null);
@@ -368,6 +388,26 @@ export default function Settings() {
               {LANGUAGE_CHOICES.map((choice) => (
                 <option key={choice} value={choice}>
                   {t(`language.${choice}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">{t("settings.uiScale")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.uiScaleDesc")}</p>
+            </div>
+            <select
+              className="select shrink-0"
+              value={uiScale}
+              onChange={(e) => handleUiScale(e.target.value as UiScale)}
+            >
+              {UI_SCALES.map((scale) => (
+                <option key={scale} value={scale}>
+                  {t(`scale.${scale}`)}
                 </option>
               ))}
             </select>

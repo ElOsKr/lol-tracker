@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { PageLoading } from "../components/PageState";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -66,7 +67,7 @@ function ChampionExpanded({
   if (!augStats || !itemStats || !matches) {
     return (
       <td colSpan={COLUMN_COUNT} className="px-4 py-4">
-        <div className="text-sm text-lol-text text-center">{t("common.loading")}</div>
+        <PageLoading compact />
       </td>
     );
   }
@@ -234,7 +235,7 @@ export default function Champions() {
   }, [data, search, sortKey, sortDir, champData]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   return (

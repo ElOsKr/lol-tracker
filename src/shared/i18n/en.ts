@@ -407,6 +407,12 @@ export const en = {
   "settings.leagueShortcutUnsupported":
     "Available in the installed app, with League installed on this computer.",
 
+  "settings.uiScale": "Interface size",
+  "settings.uiScaleDesc":
+    "Draws the whole app smaller or larger. Compact fits more on screen; large is easier to read.",
+  "scale.compact": "Compact",
+  "scale.normal": "Normal",
+  "scale.large": "Large",
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

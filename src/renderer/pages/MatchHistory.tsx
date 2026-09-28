@@ -1,4 +1,5 @@
 import { hasAugments } from "../../shared/queues";
+import { EmptyState } from "../components/PageState";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMatches } from "../hooks/useMatches";
@@ -726,7 +727,7 @@ export default function MatchHistory() {
       </div>
 
       {matches.length === 0 && !loading && (
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
+        <EmptyState>
           {championFilter !== undefined ||
           patchFilter !== undefined ||
           accountFilter !== undefined ||
@@ -734,7 +735,7 @@ export default function MatchHistory() {
           favoritesOnly
             ? t("history.noMatchFilters")
             : emptyStateMessage(t, lcuStatus, backfill)}
-        </div>
+        </EmptyState>
       )}
 
       {(() => {

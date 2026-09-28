@@ -21,6 +21,7 @@ import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
 import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../shared/notice";
 import { OPEN_ON_CLIENT_SETTING } from "../shared/startup";
+import { UI_SCALE_SETTING } from "../shared/density";
 import { createLeagueShortcut, isLeagueShortcutSupported } from "./riot-launcher";
 import { buildGameNotice, dismissNotice, showRecap } from "./notice";
 
@@ -44,6 +45,7 @@ const RENDERER_SETTINGS = new Set([
   GAME_NOTICE_SETTING,
   GAME_NOTICE_OBS_SETTING,
   OPEN_ON_CLIENT_SETTING,
+  UI_SCALE_SETTING,
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a

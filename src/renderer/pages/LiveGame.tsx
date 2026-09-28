@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { EmptyState, PageLoading } from "../components/PageState";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useChampionData } from "../hooks/useChampions";
 import { useLcuStatus } from "../hooks/useLcuStatus";
@@ -49,8 +50,7 @@ export default function LiveGame() {
   }, []);
 
   // Nothing has been asked yet, as opposed to asked and answered with no game
-  if (!snapshot)
-    return <div className="mt-20 text-center text-lol-text">{t("common.loading")}</div>;
+  if (!snapshot) return <PageLoading />;
 
   if ((snapshot.inGame || snapshot.starting) && snapshot.queueId !== queue) {
     return (
@@ -301,15 +301,15 @@ function RecapView({
   }
 
   if (loading && !recap) {
-    return <div className="mt-20 text-center text-lol-text">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   if (!recap) {
     return (
       <div className="max-w-7xl">
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card py-16 text-center text-sm text-lol-text">
+        <EmptyState>
           {status === "disconnected" ? t("live.startClient") : t("live.noGames")}
-        </div>
+        </EmptyState>
       </div>
     );
   }

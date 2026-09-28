@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { EmptyState, PageLoading } from "../components/PageState";
 import { useMemo, useEffect, type ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -292,7 +293,7 @@ export default function GlobalChampionDetailPage() {
   );
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   const losses = data.games - data.wins;
@@ -325,9 +326,7 @@ export default function GlobalChampionDetailPage() {
       </div>
 
       {data.games === 0 ? (
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
-          {t("global.noGamesChampion")}
-        </div>
+        <EmptyState>{t("global.noGamesChampion")}</EmptyState>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 @3xl:grid-cols-4">

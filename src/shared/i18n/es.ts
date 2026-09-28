@@ -415,6 +415,12 @@ export const es: Dictionary = {
   "settings.leagueShortcutUnsupported":
     "Disponible en la aplicación instalada, con League instalado en este ordenador.",
 
+  "settings.uiScale": "Tamaño de la interfaz",
+  "settings.uiScaleDesc":
+    "Dibuja toda la aplicación más pequeña o más grande. Compacta te cabe más en pantalla; grande se lee mejor.",
+  "scale.compact": "Compacta",
+  "scale.normal": "Normal",
+  "scale.large": "Grande",
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

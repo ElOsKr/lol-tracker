@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { PageLoading } from "../components/PageState";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -118,7 +119,7 @@ export default function Augments() {
   }, [data, search, sortKey, sortDir, augmentData, rarityFilter]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   return (
