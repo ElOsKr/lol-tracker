@@ -6,6 +6,7 @@ import { hasAugments } from "../../shared/queues";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useHomePath } from "../hooks/useNavLayout";
 import { useViewport } from "../hooks/useViewport";
+import { useShortcuts } from "../hooks/useShortcuts";
 import { useT } from "../lib/i18n";
 import Sidebar from "./Sidebar";
 import StatusBar from "./StatusBar";
@@ -26,6 +27,7 @@ export default function Layout() {
   const homePath = useHomePath();
   const viewport = useViewport();
   const t = useT();
+  useShortcuts();
   useEffect(() => {
     if (openedHome) return;
     openedHome = true;

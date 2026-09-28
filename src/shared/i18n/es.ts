@@ -391,6 +391,12 @@ export const es: Dictionary = {
   "settings.gameNoticeObsDesc":
     "El widget de OBS enseña la misma tarjeta, así que saldrá en directo.",
 
+  "settings.shortcuts": "Atajos de teclado",
+  "settings.shortcutsDesc":
+    "Funcionan en toda la aplicación, salvo los números mientras estás escribiendo.",
+  "settings.shortcutsTabs": "Abrir la página n del menú lateral",
+  "settings.shortcutsSearch": "Buscar en esta página",
+  "settings.shortcutsSync": "Buscar partidas nuevas",
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

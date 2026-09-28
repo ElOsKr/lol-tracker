@@ -1,4 +1,5 @@
 import { useT } from "../lib/i18n";
+import { SEARCH_ATTRIBUTE } from "../lib/shortcuts";
 
 // The name filter above a stats table, with a button to clear it once there's
 // something to clear
@@ -16,6 +17,7 @@ export default function SearchInput({
     <div className="relative">
       <input
         type="text"
+        {...{ [SEARCH_ATTRIBUTE]: "" }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

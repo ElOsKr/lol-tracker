@@ -1,8 +1,7 @@
-import { useQueueSelection } from "../hooks/useQueueSelection";
-import { useNavLayout } from "../hooks/useNavLayout";
-import { visibleNavItems, type NavItemId } from "../../shared/navigation";
+import { useSidebarItems } from "../hooks/useSidebarItems";
+import { type NavItemId } from "../../shared/navigation";
+import { onSyncRequested } from "../lib/shortcuts";
 import { t as translate, useT } from "../lib/i18n";
-import { hasAugments } from "../../shared/queues";
 import { NavLink } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef, type ComponentType, type SVGProps } from "react";
 import { useLcuStatus } from "../hooks/useLcuStatus";
@@ -73,12 +72,15 @@ function NavItem({
   label,
   icon: Icon,
   iconsOnly,
+  shortcut,
   onNavigate,
 }: {
   to: string;
   label: string;
   icon: IconComponent;
   iconsOnly: boolean;
+  // The number key that opens this page, for the first nine
+  shortcut?: number;
   // Drawer only: closes it, even when the page tapped is the one already open
   onNavigate?: () => void;
 }) {
@@ -87,7 +89,7 @@ function NavItem({
       to={to}
       end={to === "/"}
       onClick={onNavigate}
-      title={iconsOnly ? label : undefined}
+      title={shortcut ? `${label} · ${shortcut}` : iconsOnly ? label : undefined}
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-md text-[13px] font-medium transition-colors ${
           iconsOnly ? "justify-center px-0 py-2.5" : "px-3 py-2"
@@ -115,8 +117,7 @@ export default function Sidebar({
   // Drawer only: the close button and what a navigation does
   onClose?: () => void;
 }) {
-  const [queue] = useQueueSelection();
-  const layout = useNavLayout();
+  const items = useSidebarItems();
   const t = useT();
   const status = useLcuStatus();
   const { running: backfilling, progress, percent } = useBackfill();
@@ -196,6 +197,16 @@ export default function Sidebar({
       setRefreshing(false);
     }
   }, []);
+
+  // Ctrl+R asks from wherever the user is; the same conditions as the button
+  // decide whether there is anything to start.
+  useEffect(
+    () =>
+      onSyncRequested(() => {
+        if (!refreshing && !backfilling) void handleRefresh();
+      }),
+    [handleRefresh, refreshing, backfilling],
+  );
 
   const statusText = t(statusLabels[status]);
   const syncButton = backfilling ? (
@@ -278,18 +289,19 @@ export default function Sidebar({
         </div>
       )}
       <div className={`flex flex-col gap-0.5 mt-1 flex-1 ${iconsOnly ? "px-2 py-2" : "p-3"}`}>
-        {visibleNavItems(layout)
-          .filter((item) => hasAugments(queue) || item.id !== "augments")
-          .map((item) => (
-            <NavItem
-              key={item.id}
-              to={item.path}
-              label={t(`nav.${item.id}`)}
-              icon={icons[item.id]}
-              iconsOnly={iconsOnly}
-              onNavigate={mode === "drawer" ? onClose : undefined}
-            />
-          ))}
+        {items.map((item, index) => (
+          <NavItem
+            key={item.id}
+            to={item.path}
+            label={t(`nav.${item.id}`)}
+            // The first nine pages answer to their number, so the tooltip is
+            // where that gets discovered
+            shortcut={index < 9 ? index + 1 : undefined}
+            icon={icons[item.id]}
+            iconsOnly={iconsOnly}
+            onNavigate={mode === "drawer" ? onClose : undefined}
+          />
+        ))}
       </div>
       <div className={`pb-1 ${iconsOnly ? "px-2" : "px-3"}`}>
         <NavItem
