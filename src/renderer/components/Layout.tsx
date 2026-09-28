@@ -33,6 +33,10 @@ export default function Layout() {
     // Runs once on purpose
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // The main process sends the app to a page when something outside it asks:
+  // today the end-of-game notice, which opens the recap it is about.
+  useEffect(() => window.api.onNavigate((path) => navigate(path)), [navigate]);
+
   const [queue, setQueue] = useQueueSelection();
   const [error, setError] = useState("");
 

@@ -7,6 +7,7 @@ import { LANGUAGE_CHOICES, type LanguageChoice } from "../../shared/i18n";
 import { LOCALE } from "../lib/format";
 
 import { setRemembering } from "../lib/viewState";
+import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../../shared/notice";
 import { SGP_HISTORY_CAP } from "../lib/types";
 import type { BackupInfo, ImportProgress } from "../lib/types";
 import {
@@ -82,6 +83,8 @@ export default function Settings() {
   const [sessionGrouping, setSessionGrouping] = useState<SessionGrouping>(DEFAULT_SESSION_GROUPING);
   const [autoBackup, setAutoBackup] = useState(true);
   const [rememberFilters, setRememberFilters] = useState(false);
+  const [gameNotice, setGameNotice] = useState(true);
+  const [gameNoticeObs, setGameNoticeObs] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -105,16 +108,32 @@ export default function Settings() {
       window.api.getSetting("auto_backup"),
       window.api.getSetting("remember_filters"),
       window.api.getSetting(SESSION_GROUPING_SETTING),
-    ]).then(([startup, startupSupported, tray, remakes, backup, remember, grouping]) => {
-      setAutoStart(startup === "true");
-      setAutoStartSupported(startupSupported);
-      setMinimizeToTray(tray !== "false");
-      setHideRemakes(remakes === "true");
-      setAutoBackup(backup !== "false");
-      setRememberFilters(remember === "true");
-      setSessionGrouping(parseSessionGrouping(grouping));
-      setLoading(false);
-    });
+      window.api.getSetting(GAME_NOTICE_SETTING),
+      window.api.getSetting(GAME_NOTICE_OBS_SETTING),
+    ]).then(
+      ([
+        startup,
+        startupSupported,
+        tray,
+        remakes,
+        backup,
+        remember,
+        grouping,
+        notice,
+        noticeObs,
+      ]) => {
+        setAutoStart(startup === "true");
+        setAutoStartSupported(startupSupported);
+        setMinimizeToTray(tray !== "false");
+        setHideRemakes(remakes === "true");
+        setAutoBackup(backup !== "false");
+        setRememberFilters(remember === "true");
+        setSessionGrouping(parseSessionGrouping(grouping));
+        setGameNotice(notice !== "false");
+        setGameNoticeObs(noticeObs === "true");
+        setLoading(false);
+      },
+    );
   }, []);
 
   const refreshBackups = useCallback(() => {
@@ -383,6 +402,33 @@ export default function Settings() {
             <Switch
               checked={hideRemakes}
               onChange={toggle("hide_remakes", hideRemakes, setHideRemakes)}
+            />
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-lol-text-bright">{t("settings.gameNotice")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.gameNoticeDesc")}</p>
+            </div>
+            <Switch
+              checked={gameNotice}
+              onChange={toggle(GAME_NOTICE_SETTING, gameNotice, setGameNotice)}
+            />
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-lol-text-bright">{t("settings.gameNoticeObs")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.gameNoticeObsDesc")}</p>
+            </div>
+            <Switch
+              checked={gameNoticeObs}
+              disabled={!gameNotice}
+              onChange={toggle(GAME_NOTICE_OBS_SETTING, gameNoticeObs, setGameNoticeObs)}
             />
           </div>
 

@@ -8,7 +8,14 @@ import { registerIpcHandlers } from "./ipc-handlers";
 import { sendToRenderer } from "./ipc";
 import { localeArguments } from "./locale";
 import { startLogging } from "./log";
-import { startPolling, stopPolling, isClientConnected, fetchNewGames } from "./lcu";
+import {
+  startPolling,
+  stopPolling,
+  isClientConnected,
+  fetchNewGames,
+  getStatus,
+  onEogCaptured,
+} from "./lcu";
 import { startLiveTracking, stopLiveTracking } from "./live";
 import { startChallengeTracking } from "./challenges";
 import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
@@ -16,7 +23,8 @@ import { applySecurityPolicy } from "./security";
 import { APP_USER_MODEL_ID, ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
 
-import { openWidget, registerWidgetHandlers, stopWidget } from "./widget";
+import { isWidgetDesktopOpen, openWidget, registerWidgetHandlers, stopWidget } from "./widget";
+import { dismissNotice, maybeShowGameNotice } from "./notice";
 import { createTray } from "./tray";
 
 let mainWindow: BrowserWindow | null = null;
@@ -181,8 +189,18 @@ app.whenReady().then(async () => {
 
   // Registered once, outside createWindow: ipcMain.handle throws if the same
   // channel is claimed twice, which a second createWindow would have done.
-  registerIpcHandlers();
+  registerIpcHandlers(() => mainWindow);
   registerWidgetHandlers(() => mainWindow);
+
+  // A game captured from the post-game screen is the one moment worth
+  // interrupting for, so that is the only path that raises a notice.
+  onEogCaptured((win, gameId) =>
+    maybeShowGameNotice(gameId, {
+      main: win ?? mainWindow,
+      status: getStatus(),
+      widgetOpen: isWidgetDesktopOpen(),
+    }),
+  );
 
   const win = createWindow();
   setUpTray();
@@ -234,6 +252,7 @@ app.on("will-quit", () => {
   stopLiveTracking();
   stopBackupSchedule();
   stopWidget();
+  dismissNotice();
   closeDatabase();
 });
 

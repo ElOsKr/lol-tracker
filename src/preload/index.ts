@@ -49,6 +49,7 @@ const api: ElectronAPI = {
   onUpdateProgress: subscribe("update:progress"),
   onImportProgress: subscribe("data:import-progress"),
   onMaximizedChanged: subscribe("window:maximized-changed"),
+  onNavigate: subscribe("app:navigate"),
 };
 
 contextBridge.exposeInMainWorld("api", api);

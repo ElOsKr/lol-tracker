@@ -13,6 +13,9 @@ import {
 import type { MatchListItem } from "../shared/api";
 import type { WidgetPreferences, WidgetSnapshot, WidgetState } from "../shared/widget";
 import { startWidgetServer } from "./widget-server";
+import { pendingNotice } from "./notice-state";
+import { showRecap } from "./notice";
+import { GAME_NOTICE_OBS_SETTING } from "../shared/notice";
 
 let window: BrowserWindow | null = null;
 let obs: Awaited<ReturnType<typeof startWidgetServer>> | null = null;
@@ -70,7 +73,14 @@ function preferences(): WidgetPreferences {
   };
 }
 
-export function widgetSnapshot(): WidgetSnapshot {
+// The widget's page is also what OBS shows, so the notice has to know which
+// of the two is asking: on stream it stays out unless it has been turned on.
+function noticeFor(forObs: boolean) {
+  if (forObs && db.getSetting(GAME_NOTICE_OBS_SETTING) !== "true") return null;
+  return pendingNotice();
+}
+
+export function widgetSnapshot(forObs = false): WidgetSnapshot {
   const selected = preferences();
   const filters = { account: selected.account, queue: selected.queue ?? undefined };
   const totals = selected.account ? db.getDashboardData(filters) : { wins: 0, totalGames: 0 };
@@ -126,7 +136,14 @@ export function widgetSnapshot(): WidgetSnapshot {
     error: isClientConnected() ? null : "LoL desconectado · historial guardado",
     pollIntervalMs: 5000,
     assetVersion: getChampionDataVersion(),
+    notice: noticeFor(forObs),
   };
+}
+
+// Whether the floating desktop window is up. When it is, it draws the
+// end-of-game notice itself and no second window is opened for it.
+export function isWidgetDesktopOpen(): boolean {
+  return !!window && !window.isDestroyed();
 }
 
 export function openWidget() {
@@ -267,7 +284,7 @@ export function registerWidgetHandlers(main: () => BrowserWindow | null) {
     if (typeof enabled !== "boolean") throw new Error("Invalid OBS state");
     if (starting) await starting;
     if (enabled && !obs && !stopping) {
-      starting = startWidgetServer(root(), widgetSnapshot).then((server) => {
+      starting = startWidgetServer(root(), () => widgetSnapshot(true)).then((server) => {
         if (stopping) server.close();
         else obs = server;
       });
@@ -281,6 +298,11 @@ export function registerWidgetHandlers(main: () => BrowserWindow | null) {
       obs = null;
     }
     return state();
+  });
+  ipcMain.on("widget:open-recap", (event) => {
+    if (event.sender !== window?.webContents || event.senderFrame !== event.sender.mainFrame)
+      return;
+    showRecap(main());
   });
   ipcMain.on("widget:minimize", (event) => {
     if (event.sender === window?.webContents && event.senderFrame === event.sender.mainFrame)

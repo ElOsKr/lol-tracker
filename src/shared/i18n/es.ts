@@ -375,6 +375,22 @@ export const es: Dictionary = {
   "home.openChampions": "Abrir campeones",
   "home.openChallenges": "Abrir desafíos",
 
+  // Aviso de fin de partida
+  "notice.openRecap": "Ver el resumen de la partida",
+  "notice.close": "Cerrar el aviso",
+  "notice.bestScore": "Tu mejor nota en {queue}",
+  "notice.secondBest": "Tu 2.ª mejor nota en {queue}",
+  "notice.thirdBest": "Tu 3.ª mejor nota en {queue}",
+  "notice.streakWins": "Llevas {count} victorias seguidas",
+  "notice.streakLosses": "Llevas {count} derrotas seguidas",
+  "notice.session": "Hoy llevas {wins}V {losses}D en {queue}",
+  "settings.gameNotice": "Aviso al terminar la partida",
+  "settings.gameNoticeDesc":
+    "Una tarjeta en la esquina con el resultado y la nota. Se cierra sola a los diez segundos y no aparece mientras juegas. Si el widget de escritorio está abierto, la tarjeta se enseña ahí.",
+  "settings.gameNoticeObs": "Mostrar el aviso también en OBS",
+  "settings.gameNoticeObsDesc":
+    "El widget de OBS enseña la misma tarjeta, así que saldrá en directo.",
+
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

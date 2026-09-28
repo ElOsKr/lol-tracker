@@ -369,6 +369,21 @@ export const en = {
   "home.openChampions": "Open champions",
   "home.openChallenges": "Open challenges",
 
+  // End-of-game notice
+  "notice.openRecap": "See the game recap",
+  "notice.close": "Close the notice",
+  "notice.bestScore": "Your best score in {queue}",
+  "notice.secondBest": "Your 2nd best score in {queue}",
+  "notice.thirdBest": "Your 3rd best score in {queue}",
+  "notice.streakWins": "{count} wins in a row",
+  "notice.streakLosses": "{count} losses in a row",
+  "notice.session": "Today: {wins}W {losses}L in {queue}",
+  "settings.gameNotice": "End-of-game notice",
+  "settings.gameNoticeDesc":
+    "A card in the corner with the result and the score. It closes itself after ten seconds and never appears while you are in a game. When the desktop widget is open, the card shows there instead.",
+  "settings.gameNoticeObs": "Show the notice in OBS too",
+  "settings.gameNoticeObsDesc": "The OBS widget draws the same card, so it goes out on stream.",
+
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

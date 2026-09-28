@@ -801,6 +801,15 @@ let eogAttaching = false;
 // running right now; a timer means one is scheduled.
 const eogPending = new Map<number, ReturnType<typeof setTimeout> | null>();
 
+// Called with each game captured from the post-game screen. A listener rather
+// than a direct call so this module stays clear of what anyone does with it:
+// the notice reaches the widget, which reaches back here for the client state.
+type EogListener = (win: BrowserWindow | null | undefined, gameId: number) => void;
+let eogListener: EogListener | null = null;
+export function onEogCaptured(listener: EogListener): void {
+  eogListener = listener;
+}
+
 async function captureEogGame(
   win: BrowserWindow | null | undefined,
   gameId: number,
@@ -832,6 +841,7 @@ async function captureEogGame(
     if (db.insertGameFull(game, summoner.puuid)) {
       console.log(`Stored LoL game ${gameId} from the post-game screen`);
       sendToRenderer(win, "lcu:games-updated");
+      eogListener?.(win, gameId);
     }
     eogPending.delete(gameId);
   } catch (err) {

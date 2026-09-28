@@ -19,6 +19,8 @@ import { refreshTrayMenu } from "./tray";
 import { SESSION_GROUPING_SETTING } from "../shared/session";
 import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
+import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../shared/notice";
+import { buildGameNotice, dismissNotice, showRecap } from "./notice";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
 // per-account backfill_complete_* flags, score_formula_version — none of which
@@ -37,6 +39,8 @@ const RENDERER_SETTINGS = new Set([
   HOME_PAGE_SETTING,
   LANGUAGE_SETTING,
   "sidebar_collapsed",
+  GAME_NOTICE_SETTING,
+  GAME_NOTICE_OBS_SETTING,
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a
@@ -47,7 +51,7 @@ function senderWindow(event: { sender: Electron.WebContents }): BrowserWindow | 
   return BrowserWindow.fromWebContents(event.sender);
 }
 
-export function registerIpcHandlers() {
+export function registerIpcHandlers(main: () => BrowserWindow | null) {
   handle("getMatchHistory", (_event, limit, offset, filters) =>
     db.getMatchHistory(limit, offset, filters),
   );
@@ -165,6 +169,12 @@ export function registerIpcHandlers() {
   handle("getTrends", (_event, queue) => db.getTrendsData(queue));
 
   handle("getRecords", (_event, queue, account) => db.getRecords(queue, account));
+
+  handle("getGameNotice", (_event, gameId) => buildGameNotice(gameId));
+
+  handle("dismissNotice", () => dismissNotice());
+
+  handle("openNoticeRecap", () => showRecap(main()));
 
   handle("getHomeSummary", (_event, queue) => db.getHomeSummary(queue));
 

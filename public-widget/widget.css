@@ -272,3 +272,181 @@ button:focus-visible {
   color: var(--loss);
   background: #e5636e14;
 }
+
+/* ---- Aviso de fin de partida ----------------------------------------------
+   Se desliza sobre la cabecera cuando termina una partida y se retira solo.
+   La cuenta atrás es la animación de la barra inferior, no un temporizador:
+   así, pausarla al pasar el ratón por encima pausa también la retirada. */
+#notice-slot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+}
+#notice-slot[hidden] {
+  display: none;
+}
+.notice-card {
+  position: relative;
+  overflow: hidden;
+  padding: 10px 12px 12px;
+  border: 1px solid #2c3550;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 10px 28px #0000008c;
+  animation: notice-in 220ms ease-out;
+}
+@keyframes notice-in {
+  from {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.notice-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+.notice-card.win::before {
+  background: var(--win);
+}
+.notice-card.loss::before {
+  background: var(--loss);
+}
+.notice-open {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.notice-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-right: 24px;
+}
+.notice-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+.notice-card.win .notice-icon {
+  border-color: #3ecf8e8c;
+}
+.notice-card.loss .notice-icon {
+  border-color: #e5636e73;
+}
+.notice-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.notice-result {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.notice-card.win .notice-result {
+  color: var(--win);
+}
+.notice-card.loss .notice-result {
+  color: var(--loss);
+}
+.notice-kda {
+  font-size: 12px;
+  color: var(--bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.notice-score {
+  flex-shrink: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.score-high {
+  color: #fbbf24;
+}
+.score-good {
+  color: #38bdf8;
+}
+.score-ok {
+  color: var(--win);
+}
+.score-low {
+  color: var(--text);
+}
+.notice-highlight {
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notice-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.notice-close:hover {
+  background: #ffffff14;
+  color: var(--bright);
+}
+.notice-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  transform-origin: left;
+  /* Los mismos 10 s que NOTICE_DURATION_MS en src/shared/notice.ts */
+  animation: notice-drain 10000ms linear forwards;
+}
+.notice-card.win .notice-bar {
+  background: #3ecf8ebf;
+}
+.notice-card.loss .notice-bar {
+  background: #e5636eb3;
+}
+.notice-card:hover .notice-bar {
+  animation-play-state: paused;
+}
+@keyframes notice-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

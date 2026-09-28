@@ -15,7 +15,9 @@ import GlobalStats from "./pages/GlobalStats";
 import GlobalChampionDetail from "./pages/GlobalChampionDetail";
 import Settings from "./pages/Settings";
 import GameCard from "./pages/GameCard";
+import GameNotice from "./pages/GameNotice";
 import { CARD_ROUTE } from "../shared/card";
+import { NOTICE_ROUTE } from "../shared/notice";
 
 export default function App() {
   return (
@@ -40,6 +42,9 @@ export default function App() {
         {/* Outside the layout: this one is drawn to be captured as an image,
             not to be navigated to, so it carries no sidebar or title bar. */}
         <Route path={`${CARD_ROUTE}/:gameId`} element={<GameCard />} />
+        {/* Also outside the layout: the end-of-game card is its own little
+            window in the corner of the screen, with nothing around it. */}
+        <Route path={`${NOTICE_ROUTE}/:gameId`} element={<GameNotice />} />
       </Routes>
     </HashRouter>
   );
