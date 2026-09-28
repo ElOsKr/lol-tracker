@@ -722,6 +722,42 @@ test("the home summary reads streak, session and best champion off the career ro
   assert.equal(fallback.streak.kind, "loss");
 });
 
+test("keyboard shortcuts stay out of the way while typing and of the window manager", () => {
+  const { matchShortcut } = load("src/renderer/lib/shortcuts.ts");
+  const press = (over) => ({
+    key: "1",
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    inField: false,
+    ...over,
+  });
+
+  // Los numeros abren la pagina n, contando desde cero
+  assert.deepEqual(matchShortcut(press({ key: "1" })), { kind: "nav", index: 0 });
+  assert.deepEqual(matchShortcut(press({ key: "9" })), { kind: "nav", index: 8 });
+  // El cero no cuenta, y tampoco un numero escrito en una caja de texto
+  assert.equal(matchShortcut(press({ key: "0" })), null);
+  assert.equal(matchShortcut(press({ key: "3", inField: true })), null);
+  // Ni con mayusculas o simbolos por encima del numero
+  assert.equal(matchShortcut(press({ key: "1", shiftKey: true })), null);
+
+  // Las combinaciones con Ctrl llevan su propio modificador, asi que valen
+  // tambien mientras se escribe
+  assert.deepEqual(matchShortcut(press({ key: "f", ctrlKey: true })), { kind: "search" });
+  assert.deepEqual(matchShortcut(press({ key: "F", ctrlKey: true, inField: true })), {
+    kind: "search",
+  });
+  assert.deepEqual(matchShortcut(press({ key: "r", ctrlKey: true })), { kind: "sync" });
+  // Ctrl+Shift+R y Ctrl+G no son nuestros
+  assert.equal(matchShortcut(press({ key: "r", ctrlKey: true, shiftKey: true })), null);
+  assert.equal(matchShortcut(press({ key: "g", ctrlKey: true })), null);
+  // Alt es del gestor de ventanas
+  assert.equal(matchShortcut(press({ key: "f", ctrlKey: true, altKey: true })), null);
+  assert.equal(matchShortcut(press({ key: "2", altKey: true })), null);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

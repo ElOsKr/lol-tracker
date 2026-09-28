@@ -384,6 +384,12 @@ export const en = {
   "settings.gameNoticeObs": "Show the notice in OBS too",
   "settings.gameNoticeObsDesc": "The OBS widget draws the same card, so it goes out on stream.",
 
+  "settings.shortcuts": "Keyboard shortcuts",
+  "settings.shortcutsDesc":
+    "They work anywhere in the app, except the numbers while you are typing.",
+  "settings.shortcutsTabs": "Open the nth page of the sidebar",
+  "settings.shortcutsSearch": "Search on this page",
+  "settings.shortcutsSync": "Look for new games",
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

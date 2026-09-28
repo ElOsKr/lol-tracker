@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useBackfill } from "../hooks/useBackfill";
 import { saveHomePath, saveNavLayout, useHomePath, useNavLayout } from "../hooks/useNavLayout";
 import { setLanguageChoice, useLanguageChoice, useT, type Translate } from "../lib/i18n";
@@ -64,6 +64,15 @@ function Switch({
         }`}
       />
     </button>
+  );
+}
+
+// The key a shortcut answers to, drawn as a key rather than as prose
+function Keys({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="rounded-md border border-lol-border bg-white/5 px-2 py-1 font-sans text-xs tabular-nums text-lol-text-bright">
+      {children}
+    </kbd>
   );
 }
 
@@ -519,6 +528,34 @@ export default function Settings() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Keyboard shortcuts */}
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-1">
+          {t("settings.shortcuts")}
+        </h2>
+        <p className="text-xs text-lol-text mb-4">{t("settings.shortcutsDesc")}</p>
+        <dl className="space-y-2.5">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-sm text-lol-text-bright">{t("settings.shortcutsTabs")}</dt>
+            <dd>
+              <Keys>1 – 9</Keys>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-sm text-lol-text-bright">{t("settings.shortcutsSearch")}</dt>
+            <dd>
+              <Keys>Ctrl + F</Keys>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-sm text-lol-text-bright">{t("settings.shortcutsSync")}</dt>
+            <dd>
+              <Keys>Ctrl + R</Keys>
+            </dd>
+          </div>
+        </dl>
       </div>
 
       {/* Data Management */}

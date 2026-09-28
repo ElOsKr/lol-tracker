@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import path from "path";
 import { closeDatabase, getSetting, checkScoreBackfill } from "./db";
 import { initDatabaseWithRecovery, startBackupSchedule, stopBackupSchedule } from "./backup";
@@ -164,6 +164,13 @@ app.whenReady().then(async () => {
 
   // Before any window exists, so no web contents escapes the policy
   applySecurityPolicy();
+
+  // Electron builds a default menu when none is set, and its accelerators stay
+  // live even though a frameless window shows no menu bar. Ctrl+R would then
+  // reload the page out from under the shortcut that syncs, so the menu is cut
+  // down to the editing roles alone: those are what a text box needs, and
+  // nothing else in that default menu belongs in this app.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "editMenu" }]));
 
   // Initialize the database first. Through the backup module rather than
   // directly: a database that has been deleted or damaged since the last launch
