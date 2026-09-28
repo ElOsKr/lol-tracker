@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { EmptyState, PageLoading } from "../components/PageState";
 import { Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useQueueSelection } from "../hooks/useQueueSelection";
@@ -394,7 +395,7 @@ export default function Home() {
   );
   useEffect(() => window.api.onGamesUpdated(refetch), [refetch]);
 
-  if (!summary) return <p className="text-sm text-lol-text">{t("common.loading")}</p>;
+  if (!summary) return <PageLoading />;
 
   const hasGames = summary.totalGames > 0;
   return (
@@ -423,10 +424,7 @@ export default function Home() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2">
-          <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
-            <p className="text-sm text-lol-text-bright">{t("home.empty")}</p>
-            <p className="mt-1 text-xs text-lol-text">{t("home.emptyHint")}</p>
-          </div>
+          <EmptyState hint={t("home.emptyHint")}>{t("home.empty")}</EmptyState>
           <GoalCard />
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PageLoading } from "../components/PageState";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type { ChallengeProgress, ChallengesData, ChallengesResult } from "../lib/types";
@@ -425,7 +426,7 @@ export default function Challenges() {
   const header = <h1 className="text-xl font-bold text-lol-text-bright">{t("nav.challenges")}</h1>;
 
   if (waiting) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   if (!data) {

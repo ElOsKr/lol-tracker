@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { EmptyState } from "../components/PageState";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useIpc } from "../hooks/useIpc";
@@ -782,9 +783,7 @@ export default function Trends() {
     return (
       <div className="max-w-7xl space-y-4">
         <h1 className="text-xl font-bold text-lol-text-bright">{t("trends.title")}</h1>
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          {t("trends.empty")}
-        </div>
+        <EmptyState>{t("trends.empty")}</EmptyState>
       </div>
     );
   }

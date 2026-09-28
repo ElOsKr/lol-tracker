@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { EmptyState } from "../components/PageState";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useIpc } from "../hooks/useIpc";
@@ -364,9 +365,9 @@ export default function Records() {
     return (
       <div className="max-w-7xl space-y-4">
         {header}
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
+        <EmptyState>
           {account || queue != null ? t("records.noMatch") : t("records.empty")}
-        </div>
+        </EmptyState>
       </div>
     );
   }

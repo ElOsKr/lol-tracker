@@ -1,4 +1,5 @@
 import { hasAugments } from "../../shared/queues";
+import { PageLoading } from "../components/PageState";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -199,7 +200,7 @@ export default function GlobalStats() {
   }, [data, itemSearch, itemSortKey, itemSortDir, getItemName]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   return (

@@ -4,6 +4,8 @@ import { initNavLayout } from "./hooks/useNavLayout";
 import { initLanguage, t } from "./lib/i18n";
 import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
+import { UI_SCALE_SETTING, parseUiScale } from "../shared/density";
+import { applyUiScale } from "./lib/density";
 import App from "./App";
 import { initViewState } from "./lib/viewState";
 import "./global.css";
@@ -18,8 +20,10 @@ Promise.all([
   window.api.getSetting(NAV_LAYOUT_SETTING),
   window.api.getSetting(HOME_PAGE_SETTING),
   window.api.getSetting(LANGUAGE_SETTING),
+  window.api.getSetting(UI_SCALE_SETTING),
 ])
-  .then(([remember, queue, navLayout, homePage, language]) => {
+  .then(([remember, queue, navLayout, homePage, language, uiScale]) => {
+    applyUiScale(parseUiScale(uiScale));
     initLanguage(language);
     initQueueSelection(queue);
     initNavLayout(navLayout, homePage);

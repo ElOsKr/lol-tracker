@@ -1,4 +1,5 @@
 import { useMemo, useEffect } from "react";
+import { PageLoading } from "../components/PageState";
 import { useNavigate } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
@@ -60,7 +61,7 @@ export default function Friends() {
   }, [data, search, sortKey, sortDir]);
 
   if (loading || !data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   return (
