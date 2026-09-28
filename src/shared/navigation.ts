@@ -7,6 +7,7 @@ export const NAV_ITEMS = [
   { id: "live", path: "/live" },
   { id: "champions", path: "/champions" },
   { id: "augments", path: "/augments" },
+  { id: "items", path: "/items" },
   { id: "friends", path: "/friends" },
   { id: "trends", path: "/trends" },
   { id: "records", path: "/records" },

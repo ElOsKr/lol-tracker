@@ -165,7 +165,21 @@ export function loadAugmentData(patch?: string): Promise<Record<number, AugmentI
   return promise;
 }
 
-export type ItemInfo = { name: string; description: string; iconPath: string; branch: string };
+export type ItemInfo = {
+  name: string;
+  description: string;
+  iconPath: string;
+  branch: string;
+  // Lo que cuesta terminarlo y lo que cuesta el último paso
+  priceTotal: number;
+  price: number;
+  // De qué se compone y en qué se convierte, por id
+  from: number[];
+  to: number[];
+  categories: string[];
+  // Los que no están en la tienda son piezas internas del juego, no objetos
+  inStore: boolean;
+};
 
 const itemCache = new Map<string, Record<number, ItemInfo>>();
 const itemPromises = new Map<string, Promise<Record<number, ItemInfo>>>();
@@ -218,6 +232,12 @@ export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> 
         for (const item of data) {
           items[item.id] = {
             name: item.name || "",
+            priceTotal: Number(item.priceTotal) || 0,
+            price: Number(item.price) || 0,
+            from: Array.isArray(item.from) ? item.from.map(Number) : [],
+            to: Array.isArray(item.to) ? item.to.map(Number) : [],
+            categories: Array.isArray(item.categories) ? item.categories.map(String) : [],
+            inStore: item.inStore !== false,
             // Riot ships this already resolved — no @Var@ placeholders to substitute,
             // unlike the augment tooltips, which name their values indirectly.
             description: item.description || "",

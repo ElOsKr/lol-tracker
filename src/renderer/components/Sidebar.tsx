@@ -11,6 +11,7 @@ import UpdateDialog from "./UpdateDialog";
 import {
   LoLeandingIcon,
   HomeIcon,
+  ItemsIcon,
   SwordsIcon,
   TrophyIcon,
   CrosshairIcon,
@@ -37,6 +38,7 @@ const icons: Record<NavItemId, IconComponent> = {
   live: RadioIcon,
   champions: TrophyIcon,
   augments: CrosshairIcon,
+  items: ItemsIcon,
   friends: UsersIcon,
   trends: TrendingUpIcon,
   records: MedalIcon,

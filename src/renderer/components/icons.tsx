@@ -30,6 +30,16 @@ export function HomeIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ItemsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M3 7.5 12 3l9 4.5-9 4.5z" />
+      <path d="M3 12.5 12 17l9-4.5" />
+      <path d="M3 17 12 21l9-4" />
+    </Icon>
+  );
+}
+
 export function SwordsIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

@@ -808,6 +808,167 @@ test("the Riot Client is found where it records itself, and nowhere it isn't", (
   });
 });
 
+test("the item catalogue keeps what is an item, and finds it by name or category", () => {
+  const items = load("src/renderer/lib/items.ts");
+  const data = {
+    3031: {
+      name: "Infinity Edge",
+      description: "",
+      iconPath: "",
+      branch: "latest",
+      priceTotal: 3500,
+      price: 725,
+      from: [1038],
+      to: [],
+      categories: ["CriticalStrike", "Damage"],
+      inStore: true,
+    },
+    1038: {
+      name: "B. F. Sword",
+      description: "",
+      iconPath: "",
+      branch: "latest",
+      priceTotal: 1300,
+      price: 1300,
+      from: [],
+      to: [3031],
+      categories: ["Damage"],
+      inStore: true,
+    },
+    9999: {
+      name: "Pieza interna",
+      description: "",
+      iconPath: "",
+      branch: "latest",
+      priceTotal: 0,
+      price: 0,
+      from: [],
+      to: [],
+      categories: [],
+      inStore: false,
+    },
+    8888: {
+      name: "Retirado",
+      description: "",
+      iconPath: "",
+      branch: "latest",
+      priceTotal: 2500,
+      price: 900,
+      from: [],
+      to: [],
+      categories: ["Health"],
+      inStore: false,
+    },
+    7777: {
+      name: "",
+      description: "",
+      iconPath: "",
+      branch: "latest",
+      priceTotal: 0,
+      price: 0,
+      from: [],
+      to: [],
+      categories: [],
+      inStore: true,
+    },
+  };
+  const usage = [
+    { item_id: 3031, games: 40, wins: 24 },
+    { item_id: 8888, games: 3, wins: 1 },
+  ];
+
+  const catalog = items.buildCatalog(data, usage);
+  const ids = catalog.map((i) => i.id).sort((a, b) => a - b);
+  // Fuera de la tienda se descarta, salvo el retirado que el jugador sí uso;
+  // y una entrada sin nombre no es un objeto
+  assert.deepEqual(ids, [1038, 3031, 8888]);
+  assert.equal(catalog.find((i) => i.id === 3031).games, 40);
+  assert.equal(catalog.find((i) => i.id === 1038).games, 0);
+
+  // Categorias por frecuencia y luego alfabeticamente
+  assert.deepEqual(items.catalogCategories(catalog), ["Damage", "CriticalStrike", "Health"]);
+  assert.equal(items.formatCategory("CriticalStrike"), "Critical Strike");
+
+  const all = { search: "", category: "", mineOnly: false };
+  // La busqueda entra por el nombre y tambien por la categoria ya legible
+  assert.deepEqual(
+    items.filterItems(catalog, { ...all, search: "sword" }).map((i) => i.id),
+    [1038],
+  );
+  assert.deepEqual(
+    items.filterItems(catalog, { ...all, search: "critical" }).map((i) => i.id),
+    [3031],
+  );
+  assert.deepEqual(
+    items
+      .filterItems(catalog, { ...all, category: "Damage" })
+      .map((i) => i.id)
+      .sort(),
+    [1038, 3031],
+  );
+  assert.deepEqual(
+    items
+      .filterItems(catalog, { ...all, mineOnly: true })
+      .map((i) => i.id)
+      .sort(),
+    [3031, 8888],
+  );
+
+  // Las variantes que Riot publica por modo se juntan en una fila y suman
+  const variants = items.buildCatalog(
+    {
+      1: {
+        name: "B. F. Sword",
+        description: "",
+        iconPath: "",
+        branch: "l",
+        priceTotal: 1300,
+        price: 1300,
+        from: [],
+        to: [],
+        categories: ["Damage"],
+        inStore: true,
+      },
+      2: {
+        name: "B. F. Sword",
+        description: "",
+        iconPath: "",
+        branch: "l",
+        priceTotal: 1550,
+        price: 1550,
+        from: [],
+        to: [],
+        categories: ["Damage"],
+        inStore: true,
+      },
+    },
+    [
+      { item_id: 1, games: 4, wins: 3 },
+      { item_id: 2, games: 6, wins: 1 },
+    ],
+  );
+  const merged = items.mergeByName(variants);
+  assert.equal(merged.length, 1);
+  // Se queda la mas jugada, pero el recuento es el de las dos
+  assert.equal(merged[0].id, 2);
+  assert.equal(merged[0].games, 10);
+  assert.equal(merged[0].wins, 4);
+
+  // Por tus partidas primero, por coste despues, y por nombre cuando se pide
+  assert.deepEqual(
+    items.sortItems(catalog, "games").map((i) => i.id),
+    [3031, 8888, 1038],
+  );
+  assert.deepEqual(
+    items.sortItems(catalog, "cost").map((i) => i.id),
+    [3031, 8888, 1038],
+  );
+  assert.deepEqual(
+    items.sortItems(catalog, "name").map((i) => i.name),
+    ["B. F. Sword", "Infinity Edge", "Retirado"],
+  );
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

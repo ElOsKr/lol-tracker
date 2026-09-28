@@ -1,4 +1,5 @@
 import type {
+  ItemUsage,
   ChampionStats,
   AugmentStats,
   DashboardData,
@@ -327,6 +328,32 @@ function ownAugmentPicks(patch?: string, queue?: number): Map<number, number> {
     `)
     .all(...own.params) as { augment_id: number; picks: number }[];
   return new Map(rows.map((r) => [r.augment_id, r.picks]));
+}
+
+/**
+ * Every item the player has finished a game holding, with how it went.
+ *
+ * One query for the whole catalogue rather than one per item: the items page
+ * shows the count beside every row, and asking eight hundred times would be
+ * eight hundred round trips for a table that is cheap to build in one pass.
+ */
+export function getItemUsage(queue?: number): ItemUsage[] {
+  const own = ownGamesFilter(undefined, queue);
+  return db
+    .prepare(`
+      SELECT item_id, COUNT(*) as games, SUM(win) as wins
+      FROM (
+        ${itemSlotUnion(
+          (i) => `SELECT ps.item${i} as item_id, ps.win
+                FROM player_stats ps JOIN games g ON ps.game_id = g.game_id
+                WHERE ${own.sql}
+                  AND ps.item${i} > 0 AND ps.item${i} NOT IN (${EXCLUDED_ITEMS_SQL})`,
+        )}
+      )
+      GROUP BY item_id
+      ORDER BY games DESC
+    `)
+    .all(...ITEM_SLOTS.flatMap(() => own.params)) as ItemUsage[];
 }
 
 // Our own item picks, from player_stats (only ever our row), same slot rules as
