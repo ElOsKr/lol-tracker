@@ -30,12 +30,12 @@ Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte 
 
 ## Hito 3 — Catálogos (v0.6.0)
 
-| #   | Qué                                                                                                                                                                                                                | Tamaño |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| 13  | **Pestaña de objetos.** Buscador y filtros; ficha con coste, estadísticas, pasiva, de qué se compone y en qué se convierte; enlace a "tus partidas con este objeto". Datos de Community Dragon, que ya se cachean. | M      |
-| 14  | **Catálogo de aumentos**, reutilizando la pestaña de estadísticas existente.                                                                                                                                       | S–M    |
-| 15  | **Fichas de campeón.** Habilidades, clase y tus datos con él; enlazadas desde el historial.                                                                                                                        | M      |
-| 16  | **Marcas de parche en Tendencias.** Líneas verticales por cambio de parche.                                                                                                                                        | S      |
+| #   | Qué                                                                                                                                                                                                                                                                                   | Tamaño |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 13  | ✅ **Pestaña de objetos.** Buscador, filtro por categoría y orden; ficha con coste, estadísticas, pasiva, de qué se compone y en qué se convierte, y tus partidas y victorias con él. Falta el enlace al historial filtrado por objeto, que necesita un filtro nuevo en el historial. | M      |
+| 14  | **Catálogo de aumentos**, reutilizando la pestaña de estadísticas existente.                                                                                                                                                                                                          | S–M    |
+| 15  | **Fichas de campeón.** Habilidades, clase y tus datos con él; enlazadas desde el historial.                                                                                                                                                                                           | M      |
+| 16  | **Marcas de parche en Tendencias.** Líneas verticales por cambio de parche.                                                                                                                                                                                                           | S      |
 
 ## Hito 4 — Entender tus partidas (v0.7.0)
 

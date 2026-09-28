@@ -157,6 +157,8 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
     }
   });
 
+  handle("getItemUsage", (_event, queue) => db.getItemUsage(queue));
+
   handle("getChampionItemStats", (_event, championId, patch, queue) =>
     db.getChampionItemStats(championId, patch, queue),
   );

@@ -18,6 +18,7 @@ export {
   getDashboardData,
   getAugmentStatsWithChampions,
   getChampionItemStats,
+  getItemUsage,
   getGlobalStats,
   getGlobalChampionDetail,
   getTrendsData,

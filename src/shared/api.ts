@@ -312,7 +312,25 @@ export interface ItemData {
     description: string;
     iconPath: string;
     branch: string;
+    // What the finished item costs, and what the last step of it costs
+    priceTotal: number;
+    price: number;
+    // What it is built from and what it builds into, by id
+    from: number[];
+    to: number[];
+    categories: string[];
+    // Anything out of the shop is an internal piece rather than an item
+    inStore: boolean;
   };
+}
+
+// How often the player themselves finished a game holding an item. Remakes are
+// out, as everywhere else, and the free Poro-Snax are excluded the same way the
+// item tables exclude them.
+export interface ItemUsage {
+  item_id: number;
+  games: number;
+  wins: number;
 }
 
 export interface SummonerSpellData {
@@ -1028,6 +1046,7 @@ export interface ElectronAPI {
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
+  getItemUsage: (queue?: number) => Promise<ItemUsage[]>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;
   onGamesUpdated: (callback: () => void) => () => void;
@@ -1132,6 +1151,7 @@ export const INVOKE_CHANNELS = {
   getAugmentData: "dragon:augments",
   resolveAugmentIcon: "dragon:augment-icon",
   getItemData: "dragon:items",
+  getItemUsage: "db:item-usage",
   getSummonerSpellData: "dragon:summoner-spells",
   getSetting: "settings:get",
   isAutoStartSupported: "autostart:supported",
