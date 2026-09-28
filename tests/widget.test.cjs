@@ -758,6 +758,56 @@ test("keyboard shortcuts stay out of the way while typing and of the window mana
   assert.equal(matchShortcut(press({ key: "2", altKey: true })), null);
 });
 
+test("the Riot Client is found where it records itself, and nowhere it isn't", () => {
+  const client = "C:\\Riot Games\\Riot Client\\RiotClientServices.exe";
+  const other = "D:\\Juegos\\Riot Client\\RiotClientServices.exe";
+  let installs = null;
+  let present = [];
+  const launcher = load("src/main/riot-launcher.ts", {
+    electron: { app: { getPath: () => "C:\\Escritorio" }, shell: {} },
+    child_process: { spawn: () => ({ unref() {} }) },
+    fs: {
+      readFileSync: () => {
+        if (installs === null) throw new Error("no such file");
+        return installs;
+      },
+      existsSync: (p) => present.includes(p),
+    },
+    "./shortcut": { APP_USER_MODEL_ID: "com.test" },
+    "./i18n": { t: (key) => key },
+  });
+
+  // Sin registro, queda la ruta por defecto, y solo si existe de verdad
+  present = [];
+  assert.equal(launcher.findRiotClient(), null);
+  present = [client];
+  assert.equal(launcher.findRiotClient(), client);
+
+  // El registro manda sobre la ruta por defecto, y rc_live sobre rc_default
+  installs = JSON.stringify({ rc_default: client, rc_live: other });
+  present = [client, other];
+  assert.equal(launcher.findRiotClient(), other);
+  // Un rc_live que ya no está cede el turno al siguiente candidato
+  present = [client];
+  assert.equal(launcher.findRiotClient(), client);
+  // Las barras del fichero son las de la web; la ruta sale en formato Windows
+  installs = JSON.stringify({ rc_live: "C:/Riot Games/Riot Client/RiotClientServices.exe" });
+  present = [client];
+  assert.equal(launcher.findRiotClient(), client);
+  // Un registro ilegible no rompe nada
+  installs = "{no es json";
+  assert.equal(launcher.findRiotClient(), client);
+
+  // Sin cliente no hay atajo que crear, y el fallo se cuenta
+  installs = null;
+  present = [];
+  assert.equal(launcher.launchLeague(), false);
+  assert.deepEqual(launcher.createLeagueShortcut(), {
+    success: false,
+    error: "startup.shortcutNotPackaged",
+  });
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

@@ -20,6 +20,8 @@ import { SESSION_GROUPING_SETTING } from "../shared/session";
 import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
 import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../shared/notice";
+import { OPEN_ON_CLIENT_SETTING } from "../shared/startup";
+import { createLeagueShortcut, isLeagueShortcutSupported } from "./riot-launcher";
 import { buildGameNotice, dismissNotice, showRecap } from "./notice";
 
 // The settings table doubles as internal bookkeeping — sgp_host, the
@@ -41,6 +43,7 @@ const RENDERER_SETTINGS = new Set([
   "sidebar_collapsed",
   GAME_NOTICE_SETTING,
   GAME_NOTICE_OBS_SETTING,
+  OPEN_ON_CLIENT_SETTING,
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a
@@ -239,6 +242,10 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
   // not have — the Settings page reads this to say so rather than offering a
   // switch that would quietly do nothing.
   handle("isAutoStartSupported", () => isAutoStartSupported());
+
+  handle("isLeagueShortcutSupported", () => isLeagueShortcutSupported());
+
+  handle("createLeagueShortcut", () => createLeagueShortcut());
 
   // Window controls (custom title bar). The maximize/unmaximize events that
   // pair with these are wired up in createWindow, where the window lives.

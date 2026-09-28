@@ -397,6 +397,24 @@ export const es: Dictionary = {
   "settings.shortcutsTabs": "Abrir la página n del menú lateral",
   "settings.shortcutsSearch": "Buscar en esta página",
   "settings.shortcutsSync": "Buscar partidas nuevas",
+  // Arrancar con el cliente de League
+  "startup.shortcutName": "League of Legends con LoLeanding",
+  "startup.shortcutDescription": "Abre LoLeanding y el cliente de League a la vez",
+  "startup.shortcutNotPackaged":
+    "Solo se le puede crear un acceso directo a la aplicación instalada.",
+  "startup.shortcutNoClient": "No se ha encontrado el Riot Client en este ordenador.",
+  "settings.openOnClient": "Abrir la ventana cuando arranque el cliente de League",
+  "settings.openOnClientDesc":
+    "Para esto la aplicación tiene que estar en marcha, esperando en la bandeja del sistema. Activa arriba el arranque con Windows, o usa el acceso directo de abajo.",
+  "settings.leagueShortcut": "Acceso directo que abre las dos cosas",
+  "settings.leagueShortcutDesc":
+    "Deja en el escritorio un acceso directo que abre League y esta aplicación de una vez, para cuando la tienes cerrada. Abrir League por otro sitio no la arranca.",
+  "settings.leagueShortcutButton": "Crear el acceso directo",
+  "settings.leagueShortcutDone": "Acceso directo creado en el escritorio.",
+  "settings.leagueShortcutFailed": "No se ha podido crear: {error}",
+  "settings.leagueShortcutUnsupported":
+    "Disponible en la aplicación instalada, con League instalado en este ordenador.",
+
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

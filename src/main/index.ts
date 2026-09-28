@@ -15,7 +15,11 @@ import {
   fetchNewGames,
   getStatus,
   onEogCaptured,
+  onLcuStatusChange,
 } from "./lcu";
+import { launchLeague } from "./riot-launcher";
+import { LAUNCH_LEAGUE_FLAG, OPEN_ON_CLIENT_SETTING } from "../shared/startup";
+import type { LcuStatus } from "../shared/api";
 import { startLiveTracking, stopLiveTracking } from "./live";
 import { startChallengeTracking } from "./challenges";
 import { loadChampionData, loadAugmentData, waitForChampionData } from "./dragon";
@@ -46,7 +50,14 @@ if (!gotTheLock) {
   // Only the instance that holds the lock writes the log
   startLogging();
 
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, argv) => {
+    // The combined shortcut clicked while the app is already running: open
+    // League and leave the window where it was, because opening it is not
+    // what that shortcut is for.
+    if (argv.includes(LAUNCH_LEAGUE_FLAG)) {
+      launchLeague();
+      return;
+    }
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
@@ -59,7 +70,10 @@ const asset = (name: string) => path.join(app.getAppPath(), "assets", name);
 const iconPath = asset("icon.png");
 
 // Set by the login item when auto-start is on: come up in the tray only.
-const launchedHidden = process.argv.includes(HIDDEN_FLAG);
+// The combined shortcut is a hidden launch that also opens League: the point
+// of it is one click instead of two, not a window in the way.
+const launchedForLeague = process.argv.includes(LAUNCH_LEAGUE_FLAG);
+const launchedHidden = process.argv.includes(HIDDEN_FLAG) || launchedForLeague;
 
 function createWindow(): BrowserWindow {
   // Where and how big the window was last time, if that still fits a display
@@ -212,6 +226,21 @@ app.whenReady().then(async () => {
   const win = createWindow();
   setUpTray();
 
+  // Bring the window up when the client appears, for anyone who asked for
+  // it. Only on the way in: a game ending takes the status from "ingame"
+  // back to "connected", and that is not the client starting.
+  let previousStatus: LcuStatus = "disconnected";
+  onLcuStatusChange((status) => {
+    const clientCameUp =
+      status === "connected" && previousStatus !== "connected" && previousStatus !== "ingame";
+    previousStatus = status;
+    if (!clientCameUp || getSetting(OPEN_ON_CLIENT_SETTING) !== "true") return;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
   startPolling(win);
   // Follows the client into and out of matches, so the Live Game tab has a
   // snapshot to show and the map a game was rolled onto gets written down
@@ -220,6 +249,9 @@ app.whenReady().then(async () => {
   // client keeps no history of its own, so a day nobody writes down is gone.
   startChallengeTracking(win);
   startBackupSchedule();
+
+  // Started from the combined shortcut, so League is what the click was for
+  if (launchedForLeague) launchLeague();
 });
 
 app.on("before-quit", async (event) => {

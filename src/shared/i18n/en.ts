@@ -390,6 +390,23 @@ export const en = {
   "settings.shortcutsTabs": "Open the nth page of the sidebar",
   "settings.shortcutsSearch": "Search on this page",
   "settings.shortcutsSync": "Look for new games",
+  // Starting with the League client
+  "startup.shortcutName": "League of Legends with LoLeanding",
+  "startup.shortcutDescription": "Opens LoLeanding and the League client together",
+  "startup.shortcutNotPackaged": "Only the installed app can be given a shortcut.",
+  "startup.shortcutNoClient": "The Riot Client could not be found on this computer.",
+  "settings.openOnClient": "Open the window when the League client starts",
+  "settings.openOnClientDesc":
+    "The app has to be running for this, waiting in the system tray. Turn on starting with Windows above, or use the shortcut below.",
+  "settings.leagueShortcut": "Shortcut that opens both",
+  "settings.leagueShortcutDesc":
+    "Puts a shortcut on the desktop that opens League and this app at once, for when the app is closed. Opening League any other way will not start it.",
+  "settings.leagueShortcutButton": "Create the shortcut",
+  "settings.leagueShortcutDone": "Shortcut created on the desktop.",
+  "settings.leagueShortcutFailed": "It could not be created: {error}",
+  "settings.leagueShortcutUnsupported":
+    "Available in the installed app, with League installed on this computer.",
+
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

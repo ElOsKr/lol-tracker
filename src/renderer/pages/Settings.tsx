@@ -8,6 +8,7 @@ import { LOCALE } from "../lib/format";
 
 import { setRemembering } from "../lib/viewState";
 import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../../shared/notice";
+import { OPEN_ON_CLIENT_SETTING } from "../../shared/startup";
 import { SGP_HISTORY_CAP } from "../lib/types";
 import type { BackupInfo, ImportProgress } from "../lib/types";
 import {
@@ -94,6 +95,9 @@ export default function Settings() {
   const [rememberFilters, setRememberFilters] = useState(false);
   const [gameNotice, setGameNotice] = useState(true);
   const [gameNoticeObs, setGameNoticeObs] = useState(false);
+  const [openOnClient, setOpenOnClient] = useState(false);
+  const [leagueShortcutSupported, setLeagueShortcutSupported] = useState(false);
+  const [shortcutStatus, setShortcutStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -119,6 +123,8 @@ export default function Settings() {
       window.api.getSetting(SESSION_GROUPING_SETTING),
       window.api.getSetting(GAME_NOTICE_SETTING),
       window.api.getSetting(GAME_NOTICE_OBS_SETTING),
+      window.api.getSetting(OPEN_ON_CLIENT_SETTING),
+      window.api.isLeagueShortcutSupported(),
     ]).then(
       ([
         startup,
@@ -130,6 +136,8 @@ export default function Settings() {
         grouping,
         notice,
         noticeObs,
+        openClient,
+        shortcutSupported,
       ]) => {
         setAutoStart(startup === "true");
         setAutoStartSupported(startupSupported);
@@ -140,10 +148,22 @@ export default function Settings() {
         setSessionGrouping(parseSessionGrouping(grouping));
         setGameNotice(notice !== "false");
         setGameNoticeObs(noticeObs === "true");
+        setOpenOnClient(openClient === "true");
+        setLeagueShortcutSupported(shortcutSupported);
         setLoading(false);
       },
     );
   }, []);
+
+  const handleLeagueShortcut = async () => {
+    setShortcutStatus(null);
+    const result = await window.api.createLeagueShortcut();
+    setShortcutStatus(
+      result.success
+        ? t("settings.leagueShortcutDone")
+        : t("settings.leagueShortcutFailed", { error: result.error ?? "" }),
+    );
+  };
 
   const refreshBackups = useCallback(() => {
     window.api.listBackups().then(setBackups);
@@ -381,6 +401,44 @@ export default function Settings() {
               checked={minimizeToTray}
               onChange={toggle("minimize_to_tray", minimizeToTray, setMinimizeToTray)}
             />
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">{t("settings.openOnClient")}</p>
+              <p className="text-xs text-lol-text mt-0.5">{t("settings.openOnClientDesc")}</p>
+            </div>
+            <Switch
+              checked={openOnClient}
+              onChange={toggle(OPEN_ON_CLIENT_SETTING, openOnClient, setOpenOnClient)}
+            />
+          </div>
+
+          <div className="border-t border-lol-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-lol-text-bright">{t("settings.leagueShortcut")}</p>
+              <p className="text-xs text-lol-text mt-0.5">
+                {leagueShortcutSupported
+                  ? t("settings.leagueShortcutDesc")
+                  : t("settings.leagueShortcutUnsupported")}
+              </p>
+              {shortcutStatus && (
+                <p className="text-xs text-lol-gold mt-1" role="status">
+                  {shortcutStatus}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleLeagueShortcut}
+              disabled={!leagueShortcutSupported}
+              className={`${actionButton} shrink-0 whitespace-nowrap`}
+            >
+              {t("settings.leagueShortcutButton")}
+            </button>
           </div>
 
           <div className="border-t border-lol-border" />
