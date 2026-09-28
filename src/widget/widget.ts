@@ -3,6 +3,7 @@ import type {
   WidgetSnapshot as Snapshot,
   WidgetControls,
 } from "../shared/widget.js";
+import type { GameNotice } from "../shared/notice.js";
 declare global {
   interface Window {
     widgetControls?: WidgetControls;
@@ -127,6 +128,81 @@ function renderMatchCard(match: Match): HTMLElement {
   );
   return card;
 }
+// ---- Aviso de fin de partida ----------------------------------------------
+//
+// Se dibuja sobre la cabecera cuando la aplicación acaba de guardar una
+// partida. La cuenta atrás es la animación de la barra inferior y su final es
+// lo que lo retira, así que la pausa al pasar el ratón por encima, que es una
+// regla de CSS, pausa también la retirada sin nada que sincronizar aquí.
+let noticeShown: number | null = null;
+
+function scoreClass(score: number): string {
+  if (score >= 9) return "score-high";
+  if (score >= 7) return "score-good";
+  if (score >= 5) return "score-ok";
+  return "score-low";
+}
+
+function hideNotice(): void {
+  const slot = document.getElementById("notice-slot");
+  if (!slot) return;
+  slot.replaceChildren();
+  slot.hidden = true;
+}
+
+function renderNotice(notice: GameNotice): void {
+  const slot = document.getElementById("notice-slot");
+  if (!slot) return;
+
+  const card = element("div", `notice-card ${notice.win ? "win" : "loss"}`);
+
+  const open = element("button", "notice-open");
+  open.type = "button";
+  open.title = "Ver el resumen de la partida";
+  const head = element("div", "notice-head");
+  const fallback = `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/29.png`;
+  head.append(
+    image(
+      notice.championId ? `${CDRAGON}v1/champion-icons/${notice.championId}.png` : fallback,
+      "notice-icon",
+      "Campeón",
+      fallback,
+    ),
+  );
+  const lines = element("div", "notice-lines");
+  lines.append(
+    element("div", "notice-result", notice.win ? "VICTORIA" : "DERROTA"),
+    element("div", "notice-kda", `${notice.kills} / ${notice.deaths} / ${notice.assists}`),
+  );
+  head.append(lines);
+  if (notice.score !== null) {
+    head.append(
+      element("div", `notice-score ${scoreClass(notice.score)}`, notice.score.toFixed(1)),
+    );
+  }
+  open.append(head);
+  if (notice.highlight) open.append(element("div", "notice-highlight", notice.highlight));
+  open.addEventListener("click", () => {
+    hideNotice();
+    window.widgetControls?.openRecap();
+  });
+
+  const close = element("button", "notice-close", "×");
+  close.type = "button";
+  close.title = "Cerrar el aviso";
+  close.addEventListener("click", (event) => {
+    event.stopPropagation();
+    hideNotice();
+  });
+
+  const bar = element("div", "notice-bar");
+  bar.addEventListener("animationend", hideNotice);
+
+  card.append(open, close, bar);
+  slot.replaceChildren(card);
+  slot.hidden = false;
+}
+
 function setText(id: string, value: string, className?: string): void {
   const node = document.getElementById(id);
   if (node) {
@@ -164,6 +240,12 @@ async function updateWidget(): Promise<void> {
       `streak-val streak-${data.streak > 0 ? "win" : data.streak < 0 ? "loss" : "neutral"}`,
     );
     setText("connection-status", data.connected ? "" : data.error || "Conectando con LoL...");
+    // Una sola vez por partida: la instantánea sigue trayendo el mismo aviso
+    // durante unos segundos y no debe reaparecer después de cerrarlo.
+    if (data.notice && data.notice.gameId !== noticeShown) {
+      noticeShown = data.notice.gameId;
+      renderNotice(data.notice);
+    }
     const container = document.getElementById("matches-container");
     const cards = JSON.stringify([version, data.matches]);
     if (container && cards !== lastCards) {

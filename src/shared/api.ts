@@ -8,6 +8,9 @@ export interface QueueLifetimeTotal {
 }
 
 import type { WidgetPreferences, WidgetState } from "./widget";
+import type { GameNotice } from "./notice";
+
+export type { GameNotice };
 // The IPC contract: every shape that crosses the preload bridge, and the
 // ElectronAPI interface the bridge is checked against. It lives in shared/ so
 // src/preload can import it without the bridge depending on the display layer.
@@ -995,6 +998,11 @@ export interface ElectronAPI {
   getGlobalStats: (patch?: string, queue?: number) => Promise<GlobalStats>;
   getTrends: (queue?: number) => Promise<TrendsData>;
   getRecords: (queue?: number, account?: string) => Promise<RecordsData>;
+  // The end-of-game card's own data, for the window that draws it
+  getGameNotice: (gameId: number) => Promise<GameNotice | null>;
+  dismissNotice: () => Promise<void>;
+  // Brings the app forward on the recap of the game the notice is about
+  openNoticeRecap: () => Promise<void>;
   getHomeSummary: (queue?: number) => Promise<HomeSummary>;
   getLiveGame: () => Promise<LiveGameSnapshot>;
   onLiveGame: (callback: (snapshot: LiveGameSnapshot) => void) => () => void;
@@ -1064,6 +1072,8 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>;
   isWindowMaximized: () => Promise<boolean>;
   onMaximizedChanged: (callback: (maximized: boolean) => void) => () => void;
+  // The main process asking the app to show a page, from the tray or a notice
+  onNavigate: (callback: (path: string) => void) => () => void;
 }
 
 // ---- Channels ----
@@ -1099,6 +1109,9 @@ export const INVOKE_CHANNELS = {
   getGlobalStats: "db:global-stats",
   getTrends: "db:trends",
   getRecords: "db:records",
+  getGameNotice: "notice:get",
+  dismissNotice: "notice:dismiss",
+  openNoticeRecap: "notice:open-recap",
   getHomeSummary: "db:home-summary",
   getLiveGame: "live:snapshot",
   getGameRecap: "db:game-recap",
@@ -1158,6 +1171,7 @@ export interface RendererEvents {
   "update:progress": number;
   "window:maximized-changed": boolean;
   "data:import-progress": ImportProgress;
+  "app:navigate": string;
 }
 
 // The command-line switch every window is created with to carry

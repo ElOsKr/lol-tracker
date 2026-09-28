@@ -1,3 +1,5 @@
+import type { GameNotice } from "./notice";
+
 export interface WidgetMatch {
   matchId: string;
   gameCreation: number;
@@ -27,6 +29,10 @@ export interface WidgetSnapshot {
   error: string | null;
   pollIntervalMs: number;
   assetVersion: string;
+  // A game that has just been captured, for the widget to announce over its
+  // header. Null unless one is waiting and this surface is allowed to draw it:
+  // the OBS page only gets one when that has been turned on.
+  notice: GameNotice | null;
 }
 
 export interface WidgetPreferences {
@@ -42,6 +48,8 @@ export interface WidgetState {
 }
 export interface WidgetControls {
   snapshot(): Promise<WidgetSnapshot>;
+  // Brings the app forward on the recap of the game a notice is about
+  openRecap(): void;
   minimize(): void;
   close(): void;
 }
