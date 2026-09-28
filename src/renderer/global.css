@@ -30,7 +30,10 @@ body {
 }
 
 #root {
-  height: 100vh;
+  /* Divided by the interface scale: with zoom on the root element, 100vh is
+     still the unscaled viewport, so the page would end up covering only that
+     fraction of the window. --ui-scale is 1 unless the setting says otherwise. */
+  height: calc(100vh / var(--ui-scale, 1));
   display: flex;
 }
 

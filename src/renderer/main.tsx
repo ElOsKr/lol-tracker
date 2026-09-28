@@ -5,6 +5,8 @@ import { initLanguage, t } from "./lib/i18n";
 import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
 import { UI_SCALE_SETTING, parseUiScale } from "../shared/density";
+import { CARD_ROUTE } from "../shared/card";
+import { NOTICE_ROUTE } from "../shared/notice";
 import { applyUiScale } from "./lib/density";
 import App from "./App";
 import { initViewState } from "./lib/viewState";
@@ -23,7 +25,13 @@ Promise.all([
   window.api.getSetting(UI_SCALE_SETTING),
 ])
   .then(([remember, queue, navLayout, homePage, language, uiScale]) => {
-    applyUiScale(parseUiScale(uiScale));
+    // The card and the end-of-game notice are drawn in windows of their own,
+    // sized in pixels by the main process, so the interface scale is not theirs
+    // to obey: it would only make the drawing miss its frame.
+    const ownWindow = [CARD_ROUTE, NOTICE_ROUTE].some((route) =>
+      location.hash.startsWith(`#${route}`),
+    );
+    if (!ownWindow) applyUiScale(parseUiScale(uiScale));
     initLanguage(language);
     initQueueSelection(queue);
     initNavLayout(navLayout, homePage);
