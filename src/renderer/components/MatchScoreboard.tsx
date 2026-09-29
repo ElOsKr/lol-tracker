@@ -440,15 +440,25 @@ function ScoreCell({
         {score ? score.score.toFixed(1) : "-"}
       </div>
       {score && (rank != null || score.badge) && (
-        <div className="flex items-center justify-center gap-1 leading-none">
-          {rank != null && (
+        // Three tracks so the place sits dead centre on every row, badge or
+        // no badge, and the column of places reads straight down. The two
+        // outer tracks are minmax(0,1fr) so a badge cannot widen its own
+        // track and push the place off centre; it just hangs to the right,
+        // spilling a few pixels into the column gap, which is empty anyway.
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center leading-none">
+          <span />
+          {rank != null ? (
             <span
               className={`text-[10px] tabular-nums ${rank === 1 ? "text-lol-gold" : "text-lol-text"}`}
             >
               {t("history.placeShort", { rank })}
             </span>
+          ) : (
+            <span />
           )}
-          {score.badge && <ScoreBadge badge={score.badge} />}
+          <span className="justify-self-start pl-1">
+            {score.badge && <ScoreBadge badge={score.badge} inline />}
+          </span>
         </div>
       )}
       {score && anchor && (
