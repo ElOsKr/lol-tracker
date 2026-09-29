@@ -493,6 +493,7 @@ export const en = {
   "score.carryBonus": "Carry bonus",
   "score.nextBest": "{lead}× next best",
   "score.victoryBonus": "Victory bonus",
+  "score.place": "Place in the game",
   "score.total": "Total",
   "score.capped": " {raw}, capped at",
   "score.floored": " {raw}, floored at",

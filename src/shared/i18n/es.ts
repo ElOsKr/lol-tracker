@@ -502,6 +502,7 @@ export const es: Dictionary = {
   "score.carryBonus": "Bonus de carry",
   "score.nextBest": "{lead}× el siguiente mejor",
   "score.victoryBonus": "Bonus por victoria",
+  "score.place": "Puesto en la partida",
   "score.total": "Total",
   "score.capped": " {raw}, limitado a",
   "score.floored": " {raw}, elevado a",

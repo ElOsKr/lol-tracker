@@ -1121,6 +1121,31 @@ test("a game's place among the ten is ranked on the raw score, and ties share it
   assert.equal(scoring.computeOwnerStanding([], "p1", 450), null);
 });
 
+test("the scoreboard gets every player's place from one pass, with the same rule", () => {
+  const { rankByRaw } = load("src/shared/opScore.ts");
+
+  // El marcador desplegable ordena los diez de una vez, no uno por uno
+  const scores = new Map([
+    [1, { raw: 9.4 }],
+    [2, { raw: 7.1 }],
+    [3, { raw: 7.1 }],
+    [4, { raw: 2.0 }],
+  ]);
+  const ranks = rankByRaw(scores);
+  assert.deepEqual(
+    [...ranks.entries()],
+    [
+      [1, 1],
+      [2, 2],
+      [3, 2],
+      [4, 4],
+    ],
+  );
+
+  // Sin notas (remake, o una cola sin puntuacion) no hay puestos que ensenar
+  assert.equal(rankByRaw(new Map()).size, 0);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

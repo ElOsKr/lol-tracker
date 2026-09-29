@@ -57,6 +57,8 @@ export interface PlayerStatsRecord {
   // Unclamped, for ordering only; never shown
   score_raw: number | null;
   score_badge: "MVP" | "ACE" | null;
+  // Where this game placed among everyone it scored, and out of how many.
+  // Null for a remake and for queues that carry no score.
   score_rank: number | null;
   score_rank_total: number | null;
   spell1: number | null;
@@ -105,10 +107,6 @@ export interface MatchListItem {
   item5: number | null;
   score: number | null;
   score_badge: "MVP" | "ACE" | null;
-  // Where this game placed among everyone it scored, and out of how many.
-  // Null for a remake and for queues that carry no score.
-  score_rank: number | null;
-  score_rank_total: number | null;
   spell1: number | null;
   spell2: number | null;
   augment_ids: string | null;

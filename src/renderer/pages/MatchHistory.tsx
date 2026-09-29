@@ -1132,12 +1132,7 @@ function GameRow({
         </div>
 
         {/* Score — a remake is scored by nothing, so it shows none */}
-        <ScoreCell
-          score={isRemake ? null : match.score}
-          badge={match.score_badge}
-          rank={match.score_rank}
-          total={match.score_rank_total}
-        />
+        <ScoreCell score={isRemake ? null : match.score} badge={match.score_badge} />
 
         {/* Stat bars: only with room to spare; the row keeps what identifies the game */}
         <div className="hidden @4xl:block">
