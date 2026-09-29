@@ -6,6 +6,7 @@ import { getChampionName } from "../hooks/useChampions";
 import { formatCompact, kdaHighlight, kdaRatio, scoreColor } from "../lib/format";
 import {
   computeMatchScoreBreakdowns,
+  rankByRaw,
   type ScoreBreakdown,
   type ScoreComponent,
   type ScoreComponentKey,
@@ -20,12 +21,12 @@ import { useT, type Translate } from "../lib/i18n";
 import type { TranslationKey } from "../../shared/i18n";
 import Kda from "./Kda";
 
-const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px]";
+const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_64px_76px_110px_110px_56px_56px_176px_100px]";
 // An eleventh column is only affordable where the rows are laid out wider than
 // the app lays them out: at the app's own window size every column above is
 // already at its floor, so the extra would come out of the player name.
 const GRID_COLS_MULTIKILLS =
-  "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px_92px]";
+  "grid-cols-[52px_minmax(80px,1fr)_64px_76px_110px_110px_56px_56px_176px_100px_92px]";
 
 export default function MatchScoreboard({
   detail,
@@ -57,6 +58,11 @@ export default function MatchScoreboard({
     return computeMatchScoreBreakdowns(participants, classes, detail.game.queue_id);
   }, [participants, champData, detail.game.queue_id, detail.game.is_remake]);
 
+  // Everyone's place in the game, so a row can say "3.º" and not just "7.3".
+  // The same rule the stored placement uses, from the same module, so the
+  // history row and this table can never disagree.
+  const ranks = useMemo(() => rankByRaw(scores), [scores]);
+
   const gameMaxStats = useMemo(() => {
     let dmg = 0,
       taken = 0,
@@ -85,6 +91,8 @@ export default function MatchScoreboard({
           maxStats={gameMaxStats}
           champData={champData}
           scores={scores}
+          ranks={ranks}
+          total={scores.size}
           patch={detail.game.game_version}
           multikills={multikills}
         />
@@ -99,6 +107,8 @@ function TeamScoreboard({
   maxStats,
   champData,
   scores,
+  ranks,
+  total,
   patch,
   multikills,
 }: {
@@ -107,6 +117,8 @@ function TeamScoreboard({
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
   champData: ChampionData;
   scores: Map<number, ScoreBreakdown>;
+  ranks: Map<number, number>;
+  total: number;
   patch?: string | null;
   multikills: boolean;
 }) {
@@ -193,6 +205,8 @@ function TeamScoreboard({
           maxStats={maxStats}
           champData={champData}
           score={scores.get(p.participantId)}
+          rank={ranks.get(p.participantId)}
+          total={total}
           patch={patch}
           multikills={multikills}
         />
@@ -259,6 +273,8 @@ function PlayerRow({
   maxStats,
   champData,
   score,
+  rank,
+  total,
   patch,
   multikills,
 }: {
@@ -266,6 +282,8 @@ function PlayerRow({
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
   champData: ChampionData;
   score?: ScoreBreakdown;
+  rank?: number;
+  total: number;
   patch?: string | null;
   multikills: boolean;
 }) {
@@ -302,8 +320,8 @@ function PlayerRow({
         </div>
       </div>
 
-      {/* Score */}
-      <ScoreCell score={score} />
+      {/* Score, with where this player placed among the ten */}
+      <ScoreCell score={score} rank={rank} total={total} />
 
       {/* KDA */}
       <div className="text-center">
@@ -366,7 +384,19 @@ function PlayerRow({
   );
 }
 
-function ScoreCell({ score }: { score?: ScoreBreakdown }) {
+// The score, and under it where this player placed in the game. The badge
+// shares that second line rather than replacing the place: MVP is the best of
+// a team, which is not the same thing as being first of the ten.
+function ScoreCell({
+  score,
+  rank,
+  total,
+}: {
+  score?: ScoreBreakdown;
+  rank?: number;
+  total: number;
+}) {
+  const t = useT();
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
   return (
@@ -380,8 +410,21 @@ function ScoreCell({ score }: { score?: ScoreBreakdown }) {
       >
         {score ? score.score.toFixed(1) : "-"}
       </div>
-      {score?.badge && <ScoreBadge badge={score.badge} />}
-      {score && anchor && <ScoreBreakdownTooltip breakdown={score} anchor={anchor} />}
+      {score && (rank != null || score.badge) && (
+        <div className="flex items-center justify-center gap-1 leading-none">
+          {rank != null && (
+            <span
+              className={`text-[10px] tabular-nums ${rank === 1 ? "text-lol-gold" : "text-lol-text"}`}
+            >
+              {t("history.placeShort", { rank })}
+            </span>
+          )}
+          {score.badge && <ScoreBadge badge={score.badge} />}
+        </div>
+      )}
+      {score && anchor && (
+        <ScoreBreakdownTooltip breakdown={score} rank={rank} total={total} anchor={anchor} />
+      )}
     </div>
   );
 }
@@ -407,9 +450,13 @@ function componentValue(c: ScoreComponent, t: Translate): string {
 
 function ScoreBreakdownTooltip({
   breakdown,
+  rank,
+  total,
   anchor,
 }: {
   breakdown: ScoreBreakdown;
+  rank?: number;
+  total: number;
   anchor: DOMRect;
 }) {
   const t = useT();
@@ -417,7 +464,8 @@ function ScoreBreakdownTooltip({
     breakdown.components.length +
     (breakdown.multikill ? 1 : 0) +
     (breakdown.carry ? 1 : 0) +
-    (breakdown.win > 0 ? 1 : 0);
+    (breakdown.win > 0 ? 1 : 0) +
+    (rank != null ? 1 : 0);
   const width = 288;
   const height = 74 + rows * 20;
   // Fixed positioning escapes the team card's overflow-hidden; clamp to the
@@ -482,6 +530,14 @@ function ScoreBreakdownTooltip({
           <span className="text-[11px] text-lol-text">{t("score.victoryBonus")}</span>
           <span className="text-[11px] tabular-nums text-lol-text-bright">
             +{breakdown.win.toFixed(1)}
+          </span>
+        </div>
+      )}
+      {rank != null && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">{t("score.place")}</span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            {t("history.placeOf", { rank, total })}
           </span>
         </div>
       )}

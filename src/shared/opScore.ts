@@ -292,6 +292,21 @@ export function computeMatchScoreBreakdowns(
   return breakdowns;
 }
 
+/**
+ * Where each player placed in the game, 1 for the best. Ranked on `raw` for
+ * the same reason the badges above are: `score` is rounded to 0.1 and clamped
+ * at 10, so two strong games both read as exactly 10 and the order would fall
+ * to whoever the client listed first.
+ *
+ * Ties share a place and leave a gap behind them: two firsts, then a third.
+ */
+export function rankByRaw(scores: Map<number, { raw: number }>): Map<number, number> {
+  const raws = [...scores.values()].map((s) => s.raw);
+  const ranks = new Map<number, number>();
+  for (const [id, s] of scores) ranks.set(id, 1 + raws.filter((raw) => raw > s.raw).length);
+  return ranks;
+}
+
 export function computeMatchScores(
   participants: ScoreInput[],
   classes: ChampionClassMap | undefined,

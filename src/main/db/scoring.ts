@@ -3,6 +3,7 @@ import {
   type ScoreInput,
   type PlayerScore,
   computeMatchScores,
+  rankByRaw,
 } from "../../shared/opScore";
 import { hasScore, SCORE_POLICY_VERSION } from "../../shared/queues";
 import { getChampionDataVersion, getChampionClasses } from "../dragon";
@@ -122,11 +123,9 @@ export function computeOwnerStanding(
   const score = scores.get(owner.participantId);
   if (!score) return null;
 
-  // Ranked on the unclamped total for the same reason the records page does:
-  // `score` tops out at 10, so several perfect games would otherwise tie.
-  const raws = [...scores.values()].map((s) => s.raw);
-  const rank = 1 + raws.filter((raw) => raw > score.raw).length;
-  return { score, rank, total: raws.length };
+  const rank = rankByRaw(scores).get(owner.participantId);
+  if (rank == null) return null;
+  return { score, rank, total: scores.size };
 }
 
 function backfillScores() {
