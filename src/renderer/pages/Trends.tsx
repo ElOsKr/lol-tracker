@@ -1,29 +1,26 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
-import { EmptyState } from "../components/PageState";
+import { EmptyState, PageLoading } from "../components/PageState";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import type { TrendsData, TrendsDay } from "../lib/types";
 import { LOCALE, formatPatch } from "../lib/format";
+import {
+  bucketKeyFor,
+  dayKey,
+  parseDay,
+  patchMarks,
+  placeMarks,
+  type Bucket,
+  type ChartMark,
+  type Granularity,
+} from "../lib/trends";
 import QueueSelect from "../components/QueueSelect";
 import { gamesLabel, useT, type Translate } from "../lib/i18n";
 import type { TranslationKey } from "../../shared/i18n";
 
 // ---- Time helpers ----
-
-// Day strings are local-time YYYY-MM-DD from SQLite; construct the Date from
-// parts so it stays the local day instead of shifting through UTC.
-function parseDay(day: string): Date {
-  const [y, m, d] = day.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function dayKey(date: Date): string {
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${m}-${d}`;
-}
 
 function shortDate(date: Date): string {
   return date.toLocaleDateString(LOCALE, { month: "short", day: "numeric", year: "numeric" });
@@ -34,16 +31,6 @@ function shortDate(date: Date): string {
 // The main process hands over one row per played day; everything time-based on
 // this page is derived from those rows here, so switching granularity never
 // refetches.
-
-type Granularity = "month" | "week";
-
-interface Bucket {
-  label: string;
-  games: number;
-  wins: number;
-  scoreSum: number;
-  scoredGames: number;
-}
 
 // Buckets are generated for every period between the first and last game, not
 // just the played ones — a three-month break should read as a gap in the
@@ -64,6 +51,7 @@ function buildBuckets(daily: TrendsDay[], granularity: Granularity): Bucket[] {
     while (cursor <= last) {
       const key = dayKey(cursor).slice(0, 7);
       buckets.set(key, {
+        key,
         label: monthLabel(cursor),
         games: 0,
         wins: 0,
@@ -78,6 +66,7 @@ function buildBuckets(daily: TrendsDay[], granularity: Granularity): Bucket[] {
     cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7));
     while (cursor <= last) {
       buckets.set(dayKey(cursor), {
+        key: dayKey(cursor),
         label: weekLabel(cursor),
         games: 0,
         wins: 0,
@@ -89,15 +78,7 @@ function buildBuckets(daily: TrendsDay[], granularity: Granularity): Bucket[] {
   }
 
   for (const row of daily) {
-    let key: string;
-    if (granularity === "month") {
-      key = row.day.slice(0, 7);
-    } else {
-      const d = parseDay(row.day);
-      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      key = dayKey(d);
-    }
-    const b = buckets.get(key);
+    const b = buckets.get(bucketKeyFor(parseDay(row.day), granularity));
     if (!b) continue;
     b.games += row.games;
     b.wins += row.wins;
@@ -196,6 +177,7 @@ function TimeSeriesChart({
   ticks,
   refValue,
   format,
+  marks,
   height = 190,
 }: {
   points: SeriesPoint[];
@@ -204,6 +186,8 @@ function TimeSeriesChart({
   ticks: number[];
   refValue?: number;
   format: (v: number) => string;
+  // Only the charts whose axis is time take these
+  marks?: ChartMark[];
   height?: number;
 }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
@@ -241,6 +225,8 @@ function TimeSeriesChart({
     setHover(i >= 0 && i < n ? i : null);
   };
 
+  const drawnMarks = placeMarks(marks ?? [], M.left, step);
+
   const hovered = hover != null ? points[hover] : null;
 
   return (
@@ -271,6 +257,31 @@ function TimeSeriesChart({
               >
                 {format(t)}
               </text>
+            </g>
+          ))}
+          {drawnMarks.map((mark) => (
+            <g key={mark.index}>
+              <line
+                x1={mark.x}
+                x2={mark.x}
+                y1={M.top}
+                y2={M.top + ih}
+                stroke="var(--color-lol-text)"
+                strokeOpacity={0.28}
+                strokeDasharray="3 4"
+              />
+              {mark.labelled && (
+                <text
+                  x={mark.x + 3}
+                  y={M.top + 8}
+                  fontSize={9}
+                  fontWeight={600}
+                  fill="var(--color-lol-gold)"
+                  fillOpacity={0.9}
+                >
+                  {mark.label}
+                </text>
+              )}
             </g>
           ))}
           {refValue != null && (
@@ -766,6 +777,11 @@ export default function Trends() {
     [buckets, t],
   );
 
+  const marks = useMemo(
+    () => (data ? patchMarks(buckets, data.patches, effectiveGranularity) : []),
+    [buckets, data, effectiveGranularity],
+  );
+
   const scoreDomain = useMemo(() => {
     const values = scorePoints.map((p) => p.value).filter((v): v is number => v != null);
     if (values.length === 0) return null;
@@ -776,7 +792,7 @@ export default function Trends() {
   }, [scorePoints]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">{t("common.loading")}</div>;
+    return <PageLoading />;
   }
 
   if (data.daily.length === 0) {
@@ -832,6 +848,7 @@ export default function Trends() {
           ticks={[0, 25, 50, 75, 100]}
           refValue={50}
           format={(v) => `${Math.round(v)}%`}
+          marks={marks}
         />
       </Card>
 
@@ -843,6 +860,7 @@ export default function Trends() {
             yMax={scoreDomain.max}
             ticks={scoreDomain.ticks}
             format={(v) => v.toFixed(1)}
+            marks={marks}
           />
         </Card>
       )}

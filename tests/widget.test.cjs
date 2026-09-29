@@ -996,6 +996,77 @@ test("the augment catalogue lists them all, picked or not", () => {
   assert.equal(rows.length, 3);
 });
 
+test("patch marks land on the right bucket, and crowded labels give way", () => {
+  const previous = global.window;
+  global.window = { api: { locale: "es-ES" } };
+  let trends;
+  try {
+    trends = load("src/renderer/lib/trends.ts");
+  } finally {
+    if (previous === undefined) delete global.window;
+    else global.window = previous;
+  }
+  const { bucketKeyFor, patchMarks, placeMarks } = trends;
+
+  // Una semana se identifica por su lunes; un mes, por su mes
+  assert.equal(bucketKeyFor(new Date(2026, 8, 24), "week"), "2026-09-21");
+  assert.equal(bucketKeyFor(new Date(2026, 8, 21), "week"), "2026-09-21");
+  assert.equal(bucketKeyFor(new Date(2026, 8, 24), "month"), "2026-09");
+
+  const week = (key) => ({ key, label: key, games: 0, wins: 0, scoreSum: 0, scoredGames: 0 });
+  const buckets = ["2026-08-31", "2026-09-07", "2026-09-14", "2026-09-21"].map(week);
+  const patch = (name, date) => ({
+    patch: name,
+    games: 1,
+    wins: 1,
+    avg_score: null,
+    first_played: date.getTime(),
+  });
+
+  const marks = patchMarks(
+    buckets,
+    [
+      // Abre la gráfica: sin marca, la línea caería sobre el eje
+      patch("16.17", new Date(2026, 7, 31)),
+      patch("16.18", new Date(2026, 8, 9)),
+      // Dos parches en la misma semana: una sola marca, con el último
+      patch("16.19", new Date(2026, 8, 22)),
+      patch("16.20", new Date(2026, 8, 25)),
+      // Fuera de los tramos dibujados: no hay dónde ponerla
+      patch("16.21", new Date(2027, 0, 5)),
+    ],
+    "week",
+  );
+  // El número sale como lo enseña el resto de la app: 16.x se lee 26.x
+  assert.deepEqual(marks, [
+    { index: 1, label: "26.18" },
+    { index: 3, label: "26.20" },
+  ]);
+
+  // Con sitio de sobra, las dos llevan número
+  const roomy = placeMarks(marks, 38, 60);
+  assert.deepEqual(
+    roomy.map((m) => [m.x, m.labelled]),
+    [
+      [98, true],
+      [218, true],
+    ],
+  );
+  // Apretadas, la segunda conserva la línea y pierde el número
+  const tight = placeMarks(
+    [
+      { index: 1, label: "a" },
+      { index: 2, label: "b" },
+    ],
+    0,
+    10,
+  );
+  assert.deepEqual(
+    tight.map((m) => m.labelled),
+    [true, false],
+  );
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

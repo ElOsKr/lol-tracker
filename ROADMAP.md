@@ -28,14 +28,14 @@ Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte 
 | 12b | ✅ **Arrancar con el cliente.** Casilla para abrir la ventana cuando arranca el cliente de League, y botón que crea un acceso directo que abre League y la aplicación de una vez.                                                                            | S      |
 | 13  | ✅ **Interfaz adaptable (v0.5.0).** Ventana hasta 480 × 500; barra lateral plegable a iconos; modo móvil con menú ☰; páginas que retiran columnas y reordenan tarjetas según el ancho.                                                                      | M      |
 
-## Hito 3 — Catálogos (v0.6.0)
+## Hito 3 — Catálogos (v0.6.x) — completado el 2026-09-29
 
 | #   | Qué                                                                                                                                                                                                                                                                                   | Tamaño |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | 13  | ✅ **Pestaña de objetos.** Buscador, filtro por categoría y orden; ficha con coste, estadísticas, pasiva, de qué se compone y en qué se convierte, y tus partidas y victorias con él. Falta el enlace al historial filtrado por objeto, que necesita un filtro nuevo en el historial. | M      |
 | 14  | ✅ **Catálogo de aumentos**, sobre la pestaña de estadísticas existente: ahora lista los 554 aumentos y no solo los vistos, con un interruptor de «solo los que he usado» y la descripción al desplegar cada fila.                                                                    | S–M    |
 | 15  | ✅ **Fichas de campeón.** Título, roles, las cinco habilidades con su texto, tus datos con él y tus últimas partidas. Enlazadas desde el historial al desplegar una partida y desde el nombre en la tabla de campeones.                                                               | M      |
-| 16  | **Marcas de parche en Tendencias.** Líneas verticales por cambio de parche.                                                                                                                                                                                                           | S      |
+| 16  | ✅ **Marcas de parche en Tendencias.** Línea vertical en el tramo donde empieza cada parche que jugaste, en las dos gráficas cronológicas; la etiqueta se cae cuando no cabe.                                                                                                         | S      |
 
 ## Hito 4 — Entender tus partidas (v0.7.0)
 
