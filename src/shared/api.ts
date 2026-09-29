@@ -1,3 +1,4 @@
+import type { PlayerRank } from "./ranks";
 export interface QueueLifetimeTotal {
   puuid: string;
   account: string;
@@ -178,6 +179,10 @@ export interface MatchFilterOptions {
 
 // One row per player, straight from match_participants.
 export interface MatchParticipantRecord {
+  // The rank this player held when the app first saw the game, on whichever
+  // ladder suits it. Null when they were unranked, and null for every player
+  // of a game the app only met after the fact — see src/main/ranks.ts.
+  rank?: PlayerRank | null;
   placement?: number | null;
   cs?: number | null;
   vision?: number | null;
@@ -538,6 +543,9 @@ export interface GlobalChampionDetail {
 }
 
 export interface ParsedParticipant {
+  // Carried over from MatchParticipantRecord, which the live scoreboard has
+  // no equivalent of: a live game has no stored snapshot to show.
+  rank?: PlayerRank | null;
   placement?: number | null;
   cs?: number | null;
   vision?: number | null;

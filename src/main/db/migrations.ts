@@ -24,7 +24,7 @@ export function migrateHiddenQueues() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -40,6 +40,7 @@ export function runMigrations() {
   if (current < 3) migrateToV3();
   if (current < 4) migrateToV4();
   if (current < 5) migrateToV5();
+  if (current < 6) migrateToV6();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -193,6 +194,30 @@ function migrateToV5() {
     db.exec("ALTER TABLE player_stats ADD COLUMN score_rank INTEGER");
     db.exec("ALTER TABLE player_stats ADD COLUMN score_rank_total INTEGER");
   }
+}
+
+// Adds the two tables that hold the lobby's ranks. Nothing to backfill: the
+// client only reports a rank as it is now, so the games already stored were
+// played too long ago to be given one honestly, and they stay blank.
+//
+// The tables are created here as well as in schema.ts because createTables
+// only runs against a database being built from nothing.
+function migrateToV6() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS match_participant_ranks (
+      game_id        INTEGER NOT NULL,
+      participant_id INTEGER NOT NULL,
+      puuid          TEXT,
+      queue_type     TEXT NOT NULL,
+      tier           TEXT NOT NULL,
+      division       TEXT,
+      lp             INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (game_id, participant_id, queue_type)
+    );
+    CREATE TABLE IF NOT EXISTS game_ranks_taken (
+      game_id INTEGER PRIMARY KEY
+    );
+  `);
 }
 
 function backfillPlayerStatsSpells() {

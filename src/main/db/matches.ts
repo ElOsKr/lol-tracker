@@ -4,6 +4,8 @@ import {
   parseSessionGrouping,
   SESSION_GROUPING_SETTING,
 } from "../../shared/session";
+import { getGameRanks } from "./ranks";
+import { pickRank } from "../../shared/ranks";
 import type {
   MatchSession,
   MatchListItem,
@@ -346,7 +348,7 @@ export function getMatchFilterOptions(filters?: {
 // The full ten-player scoreboard for one game, in the shape the renderer draws.
 // Columns are listed rather than starred so the IPC message stays a few
 // kilobytes instead of carrying the stored payload with it.
-function getMatchParticipants(gameId: number): MatchParticipantRecord[] {
+function getMatchParticipants(gameId: number, queueId: number): MatchParticipantRecord[] {
   const rows = db
     .prepare(`
       SELECT participant_id, puuid, game_name, tag_line, team_id, champion_id, win,
@@ -382,7 +384,11 @@ function getMatchParticipants(gameId: number): MatchParticipantRecord[] {
       m,
     ]),
   );
+  // A player can be on both ladders; which one to show depends on the game,
+  // so the choice is made here rather than left to the interface.
+  const ranks = getGameRanks(gameId);
   return rows.map((r) => ({
+    rank: pickRank(ranks.get(r.participant_id) ?? [], queueId),
     placement: modeStats.get(r.participant_id)?.placement ?? null,
     cs: modeStats.get(r.participant_id)?.cs ?? null,
     vision: modeStats.get(r.participant_id)?.vision ?? null,
@@ -434,7 +440,7 @@ export function getMatchDetail(gameId: number): MatchDetail | null {
     game,
     stats,
     augments,
-    participants: getMatchParticipants(gameId),
+    participants: getMatchParticipants(gameId, game.queue_id),
   };
 }
 
