@@ -367,6 +367,15 @@ export function getGameRecap(gameId?: number): GameRecap | null {
     deaths: 0,
     assists: 0,
     avgScore: null as number | null,
+    // Same shape as the career block, over this champion alone: comparing a
+    // marksman's healing against an average that includes supports measures
+    // which champion was picked, not how the game went.
+    avgDuration: 0,
+    avgDeaths: 0,
+    avgDamage: 0,
+    avgTaken: 0,
+    avgHeal: 0,
+    avgGold: 0,
     previousBest: null as number | null,
     firstTime:
       row != null && championRows.filter((r) => r.game_creation <= row.game_creation).length === 1,
@@ -378,6 +387,11 @@ export function getGameRecap(gameId?: number): GameRecap | null {
     champion.kills += r.kills;
     champion.deaths += r.deaths;
     champion.assists += r.assists;
+    champion.avgDuration += r.game_duration;
+    champion.avgDamage += r.total_damage_dealt;
+    champion.avgTaken += r.total_damage_taken;
+    champion.avgHeal += r.total_heal;
+    champion.avgGold += r.gold_earned;
     if (r.score != null) {
       champScore += r.score;
       champScored++;
@@ -386,12 +400,19 @@ export function getGameRecap(gameId?: number): GameRecap | null {
       }
     }
   }
+  if (championRows.length > 0) {
+    champion.avgDeaths = champion.deaths / championRows.length;
+    for (const key of ["avgDuration", "avgDamage", "avgTaken", "avgHeal", "avgGold"] as const) {
+      champion[key] /= championRows.length;
+    }
+  }
   if (champScored > 0) champion.avgScore = champScore / champScored;
 
   const career = {
     games: rows.length,
     wins: 0,
     avgScore: null as number | null,
+    avgDuration: 0,
     avgKills: 0,
     avgDeaths: 0,
     avgAssists: 0,
@@ -404,6 +425,7 @@ export function getGameRecap(gameId?: number): GameRecap | null {
   let careerScored = 0;
   for (const r of rows) {
     career.wins += r.win;
+    career.avgDuration += r.game_duration;
     career.avgKills += r.kills;
     career.avgDeaths += r.deaths;
     career.avgAssists += r.assists;
@@ -418,6 +440,7 @@ export function getGameRecap(gameId?: number): GameRecap | null {
   }
   if (rows.length > 0) {
     for (const key of [
+      "avgDuration",
       "avgKills",
       "avgDeaths",
       "avgAssists",

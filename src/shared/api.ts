@@ -864,6 +864,14 @@ export interface RecapChampion {
   deaths: number;
   assists: number;
   avgScore: number | null;
+  // The same averages the career block carries, over this champion alone.
+  // Seconds for the duration, per-game totals for the rest.
+  avgDuration: number;
+  avgDeaths: number;
+  avgDamage: number;
+  avgTaken: number;
+  avgHeal: number;
+  avgGold: number;
   // Best score on this champion before this game, so a new one reads as news
   previousBest: number | null;
   firstTime: boolean;
@@ -873,6 +881,10 @@ export interface RecapCareer {
   games: number;
   wins: number;
   avgScore: number | null;
+  // Seconds. Every other average here is a per-game total, and a total says
+  // as much about how long the game ran as about how it was played, so
+  // anything comparing them needs this to turn them into rates.
+  avgDuration: number;
   avgKills: number;
   avgDeaths: number;
   avgAssists: number;

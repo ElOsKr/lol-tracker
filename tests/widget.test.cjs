@@ -1329,6 +1329,303 @@ test("every tier has a crest url, lowercased the way the assets are named", () =
   assert.equal(new Set(RANK_TIERS.map(rankCrestUrl)).size, RANK_TIERS.length);
 });
 
+test("the plain-language verdict says what the numbers on screen do not", () => {
+  const { buildVerdict, VERDICT_MAX_LINES } = load("src/shared/verdict.ts");
+  const compact = (n) => String(Math.round(n / 100) / 10) + "k";
+  const MIN = 60;
+
+  // Alguien con 500 partidas a la espalda, que suele durar 20 minutos
+  const base = (over = {}) => ({
+    score: 6.0,
+    career: {
+      games: 500,
+      wins: 250,
+      avgScore: 6.0,
+      avgDuration: 20 * MIN,
+      avgKills: 8,
+      avgDeaths: 8,
+      avgAssists: 15,
+      avgDamage: 40000,
+      avgTaken: 40000,
+      avgHeal: 10000,
+      avgGold: 24000,
+      ...(over.career || {}),
+    },
+    champion: {
+      championId: 1,
+      games: 20,
+      wins: 10,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      avgScore: 6.0,
+      previousBest: 8.0,
+      firstTime: false,
+      ...(over.champion || {}),
+    },
+    session: {
+      day: 0,
+      index: 0,
+      games: [],
+      wins: 0,
+      losses: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      avgScore: null,
+      duration: 0,
+      ...(over.session || {}),
+    },
+    streak: over.streak ?? null,
+    milestones: [],
+    placements: [],
+    challenges: [],
+    mapName: null,
+    scoreBadge: null,
+    detail: {
+      game: { is_remake: 0, queue_id: 450, game_duration: (over.minutes ?? 20) * MIN },
+      augments: [],
+      participants: [],
+      stats: {
+        win: 1,
+        kills: 8,
+        deaths: 8,
+        assists: 15,
+        total_damage_dealt: 40000,
+        total_damage_taken: 40000,
+        total_heal: 10000,
+        gold_earned: 24000,
+        score_rank: 5,
+        score_rank_total: 10,
+        ...(over.stats || {}),
+      },
+    },
+    ...(over.top || {}),
+  });
+
+  // Una partida del monton no merece que se invente nada
+  assert.deepEqual(buildVerdict(base(), compact), []);
+
+  // Un remake corta en seco: no hay nada contra lo que comparar
+  const remakeRecap = base();
+  remakeRecap.detail.game.is_remake = 1;
+  const remake = buildVerdict(remakeRecap, compact);
+  assert.equal(remake.length, 1);
+  assert.equal(remake[0].key, "verdict.remake");
+
+  // EL CASO QUE LO MOTIVO: una partida de 11 minutos con la mitad de todo.
+  // Por minuto va exactamente al ritmo de siempre, asi que no hay nada que
+  // decir; comparando totales habria dicho "un 45% menos de dano" y estaria
+  // describiendo el reloj, no al jugador.
+  const short = buildVerdict(
+    base({
+      minutes: 11,
+      stats: {
+        total_damage_dealt: 22000,
+        total_damage_taken: 22000,
+        total_heal: 5500,
+        gold_earned: 13200,
+        deaths: 4,
+      },
+    }),
+    compact,
+  );
+  assert.deepEqual(
+    short.filter((l) => l.family === "stat"),
+    [],
+  );
+
+  // Y al reves: una partida larga floja no se salva por acumular totales.
+  // Las muertes van justo en lo esperado para 40 minutos (16) para que no se
+  // lleven ellas la unica frase de la familia.
+  const longDull = buildVerdict(
+    base({
+      minutes: 40,
+      stats: {
+        deaths: 16,
+        total_damage_dealt: 40000,
+        total_damage_taken: 40000,
+        total_heal: 10000,
+        gold_earned: 24000,
+      },
+    }),
+    compact,
+  );
+  assert.ok(longDull.some((l) => l.key === "verdict.damageDown"));
+
+  // El dano muy por encima de su ritmo si se cuenta, con el porcentaje bien
+  const carry = buildVerdict(base({ stats: { total_damage_dealt: 58000 } }), compact);
+  const dmg = carry.find((l) => l.key === "verdict.damageUp");
+  assert.ok(dmg, "deberia hablar del dano");
+  assert.equal(dmg.vars.pct, 45);
+
+  // Las muertes se comparan con lo que cuesta una partida de esa duracion.
+  // El resto de totales van a la mitad, que en diez minutos es el ritmo de
+  // siempre, para que ninguna otra frase de la familia le gane el sitio.
+  const feeding = buildVerdict(
+    base({
+      minutes: 10,
+      stats: {
+        deaths: 9,
+        total_damage_dealt: 20000,
+        total_damage_taken: 20000,
+        total_heal: 5000,
+        gold_earned: 12000,
+      },
+    }),
+    compact,
+  );
+  const dline = feeding.find((l) => l.key === "verdict.deathsUp");
+  assert.ok(dline);
+  assert.equal(dline.vars.expected, 4);
+
+  // Una partida de dos minutos no tiene reloj fiable: ninguna frase de ritmo
+  const stub = buildVerdict(base({ minutes: 2, stats: { total_damage_dealt: 100 } }), compact);
+  assert.deepEqual(
+    stub.filter((l) => l.family === "stat"),
+    [],
+  );
+
+  // La mejor partida con el campeon manda sobre todo lo demas
+  const best = buildVerdict(
+    base({ top: { score: 9.2 }, champion: { previousBest: 8.0 } }),
+    compact,
+  );
+  assert.equal(best[0].key, "verdict.championBest");
+
+  // Nunca mas de tres frases, y nunca dos de la misma familia
+  const loud = buildVerdict(
+    base({
+      top: { score: 9.8 },
+      stats: { total_damage_dealt: 90000, deaths: 1, score_rank: 1 },
+      streak: { kind: "win", length: 5, best: 5, isRecord: true },
+      session: { wins: 4, losses: 1 },
+    }),
+    compact,
+  );
+  assert.ok(loud.length <= VERDICT_MAX_LINES);
+  assert.equal(new Set(loud.map((l) => l.family)).size, loud.length);
+  // Y en el orden de lectura: que paso, como jugaste, donde te deja
+  assert.deepEqual(
+    loud.map((l) => l.family),
+    ["result", "stat", "context"],
+  );
+
+  // Con pocas partidas no se compara contra una media que no significa nada
+  const rookie = buildVerdict(base({ top: { score: 9.5 }, career: { games: 3 } }), compact);
+  assert.ok(!rookie.some((l) => l.key === "verdict.scoreAbove"));
+
+  // Un ritmo minusculo no genera porcentajes absurdos
+  const tiny = buildVerdict(
+    base({ career: { avgHeal: 400 }, stats: { total_heal: 800 } }),
+    compact,
+  );
+  assert.ok(!tiny.some((l) => String(l.key).startsWith("verdict.heal")));
+});
+
+test("a game is judged against this champion once there is enough of one", () => {
+  const { pickYardstick, buildVerdict } = load("src/shared/verdict.ts");
+  const compact = (n) => String(n);
+  const MIN = 60;
+
+  // Alguien que juega de todo: mucha curacion de media porque lleva supports
+  const career = {
+    games: 500,
+    wins: 250,
+    avgScore: 6.0,
+    avgDuration: 20 * MIN,
+    avgKills: 8,
+    avgDeaths: 8,
+    avgAssists: 15,
+    avgDamage: 40000,
+    avgTaken: 40000,
+    avgHeal: 10000,
+    avgGold: 24000,
+  };
+  // Pero con este tirador cura una decima parte, y eso es lo normal en el
+  const champion = (games) => ({
+    championId: 110,
+    games,
+    wins: 5,
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    avgScore: 6.0,
+    previousBest: 8.0,
+    firstTime: false,
+    avgDuration: 20 * MIN,
+    avgDeaths: 6,
+    avgDamage: 44000,
+    avgTaken: 30000,
+    avgHeal: 1000,
+    avgGold: 26000,
+  });
+  const recap = (games, stats) => ({
+    score: 6.0,
+    career,
+    champion: champion(games),
+    session: {
+      day: 0,
+      index: 0,
+      games: [],
+      wins: 0,
+      losses: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      avgScore: null,
+      duration: 0,
+    },
+    streak: null,
+    milestones: [],
+    placements: [],
+    challenges: [],
+    mapName: null,
+    scoreBadge: null,
+    detail: {
+      game: { is_remake: 0, queue_id: 450, game_duration: 20 * MIN },
+      augments: [],
+      participants: [],
+      stats: {
+        win: 1,
+        kills: 8,
+        deaths: 6,
+        assists: 15,
+        total_damage_dealt: 44000,
+        total_damage_taken: 30000,
+        total_heal: 1000,
+        gold_earned: 26000,
+        score_rank: 5,
+        score_rank_total: 10,
+        ...stats,
+      },
+    },
+  });
+
+  // Con veinte partidas manda el campeon
+  assert.equal(pickYardstick(recap(20)).onChampion, true);
+  assert.equal(pickYardstick(recap(20)).heal, 1000);
+  // Con dos, su media es una partida con suerte: manda la carrera
+  assert.equal(pickYardstick(recap(2)).onChampion, false);
+  assert.equal(pickYardstick(recap(2)).heal, 10000);
+
+  // EL CASO QUE LO MOTIVO: curar 1000 con un tirador es exactamente lo
+  // normal con el, asi que no se dice nada. Contra la carrera habria dicho
+  // "un 90% menos de lo normal", que es una frase sobre que campeon eligio.
+  assert.deepEqual(
+    buildVerdict(recap(20), compact).filter((l) => l.family === "stat"),
+    [],
+  );
+  assert.ok(
+    buildVerdict(recap(2), compact).some((l) => l.key === "verdict.healDown"),
+    "sin historial con el campeon si cae en la trampa, y se acepta: es lo unico que hay",
+  );
+
+  // Y cuando se usa el campeon, la frase lo dice
+  const carry = buildVerdict(recap(20, { total_damage_dealt: 70000 }), compact);
+  assert.ok(carry.some((l) => l.key === "verdict.damageUpOnChamp"));
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

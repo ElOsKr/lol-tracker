@@ -563,6 +563,49 @@ export const en = {
   "champions.noData": "No data",
 
   // Widget, global stats, challenges, friend detail, misc components
+  "verdict.title": "In short",
+  "verdict.remake": "The game was cancelled, so it counts for nothing.",
+  "verdict.firstTime": "Your first game on this champion.",
+  "verdict.firstTimeWin": "Your first game on this champion, and you won it.",
+  "verdict.championBest":
+    "Your best game ever on this champion: {score}, past the {previous} you had before.",
+  "verdict.bestOfAll": "You were the best of all {total} players.",
+  "verdict.worstOfAll": "You finished {rank} of {total}; not your night.",
+  "verdict.scoreAbove": "A {score}, well above your {average} average.",
+  "verdict.scoreBelow": "A {score}, well below your {average} average.",
+  "verdict.damageUp": "You dealt {value} damage a minute, {pct}% more than you usually do.",
+  "verdict.damageDown": "You dealt {value} damage a minute, {pct}% less than you usually do.",
+  "verdict.takenUp": "You soaked up {value} damage a minute, {pct}% more than usual.",
+  "verdict.takenDown": "You took {value} damage a minute, {pct}% less than usual.",
+  "verdict.healUp": "You healed and shielded {value} a minute, {pct}% more than usual.",
+  "verdict.healDown": "You healed and shielded {value} a minute, {pct}% less than usual.",
+  "verdict.goldUp": "You earned {value} gold a minute, {pct}% more than usual.",
+  "verdict.goldDown": "You earned {value} gold a minute, {pct}% less than usual.",
+  "verdict.damageUpOnChamp":
+    "You dealt {value} damage a minute, {pct}% more than you usually do on this champion.",
+  "verdict.damageDownOnChamp":
+    "You dealt {value} damage a minute, {pct}% less than you usually do on this champion.",
+  "verdict.takenUpOnChamp":
+    "You soaked up {value} damage a minute, {pct}% more than usual on this champion.",
+  "verdict.takenDownOnChamp":
+    "You took {value} damage a minute, {pct}% less than usual on this champion.",
+  "verdict.healUpOnChamp":
+    "You healed and shielded {value} a minute, {pct}% more than usual on this champion.",
+  "verdict.healDownOnChamp":
+    "You healed and shielded {value} a minute, {pct}% less than usual on this champion.",
+  "verdict.goldUpOnChamp":
+    "You earned {value} gold a minute, {pct}% more than usual on this champion.",
+  "verdict.goldDownOnChamp":
+    "You earned {value} gold a minute, {pct}% less than usual on this champion.",
+  "verdict.deathsUp": "You died {deaths} times; a game this long usually costs you {expected}.",
+  "verdict.deathsDown":
+    "You died only {deaths} times; a game this long usually costs you {expected}.",
+  "verdict.winStreak": "That is {length} wins in a row.",
+  "verdict.winStreakRecord": "That is {length} wins in a row, your longest ever.",
+  "verdict.lossStreak": "That is {length} losses in a row.",
+  "verdict.lossStreakRecord": "That is {length} losses in a row, your longest ever.",
+  "verdict.sessionRecord": "Today you are on {wins}-{losses}.",
+  "verdict.newChampion": "You have only played this champion {games} times.",
   "widget.title": "Widget / OBS",
   "widget.intro":
     "Your history in a compact window or as an OBS source. The data refreshes every five seconds from this app.",
