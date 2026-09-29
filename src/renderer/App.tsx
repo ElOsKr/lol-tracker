@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import MatchHistory from "./pages/MatchHistory";
 import LiveGame from "./pages/LiveGame";
 import Champions from "./pages/Champions";
+import ChampionSheet from "./pages/ChampionSheet";
 import Augments from "./pages/Augments";
 import Items from "./pages/Items";
 import Friends from "./pages/Friends";
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/live" element={<LiveGame />} />
           <Route path="/champions" element={<Champions />} />
+          <Route path="/champion/:championId" element={<ChampionSheet />} />
           <Route path="/augments" element={<Augments />} />
           <Route path="/items" element={<Items />} />
           <Route path="/friends" element={<Friends />} />

@@ -292,6 +292,29 @@ export interface ChampionData {
   };
 }
 
+// One entry of a champion sheet: the passive and the four spells, in the order
+// their keys sit on the keyboard.
+export interface ChampionAbility {
+  // "P", "Q", "W", "E" or "R"
+  key: string;
+  name: string;
+  iconPath: string;
+  description: string;
+}
+
+// A champion as the game describes it today, rather than as a stored game saw
+// it: an ability text is about the champion now, not about that match.
+export interface ChampionDetail {
+  championId: number;
+  name: string;
+  title: string;
+  roles: string[];
+  // Riot own two-word read on how the champion plays
+  tags: string[];
+  branch: string;
+  abilities: ChampionAbility[];
+}
+
 export interface AugmentData {
   [id: number]: {
     name: string;
@@ -1043,6 +1066,7 @@ export interface ElectronAPI {
   onBackfillDone: (result: (result: BackfillResult | { error: string }) => void) => () => void;
   getLcuStatus: () => Promise<LcuStatus>;
   getChampionData: () => Promise<ChampionData>;
+  getChampionDetail: (championId: number) => Promise<ChampionDetail | null>;
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
@@ -1148,6 +1172,7 @@ export const INVOKE_CHANNELS = {
   isBackfillRunning: "lcu:backfill-running",
   getLcuStatus: "lcu:status",
   getChampionData: "dragon:champions",
+  getChampionDetail: "dragon:champion-detail",
   getAugmentData: "dragon:augments",
   resolveAugmentIcon: "dragon:augment-icon",
   getItemData: "dragon:items",

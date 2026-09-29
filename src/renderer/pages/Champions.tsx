@@ -1,4 +1,5 @@
 import { useQueueSelection } from "../hooks/useQueueSelection";
+import { Link } from "react-router-dom";
 import { PageLoading } from "../components/PageState";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useIpc } from "../hooks/useIpc";
@@ -355,9 +356,14 @@ export default function Champions() {
                   <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
                       <ChampionIcon championId={c.champion_id} size={28} />
-                      <span className="text-sm text-lol-text-bright">
+                      <Link
+                        to={`/champion/${c.champion_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        title={t("champions.sheet")}
+                        className="text-sm text-lol-text-bright transition-colors hover:text-lol-gold"
+                      >
                         {getChampionName(champData, c.champion_id)}
-                      </span>
+                      </Link>
                     </div>
                   </td>
                   <td className="px-2 py-2 text-sm text-lol-text-bright text-right tabular-nums">
