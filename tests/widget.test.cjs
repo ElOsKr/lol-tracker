@@ -969,6 +969,33 @@ test("the item catalogue keeps what is an item, and finds it by name or category
   );
 });
 
+test("the augment catalogue lists them all, picked or not", () => {
+  const { buildAugmentCatalog } = load("src/renderer/lib/augments.ts");
+  const data = {
+    1: { name: "Ataque veloz", desc: "", iconPath: "", rarity: "kSilver", branch: "l" },
+    2: { name: "Dedos de hada", desc: "", iconPath: "", rarity: "kGold", branch: "l" },
+    3: { name: "", desc: "", iconPath: "", rarity: "kSilver", branch: "l" },
+  };
+  const stats = [
+    { augment_id: 2, picks: 7, wins: 4, champions: [{ champion_id: 9, picks: 7, wins: 4 }] },
+    { augment_id: 99, picks: 2, wins: 1, champions: [] },
+  ];
+
+  const rows = buildAugmentCatalog(data, stats);
+  const byId = new Map(rows.map((r) => [r.augment_id, r]));
+  // El que nunca se ha elegido entra a cero
+  assert.equal(byId.get(1).picks, 0);
+  assert.deepEqual(byId.get(1).champions, []);
+  // El elegido conserva sus cifras y su desglose
+  assert.equal(byId.get(2).picks, 7);
+  assert.equal(byId.get(2).champions.length, 1);
+  // Una entrada sin nombre es relleno interno de Riot y se descarta
+  assert.equal(byId.has(3), false);
+  // Uno retirado del catalogo pero que el jugador si eligio sigue estando
+  assert.equal(byId.get(99).picks, 2);
+  assert.equal(rows.length, 3);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");
