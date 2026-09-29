@@ -444,6 +444,16 @@ export const es: Dictionary = {
   "items.neverUsed": "No has terminado ninguna partida con él.",
 
   "augments.noDesc": "Este aumento no tiene descripción.",
+  // Ficha de campeón
+  "champions.kdaLabel": "KDA",
+  "champions.avgDamage": "Daño medio",
+  "champions.mvpAce": "{mvps} MVP · {aces} ACE",
+  "champions.noGamesChampion": "No tienes partidas con este campeón en esta cola.",
+  "champions.noAbilities": "Riot no está sirviendo ahora mismo las habilidades de este campeón.",
+  "champions.ofGames": "Las más recientes, de {count} en esta cola.",
+  "champions.sheet": "Ficha del campeón",
+
+  "champions.sheetOf": "Ficha de {champion}",
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

@@ -3,6 +3,7 @@ import path from "path";
 import { getDataDir } from "./paths";
 import augmentDescriptions from "./augment-descriptions.json";
 import { cdragonAssetUrl, cherryAugmentsUrl } from "../shared/cdragon";
+import type { ChampionAbility, ChampionDetail } from "../shared/api";
 
 // Every one of these requests gates something the UI waits on: champion data
 // blocks dragon:champions, db:teammate-detail and data:repair-puuids, and a
@@ -543,4 +544,75 @@ export function resolveAugmentIcon(id: number, patch?: string): Promise<string |
     augmentIconPending.set(key, pending);
   }
   return pending;
+}
+
+// ---- Champion sheets -------------------------------------------------------
+//
+// One file per champion, fetched the first time a sheet is opened rather than
+// up front: the roster is 170-odd files and almost none of them are ever
+// looked at in a session.
+
+const championDetails = new Map<number, ChampionDetail>();
+const championDetailPromises = new Map<number, Promise<ChampionDetail | null>>();
+
+const championJsonUrl = (id: number) =>
+  `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champions/${id}.json`;
+
+// Riot orders the spells q, w, e, r and keeps the passive apart; the sheet
+// wants them as one list, in the order the keys sit on the keyboard.
+function shapeAbilities(raw: any): ChampionAbility[] {
+  const abilities: ChampionAbility[] = [];
+  if (raw?.passive?.name) {
+    abilities.push({
+      key: "P",
+      name: String(raw.passive.name),
+      iconPath: String(raw.passive.abilityIconPath ?? ""),
+      description: String(raw.passive.description ?? ""),
+    });
+  }
+  for (const spell of Array.isArray(raw?.spells) ? raw.spells : []) {
+    abilities.push({
+      key: String(spell?.spellKey ?? "").toUpperCase(),
+      name: String(spell?.name ?? ""),
+      iconPath: String(spell?.abilityIconPath ?? ""),
+      description: String(spell?.description ?? ""),
+    });
+  }
+  return abilities;
+}
+
+export function loadChampionDetail(championId: number): Promise<ChampionDetail | null> {
+  const cached = championDetails.get(championId);
+  if (cached) return Promise.resolve(cached);
+
+  let promise = championDetailPromises.get(championId);
+  if (!promise) {
+    promise = (async () => {
+      const raw = await fetchJson(championJsonUrl(championId));
+      const tags = [
+        raw?.championTagInfo?.championTagPrimary,
+        raw?.championTagInfo?.championTagSecondary,
+      ].filter((tag: unknown): tag is string => typeof tag === "string" && tag.length > 0);
+      const detail: ChampionDetail = {
+        championId,
+        name: String(raw?.name ?? ""),
+        title: String(raw?.title ?? ""),
+        roles: Array.isArray(raw?.roles) ? raw.roles.map(String) : [],
+        tags,
+        // Sheets are always read against the current patch: an ability's text
+        // describes the champion as it is now, not as it was in a stored game.
+        branch: "latest",
+        abilities: shapeAbilities(raw),
+      };
+      championDetails.set(championId, detail);
+      return detail;
+    })().catch((err) => {
+      console.log(`Could not load the sheet for champion ${championId}:`, err);
+      // Not cached, so opening the page again tries afresh
+      return null;
+    });
+    championDetailPromises.set(championId, promise);
+    void promise.finally(() => championDetailPromises.delete(championId));
+  }
+  return promise;
 }

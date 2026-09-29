@@ -1,5 +1,6 @@
 import { hasAugments } from "../../shared/queues";
-import { EmptyState } from "../components/PageState";
+import { Link } from "react-router-dom";
+import { EmptyState, PageLoading } from "../components/PageState";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMatches } from "../hooks/useMatches";
@@ -1193,8 +1194,15 @@ function GameRow({
 
       {expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
+          <Link
+            to={`/champion/${match.champion_id}`}
+            className="mb-2 inline-flex items-center gap-1.5 text-xs text-lol-gold transition-colors hover:text-lol-gold-light"
+          >
+            {t("champions.sheetOf", { champion: getChampionName(champData, match.champion_id) })}
+            <span aria-hidden>→</span>
+          </Link>
           {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">{t("common.loading")}</div>
+            <PageLoading compact />
           ) : detail ? (
             <div className="overflow-x-auto">
               <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />

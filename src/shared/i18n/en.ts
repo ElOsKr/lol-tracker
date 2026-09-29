@@ -436,6 +436,16 @@ export const en = {
   "items.neverUsed": "You have not finished a game holding it.",
 
   "augments.noDesc": "No description for this augment.",
+  // Champion sheet
+  "champions.kdaLabel": "KDA",
+  "champions.avgDamage": "Average damage",
+  "champions.mvpAce": "{mvps} MVP · {aces} ACE",
+  "champions.noGamesChampion": "You have no games with this champion in this queue.",
+  "champions.noAbilities": "Riot is not serving this champion’s abilities right now.",
+  "champions.ofGames": "The most recent, of {count} in this queue.",
+  "champions.sheet": "Champion sheet",
+
+  "champions.sheetOf": "{champion} sheet",
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

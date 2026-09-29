@@ -125,6 +125,8 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
     return dragon.getChampionData();
   });
 
+  handle("getChampionDetail", (_event, championId) => dragon.loadChampionDetail(championId));
+
   handle("getAugmentData", async (_event, patch) => {
     try {
       return await dragon.loadAugmentData(patch);
