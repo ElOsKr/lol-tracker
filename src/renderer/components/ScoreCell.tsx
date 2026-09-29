@@ -5,13 +5,29 @@ type Badge = "MVP" | "ACE" | null;
 
 // MVP on the winning team, ACE on the losing one. Sized to sit under a score in
 // a table row; `large` is for the recap header, where it sits beside one.
-export function ScoreBadge({ badge, large = false }: { badge: "MVP" | "ACE"; large?: boolean }) {
+/**
+ * The MVP or ACE chip.
+ *
+ * The small variant centres itself with `mx-auto`, which is right under a
+ * plain block parent and wrong inside a flex row: there an auto margin stops
+ * centring and swallows every pixel of free space instead, shoving whatever
+ * shares the line out of the column. A flex parent passes `inline`.
+ */
+export function ScoreBadge({
+  badge,
+  large = false,
+  inline = false,
+}: {
+  badge: "MVP" | "ACE";
+  large?: boolean;
+  inline?: boolean;
+}) {
   return (
     <div
       className={`${
         large
           ? "rounded px-1.5 text-[11px] leading-[18px]"
-          : "rounded px-1 text-[9px] leading-[15px] w-fit mx-auto"
+          : `rounded px-1 text-[9px] leading-[15px] w-fit ${inline ? "" : "mx-auto"}`
       } font-bold ${
         badge === "MVP" ? "bg-amber-400/20 text-amber-300" : "bg-purple-500/20 text-purple-400"
       }`}
