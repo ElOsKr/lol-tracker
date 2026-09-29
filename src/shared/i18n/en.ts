@@ -435,6 +435,7 @@ export const en = {
   "items.yourGames": "Your games with it",
   "items.neverUsed": "You have not finished a game holding it.",
 
+  "augments.noDesc": "No description for this augment.",
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

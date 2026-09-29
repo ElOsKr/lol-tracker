@@ -443,6 +443,7 @@ export const es: Dictionary = {
   "items.yourGames": "Tus partidas con él",
   "items.neverUsed": "No has terminado ninguna partida con él.",
 
+  "augments.noDesc": "Este aumento no tiene descripción.",
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

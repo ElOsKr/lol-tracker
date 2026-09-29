@@ -20,6 +20,8 @@ import SortHeader from "../components/SortHeader";
 import { useT } from "../lib/i18n";
 import type { TranslationKey } from "../../shared/i18n";
 import SearchInput from "../components/SearchInput";
+import RiotText from "../components/RiotText";
+import { buildAugmentCatalog } from "../lib/augments";
 
 type SortKey = "picks" | "winRate" | "name";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
@@ -71,6 +73,7 @@ export default function Augments() {
   const { sortKey, sortDir } = sort;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [rarityFilter, setRarityFilter] = useViewState<RarityFilter>("augments.rarity", "all");
+  const [mineOnly, setMineOnly] = useViewState("augments.mineOnly", false);
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -88,13 +91,19 @@ export default function Augments() {
     });
   };
 
+  const catalog = useMemo(
+    () => buildAugmentCatalog(augmentData, data?.augments ?? []),
+    [augmentData, data],
+  );
+
   const sorted = useMemo(() => {
     if (!data) return [];
-    let filtered = data.augments.filter((a) => {
+    let filtered = catalog.filter((a) => {
       const aug = augmentData[a.augment_id];
       const name = getAugmentName(augmentData, a.augment_id).toLowerCase();
       if (!name.includes(search.toLowerCase())) return false;
       if (rarityFilter !== "all" && aug?.rarity !== rarityFilter) return false;
+      if (mineOnly && a.picks === 0) return false;
       return true;
     });
 
@@ -116,7 +125,7 @@ export default function Augments() {
     });
 
     return filtered;
-  }, [data, search, sortKey, sortDir, augmentData, rarityFilter]);
+  }, [catalog, data, search, sortKey, sortDir, augmentData, rarityFilter, mineOnly]);
 
   if (!data) {
     return <PageLoading />;
@@ -141,6 +150,17 @@ export default function Augments() {
             {t(f.label)}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setMineOnly(!mineOnly)}
+          className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
+            mineOnly
+              ? "border-lol-gold/50 bg-lol-gold/20 text-lol-gold"
+              : "border-lol-border bg-lol-card text-lol-text hover:text-lol-text-bright"
+          }`}
+        >
+          {t("items.mineOnly")}
+        </button>
         <span className="text-xs text-lol-text self-center ml-2">
           {t("global.augmentsCount", { count: sorted.length })}
         </span>
@@ -206,6 +226,18 @@ export default function Augments() {
                       <WinRateBar wins={a.wins} total={a.picks} />
                     </td>
                   </tr>
+                  {isExpanded && (
+                    <tr className="border-t border-lol-border/30 bg-lol-dark/30">
+                      <td></td>
+                      <td colSpan={4} className="px-3 py-2 text-xs leading-relaxed text-lol-text">
+                        {augmentData[a.augment_id]?.desc ? (
+                          <RiotText markup={augmentData[a.augment_id].desc} />
+                        ) : (
+                          <span className="italic text-lol-text/50">{t("augments.noDesc")}</span>
+                        )}
+                      </td>
+                    </tr>
+                  )}
                   {isExpanded &&
                     a.champions.map((c) => (
                       <tr
