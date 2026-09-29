@@ -461,6 +461,7 @@ export const en = {
   "rank.tierLp": "{tier} {lp} LP",
   "rank.unranked": "Unranked",
   "rank.lobbyAverage": "Average rank {rank}",
+  "rank.lobbyAverageLabel": "Average rank",
   "rank.lobbyOf": "over {ranked} of {total} ranked",
   "rank.lobbyFew": "{ranked} of {total} players ranked",
   "rank.solo": "solo",

@@ -11,8 +11,9 @@ import {
   type ScoreComponent,
   type ScoreComponentKey,
 } from "../../shared/opScore";
-import { formatRank, summarizeLobbyRanks } from "../../shared/ranks";
+import { summarizeLobbyRanks } from "../../shared/ranks";
 import ChampionIcon from "./ChampionIcon";
+import RankIcon from "./RankIcon";
 import AugmentIcon from "./AugmentIcon";
 import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
@@ -341,11 +342,11 @@ function PlayerRow({
       </div>
 
       {/* Rank when the game is one the app was there for; see shared/ranks */}
-      <div className="text-center text-[10px] leading-tight">
+      <div className="flex justify-center leading-tight">
         {p.rank ? (
-          <span className="text-lol-text-bright">{formatRank(p.rank, t)}</span>
+          <RankIcon rank={p.rank} />
         ) : (
-          <span className="text-lol-text/50">—</span>
+          <span className="text-[10px] text-lol-text/50">—</span>
         )}
       </div>
 
@@ -612,8 +613,9 @@ function LobbyRankLine({ lobby }: { lobby: ReturnType<typeof summarizeLobbyRanks
     <div className="flex flex-wrap items-baseline gap-x-2 px-1 text-[11px]">
       {lobby.average ? (
         <>
-          <span className="text-lol-text-bright">
-            {t("rank.lobbyAverage", { rank: formatRank(lobby.average, t) })}
+          <span className="flex items-center gap-1.5 text-lol-text-bright">
+            {t("rank.lobbyAverageLabel")}
+            <RankIcon rank={lobby.average} size={16} />
           </span>
           <span className="text-[10px] text-lol-text">
             {t("rank.lobbyOf", { ranked: lobby.ranked, total: lobby.total })}

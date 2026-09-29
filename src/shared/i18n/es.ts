@@ -469,6 +469,7 @@ export const es: Dictionary = {
   "rank.tierLp": "{tier} {lp} PL",
   "rank.unranked": "Sin clasificar",
   "rank.lobbyAverage": "Rango medio {rank}",
+  "rank.lobbyAverageLabel": "Rango medio",
   "rank.lobbyOf": "sobre {ranked} de {total} con rango",
   "rank.lobbyFew": "{ranked} de {total} jugadores con rango",
   "rank.solo": "solo",

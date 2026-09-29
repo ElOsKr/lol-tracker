@@ -14,3 +14,14 @@ export function cdragonAssetUrl(branch: string, iconPath: string): string {
 export function cherryAugmentsUrl(branch: string): string {
   return `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`;
 }
+
+// The little ranked crests the client draws beside a player's rank. These are
+// SVGs of a couple of kilobytes, unlike the full emblems next door, which are
+// 150 KB paintings meant to fill a profile page.
+//
+// They are not patch art, so they always come off "latest": a crest that moved
+// would be a client redesign, not a game version, and pinning one to an old
+// branch would only mean an older drawing of the same thing.
+export function rankCrestUrl(tier: string): string {
+  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${tier.toLowerCase()}.svg`;
+}

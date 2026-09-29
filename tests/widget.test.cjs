@@ -1315,6 +1315,20 @@ test("ranks are only taken while the game is fresh, and only once", async () => 
   );
 });
 
+test("every tier has a crest url, lowercased the way the assets are named", () => {
+  const { rankCrestUrl } = load("src/shared/cdragon.ts");
+  const { RANK_TIERS } = load("src/shared/ranks.ts");
+  const base =
+    "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/";
+
+  // Una errata aqui no rompe nada a la vista: la imagen falla y se cae al
+  // texto, asi que el fallo seria silencioso. De ahi la prueba.
+  for (const tier of RANK_TIERS) {
+    assert.equal(rankCrestUrl(tier), base + tier.toLowerCase() + ".svg", tier);
+  }
+  assert.equal(new Set(RANK_TIERS.map(rankCrestUrl)).size, RANK_TIERS.length);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");
