@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type {
   ChampionData,
   GameRecap as GameRecapData,
@@ -25,6 +25,7 @@ import {
   formatChallengeValue,
 } from "../lib/challenges";
 import { ordinal } from "../../shared/text";
+import { buildVerdict } from "../../shared/verdict";
 import { useT, type Translate } from "../lib/i18n";
 import { queueLabel } from "./QueueSelect";
 import ChallengeToken from "./ChallengeToken";
@@ -81,6 +82,10 @@ export default function GameRecap({
 }) {
   const t = useT();
   const { detail, career, champion, session, streak } = recap;
+  // Two or three sentences about the game, from the rules in shared/verdict.ts.
+  // formatCompact is handed in so the figures inside them read like every
+  // other figure on the page.
+  const verdict = useMemo(() => buildVerdict(recap, formatCompact), [recap]);
   const stats = detail.stats;
   const isRemake = !!detail.game.is_remake;
   const isWin = !!stats?.win;
@@ -252,6 +257,24 @@ export default function GameRecap({
           </div>
         </div>
       </div>
+
+      {verdict.length > 0 && (
+        <div className="rounded-lg border border-lol-border/60 bg-lol-card/60 px-4 py-3">
+          <div className="mb-1.5 text-[10px] uppercase tracking-wider text-lol-text">
+            {t("verdict.title")}
+          </div>
+          <ul className="space-y-1">
+            {verdict.map((line) => (
+              <li key={line.key} className="flex gap-2 text-sm text-lol-text-bright">
+                <span aria-hidden className="text-lol-gold/60">
+                  ·
+                </span>
+                <span>{t(line.key, line.vars)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {recap.milestones.length > 0 && (
         <div className="flex flex-wrap gap-2">

@@ -573,6 +573,49 @@ export const es: Dictionary = {
   "champions.noData": "Sin datos",
 
   // Widget, estadísticas globales, desafíos, detalle de amigo, componentes varios
+  "verdict.title": "En resumen",
+  "verdict.remake": "La partida se canceló, así que no cuenta para nada.",
+  "verdict.firstTime": "Tu primera partida con este campeón.",
+  "verdict.firstTimeWin": "Tu primera partida con este campeón, y la ganaste.",
+  "verdict.championBest":
+    "Tu mejor partida con este campeón: {score}, por encima del {previous} que tenías.",
+  "verdict.bestOfAll": "Fuiste el mejor de los {total}.",
+  "verdict.worstOfAll": "Quedaste {rank}.º de {total}; no era tu noche.",
+  "verdict.scoreAbove": "Un {score}, muy por encima de tu media de {average}.",
+  "verdict.scoreBelow": "Un {score}, muy por debajo de tu media de {average}.",
+  "verdict.damageUp": "Hiciste {value} de daño por minuto, un {pct}% más de lo que sueles.",
+  "verdict.damageDown": "Hiciste {value} de daño por minuto, un {pct}% menos de lo que sueles.",
+  "verdict.takenUp": "Aguantaste {value} de daño por minuto, un {pct}% más de lo normal.",
+  "verdict.takenDown": "Recibiste {value} de daño por minuto, un {pct}% menos de lo normal.",
+  "verdict.healUp": "Curaste y escudaste {value} por minuto, un {pct}% más de lo normal.",
+  "verdict.healDown": "Curaste y escudaste {value} por minuto, un {pct}% menos de lo normal.",
+  "verdict.goldUp": "Conseguiste {value} de oro por minuto, un {pct}% más de lo normal.",
+  "verdict.goldDown": "Conseguiste {value} de oro por minuto, un {pct}% menos de lo normal.",
+  "verdict.damageUpOnChamp":
+    "Hiciste {value} de daño por minuto, un {pct}% más de lo que sueles con este campeón.",
+  "verdict.damageDownOnChamp":
+    "Hiciste {value} de daño por minuto, un {pct}% menos de lo que sueles con este campeón.",
+  "verdict.takenUpOnChamp":
+    "Aguantaste {value} de daño por minuto, un {pct}% más de lo normal con este campeón.",
+  "verdict.takenDownOnChamp":
+    "Recibiste {value} de daño por minuto, un {pct}% menos de lo normal con este campeón.",
+  "verdict.healUpOnChamp":
+    "Curaste y escudaste {value} por minuto, un {pct}% más de lo normal con este campeón.",
+  "verdict.healDownOnChamp":
+    "Curaste y escudaste {value} por minuto, un {pct}% menos de lo normal con este campeón.",
+  "verdict.goldUpOnChamp":
+    "Conseguiste {value} de oro por minuto, un {pct}% más de lo normal con este campeón.",
+  "verdict.goldDownOnChamp":
+    "Conseguiste {value} de oro por minuto, un {pct}% menos de lo normal con este campeón.",
+  "verdict.deathsUp": "Moriste {deaths} veces; una partida así de larga suele costarte {expected}.",
+  "verdict.deathsDown":
+    "Moriste solo {deaths} veces; una partida así de larga suele costarte {expected}.",
+  "verdict.winStreak": "Van {length} victorias seguidas.",
+  "verdict.winStreakRecord": "Van {length} victorias seguidas, tu mejor racha.",
+  "verdict.lossStreak": "Van {length} derrotas seguidas.",
+  "verdict.lossStreakRecord": "Van {length} derrotas seguidas, la peor racha que llevas.",
+  "verdict.sessionRecord": "Hoy llevas {wins}-{losses}.",
+  "verdict.newChampion": "Solo llevas {games} partidas con este campeón.",
   "widget.title": "Widget / OBS",
   "widget.intro":
     "Tu historial en una ventana compacta o como fuente de OBS. Los datos se actualizan cada cinco segundos desde esta aplicación.",
