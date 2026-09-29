@@ -119,6 +119,9 @@ function createTables() {
       -- Unclamped score, ordering key only — see PlayerScore.raw
       score_raw            REAL,
       score_badge          TEXT,
+      -- Where the game placed among everyone it scored, and out of how many
+      score_rank           INTEGER,
+      score_rank_total     INTEGER,
       spell1 INTEGER, spell2 INTEGER,
       item0 INTEGER, item1 INTEGER, item2 INTEGER,
       item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER

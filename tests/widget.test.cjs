@@ -1067,6 +1067,60 @@ test("patch marks land on the right bucket, and crowded labels give way", () => 
   );
 });
 
+test("a game's place among the ten is ranked on the raw score, and ties share it", () => {
+  const scoring = load("src/main/db/scoring.ts", {
+    "../dragon": {
+      getChampionClasses: () => ({}),
+      getChampionDataVersion: () => "test",
+    },
+    "./connection": { db: { prepare: () => ({ all: () => [], run: () => {}, get: () => null }) } },
+    "./settings": { getSetting: () => null, setSetting: () => {} },
+  });
+
+  // Diez jugadores; el reparto de dano decide la nota, lo demas es igual
+  const player = (id, puuid, damage) => ({
+    participant_id: id,
+    puuid,
+    team_id: id <= 5 ? 100 : 200,
+    champion_id: id,
+    win: id <= 5 ? 1 : 0,
+    kills: 5,
+    deaths: 5,
+    assists: 5,
+    double_kills: 0,
+    triple_kills: 0,
+    quadra_kills: 0,
+    penta_kills: 0,
+    total_damage_dealt: damage,
+    total_damage_taken: 10000,
+    gold_earned: 10000,
+    total_heal: 1000,
+  });
+
+  const damages = [30000, 25000, 20000, 15000, 12000, 11000, 10000, 9000, 8000, 7000];
+  const rows = damages.map((d, i) => player(i + 1, "p" + (i + 1), d));
+
+  // El que mas dano hace es el primero; el que menos, el ultimo
+  const best = scoring.computeOwnerStanding(rows, "p1", 450);
+  assert.equal(best.rank, 1);
+  assert.equal(best.total, 10);
+  const worst = scoring.computeOwnerStanding(rows, "p10", 450);
+  assert.equal(worst.rank, 10);
+  const third = scoring.computeOwnerStanding(rows, "p3", 450);
+  assert.equal(third.rank, 3);
+
+  // Empate: dos identicos comparten puesto y nadie ocupa el siguiente
+  const tied = damages.map((d, i) => player(i + 1, "p" + (i + 1), i < 2 ? 30000 : d));
+  assert.equal(scoring.computeOwnerStanding(tied, "p1", 450).rank, 1);
+  assert.equal(scoring.computeOwnerStanding(tied, "p2", 450).rank, 1);
+  assert.equal(scoring.computeOwnerStanding(tied, "p3", 450).rank, 3);
+
+  // Un jugador que no esta en la partida no tiene puesto
+  assert.equal(scoring.computeOwnerStanding(rows, "nadie", 450), null);
+  // Y sin participantes tampoco hay nada que ordenar
+  assert.equal(scoring.computeOwnerStanding([], "p1", 450), null);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

@@ -21,10 +21,25 @@ export function ScoreBadge({ badge, large = false }: { badge: "MVP" | "ACE"; lar
   );
 }
 
-// A game's score with its badge underneath, as the match rows draw it. An
-// unscored game (a remake, or one stored before scoring existed) leaves the
-// column empty rather than showing a zero.
-export default function ScoreCell({ score, badge }: { score: number | null; badge: Badge }) {
+/**
+ * A game's score with, underneath, the most telling thing about it.
+ *
+ * A badge when there is one, otherwise where the game placed among the ten,
+ * and only failing both the word "score", which says nothing the number above
+ * has not already said. An unscored game leaves the column empty rather than
+ * showing a zero.
+ */
+export default function ScoreCell({
+  score,
+  badge,
+  rank,
+  total,
+}: {
+  score: number | null;
+  badge: Badge;
+  rank?: number | null;
+  total?: number | null;
+}) {
   const t = useT();
   return (
     <div className="w-10 shrink-0 text-center">
@@ -35,6 +50,13 @@ export default function ScoreCell({ score, badge }: { score: number | null; badg
           </div>
           {badge ? (
             <ScoreBadge badge={badge} />
+          ) : rank != null ? (
+            <div
+              className="text-[10px] tabular-nums text-lol-text"
+              title={total != null ? t("history.placeOf", { rank, total }) : undefined}
+            >
+              {t("history.placeShort", { rank })}
+            </div>
           ) : (
             <div className="text-[10px] text-lol-text uppercase tracking-wider">
               {t("history.score")}

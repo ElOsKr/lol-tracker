@@ -166,6 +166,14 @@ export default function GameRecap({
                   {recap.score.toFixed(1)}
                   <span className="text-base font-semibold text-lol-text/50"> / 10</span>
                 </div>
+                {detail.stats?.score_rank != null && detail.stats.score_rank_total != null && (
+                  <div className="mt-1 text-xs text-lol-text-bright">
+                    {t("history.placeOf", {
+                      rank: detail.stats.score_rank,
+                      total: detail.stats.score_rank_total,
+                    })}
+                  </div>
+                )}
                 <div className="mt-1 text-[11px]">
                   {career.avgScore != null && (
                     <Delta value={recap.score} average={career.avgScore} />

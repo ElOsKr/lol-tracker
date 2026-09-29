@@ -24,7 +24,7 @@ export function migrateHiddenQueues() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -39,6 +39,7 @@ export function runMigrations() {
   if (current < 2) migrateToV2();
   if (current < 3) migrateToV3();
   if (current < 4) migrateToV4();
+  if (current < 5) migrateToV5();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -184,6 +185,16 @@ function migrateToV4() {
 // Copies each game owner's spells from their participant row onto player_stats.
 // Owner resolution mirrors rebuildDerivedStats: puuid first, then the stored
 // stats line for old imports whose owner puuid was never recovered.
+// Adds where a game placed among the ten. Nothing to backfill here either:
+// the standing version inside scoreFormulaKey makes checkScoreBackfill fill
+// both columns for every stored game on the next launch.
+function migrateToV5() {
+  if (!tableColumns("player_stats").has("score_rank")) {
+    db.exec("ALTER TABLE player_stats ADD COLUMN score_rank INTEGER");
+    db.exec("ALTER TABLE player_stats ADD COLUMN score_rank_total INTEGER");
+  }
+}
+
 function backfillPlayerStatsSpells() {
   const games = db
     .prepare(`
