@@ -12,8 +12,12 @@ import { getSetting, setSetting } from "./settings";
 // Score backfills are keyed on formula version + champion data version, so
 // stored scores recompute when either changes (new formula, new patch,
 // re-tagged champion).
+// Bumped when what is stored alongside a score changes shape, so the same
+// backfill that recomputes scores fills the new columns for old games too.
+const STANDING_VERSION = "rank1";
+
 export function scoreFormulaKey() {
-  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}:${SCORE_POLICY_VERSION}`;
+  return `${SCORE_FORMULA_VERSION}@${getChampionDataVersion()}:${SCORE_POLICY_VERSION}+${STANDING_VERSION}`;
 }
 
 // Recompute stored scores from the participant rows. Runs whenever the formula version or
@@ -85,12 +89,21 @@ export function groupByGame<T extends { game_id: number }>(rows: T[]): Map<numbe
   return byGame;
 }
 
-export function computeOwnerScore(
+/** Where the player finished among everyone the game scored, and out of how many. */
+export interface OwnerStanding {
+  score: PlayerScore;
+  // 1 is the best game of the ten. Ties share a place, so two players who
+  // scored the same are both second and nobody is third.
+  rank: number;
+  total: number;
+}
+
+export function computeOwnerStanding(
   participants: ScoreRow[],
   ownerPuuid: string | null,
   queueId: number,
   fallback?: { champion_id: number; kills: number; deaths: number; assists: number },
-): PlayerScore | null {
+): OwnerStanding | null {
   const inputs = scoreInputsFromRows(participants);
   if (inputs.length === 0) return null;
   let owner = ownerPuuid ? inputs.find((p) => p.puuid === ownerPuuid) : undefined;
@@ -104,7 +117,16 @@ export function computeOwnerScore(
     );
   }
   if (!owner) return null;
-  return computeMatchScores(inputs, getChampionClasses(), queueId).get(owner.participantId) ?? null;
+
+  const scores = computeMatchScores(inputs, getChampionClasses(), queueId);
+  const score = scores.get(owner.participantId);
+  if (!score) return null;
+
+  // Ranked on the unclamped total for the same reason the records page does:
+  // `score` tops out at 10, so several perfect games would otherwise tie.
+  const raws = [...scores.values()].map((s) => s.raw);
+  const rank = 1 + raws.filter((raw) => raw > score.raw).length;
+  return { score, rank, total: raws.length };
 }
 
 function backfillScores() {
@@ -133,24 +155,28 @@ function backfillScores() {
   );
 
   const updateStmt = db.prepare(
-    "UPDATE player_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ?",
+    `UPDATE player_stats
+       SET score = ?, score_raw = ?, score_badge = ?, score_rank = ?, score_rank_total = ?
+     WHERE game_id = ?`,
   );
   const tx = db.transaction(() => {
     for (const row of games) {
       if (row.is_remake || !hasScore(row.queue_id)) {
-        updateStmt.run(null, null, null, row.game_id);
+        updateStmt.run(null, null, null, null, null, row.game_id);
         continue;
       }
-      const result = computeOwnerScore(
+      const standing = computeOwnerStanding(
         participants.get(row.game_id) ?? [],
         row.puuid || null,
         row.queue_id,
         row,
       );
       updateStmt.run(
-        result?.score ?? null,
-        result?.raw ?? null,
-        result?.badge ?? null,
+        standing?.score.score ?? null,
+        standing?.score.raw ?? null,
+        standing?.score.badge ?? null,
+        standing?.rank ?? null,
+        standing?.total ?? null,
         row.game_id,
       );
     }

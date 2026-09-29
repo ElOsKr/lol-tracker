@@ -454,6 +454,8 @@ export const es: Dictionary = {
   "champions.sheet": "Ficha del campeón",
 
   "champions.sheetOf": "Ficha de {champion}",
+  "history.placeShort": "{rank}.º",
+  "history.placeOf": "{rank}.º de {total} en la partida",
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",

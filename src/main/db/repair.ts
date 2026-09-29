@@ -1,4 +1,3 @@
-import type { PlayerScore } from "../../shared/opScore";
 import { AUGMENT_SLOTS } from "../../shared/queues";
 import { db } from "./connection";
 import { hasScore } from "../../shared/queues";
@@ -7,7 +6,8 @@ import {
   groupByGame,
   SCORE_ROW_COLUMNS,
   type ScoreRow,
-  computeOwnerScore,
+  computeOwnerStanding,
+  type OwnerStanding,
   scoreFormulaKey,
 } from "./scoring";
 import { setSetting } from "./settings";
@@ -77,8 +77,8 @@ function rebuildDerivedStats(): number {
       total_damage_dealt, total_damage_taken, gold_earned, total_heal,
       largest_killing_spree, spell1, spell2,
       item0, item1, item2, item3, item4, item5, item6,
-      score, score_raw, score_badge
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      score, score_raw, score_badge, score_rank, score_rank_total
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const updateRemake = db.prepare("UPDATE games SET is_remake = ? WHERE game_id = ?");
   const deleteAugments = db.prepare("DELETE FROM game_augments WHERE game_id = ?");
@@ -111,9 +111,9 @@ function rebuildDerivedStats(): number {
       const isRemake = detectRemake(row.game_duration, rows, row.queue_id) ? 1 : 0;
       updateRemake.run(isRemake, row.game_id);
 
-      let ownerScore: PlayerScore | null = null;
+      let standing: OwnerStanding | null = null;
       if (!isRemake && hasScore(row.queue_id)) {
-        ownerScore = computeOwnerScore(rows, row.puuid || null, row.queue_id, {
+        standing = computeOwnerStanding(rows, row.puuid || null, row.queue_id, {
           champion_id: owner.champion_id,
           kills: owner.kills,
           deaths: owner.deaths,
@@ -146,9 +146,11 @@ function rebuildDerivedStats(): number {
         owner.item4,
         owner.item5,
         owner.item6,
-        ownerScore?.score ?? null,
-        ownerScore?.raw ?? null,
-        ownerScore?.badge ?? null,
+        standing?.score.score ?? null,
+        standing?.score.raw ?? null,
+        standing?.score.badge ?? null,
+        standing?.rank ?? null,
+        standing?.total ?? null,
       );
 
       deleteAugments.run(row.game_id);

@@ -446,6 +446,8 @@ export const en = {
   "champions.sheet": "Champion sheet",
 
   "champions.sheetOf": "{champion} sheet",
+  "history.placeShort": "#{rank}",
+  "history.placeOf": "{rank} of {total} in the game",
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",

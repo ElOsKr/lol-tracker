@@ -1,4 +1,3 @@
-import type { PlayerScore } from "../../shared/opScore";
 import { CAPTURE_POLICY_VERSION, hasScore } from "../../shared/queues";
 import { isSupportedLolMatch, participantModeFields } from "../../shared/match-mode";
 import { db } from "./connection";
@@ -10,7 +9,7 @@ import {
   packRaw,
   writeParticipants,
 } from "./payloads";
-import { computeOwnerScore } from "./scoring";
+import { computeOwnerStanding, type OwnerStanding } from "./scoring";
 
 export function gameExists(gameId: number): boolean {
   const row = db.prepare("SELECT 1 FROM games WHERE game_id = ?").get(gameId);
@@ -62,9 +61,9 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
 
   const isRemake = detectRemake(gameData.gameDuration, rows, gameData.queueId) ? 1 : 0;
 
-  let ownerScore: PlayerScore | null = null;
+  let standing: OwnerStanding | null = null;
   if (!isRemake && hasScore(gameData.queueId)) {
-    ownerScore = computeOwnerScore(rows, puuid, gameData.queueId, {
+    standing = computeOwnerStanding(rows, puuid, gameData.queueId, {
       champion_id: owner.champion_id,
       kills: owner.kills,
       deaths: owner.deaths,
@@ -86,8 +85,8 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       total_damage_dealt, total_damage_taken, gold_earned, total_heal,
       largest_killing_spree, spell1, spell2,
       item0, item1, item2, item3, item4, item5, item6,
-      score, score_raw, score_badge
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      score, score_raw, score_badge, score_rank, score_rank_total
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertAugmentStmt = db.prepare(`
@@ -140,9 +139,11 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       owner.items[4],
       owner.items[5],
       owner.items[6],
-      ownerScore?.score ?? null,
-      ownerScore?.raw ?? null,
-      ownerScore?.badge ?? null,
+      standing?.score.score ?? null,
+      standing?.score.raw ?? null,
+      standing?.score.badge ?? null,
+      standing?.rank ?? null,
+      standing?.total ?? null,
     );
 
     const modeStmt = db.prepare(
