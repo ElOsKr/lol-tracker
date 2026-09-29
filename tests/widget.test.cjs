@@ -1146,6 +1146,175 @@ test("the scoreboard gets every player's place from one pass, with the same rule
   assert.equal(rankByRaw(new Map()).size, 0);
 });
 
+test("a rank becomes a number on the real ladder, and back again", () => {
+  const r = load("src/shared/ranks.ts");
+  const rank = (tier, division, lp) => ({ tier, division, lp, queueType: "RANKED_SOLO_5x5" });
+
+  // Cuatro divisiones de 100 PL por nivel, que es como sube la escalera
+  assert.equal(r.rankPoints(rank("IRON", "IV", 0)), 0);
+  assert.equal(r.rankPoints(rank("IRON", "I", 0)), 300);
+  assert.equal(r.rankPoints(rank("BRONZE", "IV", 0)), 400);
+  assert.equal(r.rankPoints(rank("GOLD", "II", 50)), 3 * 400 + 2 * 100 + 50);
+
+  // Maestro, Gran maestro y Aspirante comparten base: no son tres escaleras,
+  // son el tramo alto de una, separado por PL
+  const master = r.rankPoints(rank("MASTER", null, 0));
+  assert.equal(master, 7 * 400);
+  assert.equal(r.rankPoints(rank("CHALLENGER", null, 900)), master + 900);
+  assert.ok(r.rankPoints(rank("GRANDMASTER", null, 300)) > r.rankPoints(rank("DIAMOND", "I", 99)));
+
+  // Y el camino de vuelta, para poder ensenar una media como un rango
+  assert.deepEqual(
+    {
+      tier: r.pointsToRank(3 * 400 + 2 * 100 + 50).tier,
+      division: r.pointsToRank(3 * 400 + 2 * 100 + 50).division,
+    },
+    { tier: "GOLD", division: "II" },
+  );
+  assert.equal(r.pointsToRank(master + 120).tier, "MASTER");
+  assert.equal(r.pointsToRank(master + 120).division, null);
+  assert.equal(r.pointsToRank(0).tier, "IRON");
+});
+
+test("the lobby average only appears when more than half the game is ranked", () => {
+  const r = load("src/shared/ranks.ts");
+  const rank = (tier, division) => ({ tier, division, lp: 0, queueType: "RANKED_SOLO_5x5" });
+
+  // Una ARAM tipica: dos de diez con rango, asi que no hay media que valga
+  const few = r.summarizeLobbyRanks([
+    rank("GOLD", "II"),
+    rank("SILVER", "I"),
+    ...Array(8).fill(null),
+  ]);
+  assert.equal(few.average, null);
+  assert.equal(few.ranked, 2);
+  assert.equal(few.total, 10);
+
+  // Justo la mitad tampoco basta: la regla es mas de la mitad
+  assert.equal(r.summarizeLobbyRanks([rank("GOLD", "II"), null]).average, null);
+
+  // Seis de diez si, y la media cae entre los dos extremos
+  const many = r.summarizeLobbyRanks([
+    ...Array(3).fill(rank("SILVER", "IV")),
+    ...Array(3).fill(rank("GOLD", "IV")),
+    ...Array(4).fill(null),
+  ]);
+  assert.equal(many.ranked, 6);
+  assert.equal(many.average.tier, "SILVER");
+  assert.equal(many.average.division, "II");
+
+  // Sin nadie con rango, ni media ni cuenta que ensenar
+  assert.deepEqual(r.summarizeLobbyRanks([null, null]), { average: null, ranked: 0, total: 2 });
+});
+
+test("the ladder shown follows the game, and unranked players are dropped", () => {
+  const r = load("src/shared/ranks.ts");
+  const ranks = load("src/main/ranks.ts", { "./db": {} });
+
+  // El cliente manda todas las colas; solo interesan las dos escaleras, y
+  // un nivel vacio o "NONE" es su forma de decir sin clasificar
+  const parsed = ranks.parseRankedStats({
+    queues: [
+      { queueType: "RANKED_SOLO_5x5", tier: "EMERALD", division: "III", leaguePoints: 42 },
+      { queueType: "RANKED_FLEX_SR", tier: "GOLD", division: "I", leaguePoints: 8 },
+      { queueType: "RANKED_TFT", tier: "DIAMOND", division: "II", leaguePoints: 60 },
+      { queueType: "CHERRY", tier: "NONE", division: "NA", leaguePoints: 0 },
+    ],
+  });
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0].tier, "EMERALD");
+
+  // En clasificatoria flexible se ensena el rango de flexible; en cualquier
+  // otra cola, el de solo
+  assert.equal(r.pickRank(parsed, 440).queueType, "RANKED_FLEX_SR");
+  assert.equal(r.pickRank(parsed, 420).queueType, "RANKED_SOLO_5x5");
+  assert.equal(r.pickRank(parsed, 450).queueType, "RANKED_SOLO_5x5");
+
+  // Quien solo tiene flexible lo ensena igual en una ARAM
+  const flexOnly = parsed.filter((p) => p.queueType === "RANKED_FLEX_SR");
+  assert.equal(r.pickRank(flexOnly, 450).queueType, "RANKED_FLEX_SR");
+
+  // Y sin ninguna, nada
+  assert.equal(r.pickRank([], 450), null);
+  assert.deepEqual(ranks.parseRankedStats(null), []);
+  assert.deepEqual(ranks.parseRankedStats({ queues: [] }), []);
+});
+
+test("ranks are only taken while the game is fresh, and only once", async () => {
+  const HOUR = 60 * 60 * 1000;
+  const now = 1_700_000_000_000;
+
+  // Una base fingida que apunta lo que le piden y lo que le mandan guardar.
+  // El estado vive en el cierre y no en el objeto: el cargador copia el
+  // modulo simulado, y escribir sobre la copia no llegaria hasta aqui.
+  function makeDb(gameCreation) {
+    const state = { saved: [], asked: false };
+    return {
+      state,
+      getGameForRanks: () => ({ gameCreation, queueId: 450 }),
+      getParticipantPuuids: () => [
+        { participantId: 1, puuid: "p1" },
+        { participantId: 2, puuid: "p2" },
+        { participantId: 3, puuid: null },
+      ],
+      hasGameRanks: () => state.asked,
+      saveGameRanks: (_gameId, rows) => {
+        state.saved = rows;
+        state.asked = true;
+      },
+    };
+  }
+
+  const answer = {
+    p1: {
+      queues: [{ queueType: "RANKED_SOLO_5x5", tier: "GOLD", division: "II", leaguePoints: 30 }],
+    },
+    p2: { queues: [] },
+  };
+  const calls = [];
+  const get = async (path) => {
+    calls.push(path);
+    const puuid = path.split("/").pop();
+    return answer[puuid] ?? null;
+  };
+
+  // Recien jugada: se pregunta por los que tienen identificador, y solo se
+  // guarda a quien esta clasificado
+  const fresh = makeDb(now - HOUR);
+  const ranksFresh = load("src/main/ranks.ts", { "./db": fresh });
+  assert.equal(await ranksFresh.captureGameRanks(1, get, now), 1);
+  assert.equal(fresh.state.saved.length, 1);
+  assert.equal(fresh.state.saved[0].participantId, 1);
+  assert.equal(fresh.state.saved[0].rank.tier, "GOLD");
+  // El jugador sin identificador no genera ninguna peticion
+  assert.ok(calls.every((c) => c.endsWith("p1") || c.endsWith("p2")));
+
+  // Ya preguntada: ni una peticion mas, aunque no guardara a nadie
+  const before = calls.length;
+  assert.equal(await ranksFresh.captureGameRanks(1, get, now), 0);
+  assert.equal(calls.length, before);
+
+  // Vieja: el cliente solo sabe decir el rango de hoy, asi que no se pregunta
+  const old = makeDb(now - 30 * HOUR);
+  const ranksOld = load("src/main/ranks.ts", { "./db": old });
+  assert.equal(await ranksOld.captureGameRanks(2, get, now), 0);
+  assert.equal(old.state.saved.length, 0);
+
+  // Y un cliente que falla no puede tumbar la captura de la partida
+  const angry = makeDb(now - HOUR);
+  const ranksAngry = load("src/main/ranks.ts", { "./db": angry });
+  assert.equal(
+    await ranksAngry.captureGameRanks(
+      3,
+      async () => {
+        throw new Error("cliente caido");
+      },
+      now,
+    ),
+    0,
+  );
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

@@ -83,6 +83,28 @@ function createTables() {
       PRIMARY KEY (game_id, participant_id)
     );
 
+    -- The rank each player held when the app first saw this game. Its own
+    -- table because a player holds several at once (solo and flex) and
+    -- because match_participants gets wiped and rewritten on a repair, which
+    -- would throw away a snapshot that cannot be taken again.
+    CREATE TABLE IF NOT EXISTS match_participant_ranks (
+      game_id        INTEGER NOT NULL,
+      participant_id INTEGER NOT NULL,
+      puuid          TEXT,
+      queue_type     TEXT NOT NULL,
+      tier           TEXT NOT NULL,
+      division       TEXT,
+      lp             INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (game_id, participant_id, queue_type)
+    );
+
+    -- Which games have been asked about. A lobby where nobody is ranked
+    -- leaves no rows above, so without this the app would re-ask about the
+    -- same unranked ARAM game on every launch.
+    CREATE TABLE IF NOT EXISTS game_ranks_taken (
+      game_id INTEGER PRIMARY KEY
+    );
+
     -- One row per augment taken by anyone, against game_augments' one row per
     -- augment WE took. champion_id/win/is_remake are denormalized so the
     -- augment leaderboards are a single grouped index scan.

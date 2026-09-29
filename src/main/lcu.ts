@@ -10,6 +10,7 @@ import {
 } from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
+import { captureGameRanks } from "./ranks";
 import { sendToRenderer } from "./ipc";
 import { findClient, installDirCandidates } from "./lockfile";
 import { TRACKED_QUEUE_IDS, CAPTURE_POLICY_VERSION } from "../shared/queues";
@@ -684,6 +685,10 @@ export async function fetchNewGames(
     if (inserted) {
       newGamesCount++;
       console.log(`Stored LoL game ${fullGame.gameId}`);
+      // The poll also meets games the post-game screen missed, played while
+      // the app was closed. captureGameRanks decides for itself whether one
+      // is still fresh enough for its players' ranks to mean anything.
+      await captureGameRanks(fullGame.gameId, lcuJson);
     }
   }
 
@@ -840,6 +845,9 @@ async function captureEogGame(
 
     if (db.insertGameFull(game, summoner.puuid)) {
       console.log(`Stored LoL game ${gameId} from the post-game screen`);
+      // Before the interface is told, so a detail opened straight away
+      // already has them. It is ten local requests and never throws.
+      await captureGameRanks(gameId, lcuJson);
       sendToRenderer(win, "lcu:games-updated");
       eogListener?.(win, gameId);
     }

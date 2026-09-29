@@ -11,6 +11,7 @@ import {
   type ScoreComponent,
   type ScoreComponentKey,
 } from "../../shared/opScore";
+import { formatRank, summarizeLobbyRanks } from "../../shared/ranks";
 import ChampionIcon from "./ChampionIcon";
 import AugmentIcon from "./AugmentIcon";
 import ItemIcon from "./ItemIcon";
@@ -21,12 +22,22 @@ import { useT, type Translate } from "../lib/i18n";
 import type { TranslationKey } from "../../shared/i18n";
 import Kda from "./Kda";
 
-const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_64px_76px_110px_110px_56px_56px_176px_100px]";
-// An eleventh column is only affordable where the rows are laid out wider than
+// The two bars give up 18px each and gold/heal/augments a few more, which
+// pays for most of the rank column: a proportional bar with a compact number
+// inside reads the same at 92px, whereas the columns it would otherwise push
+// off the right edge do not.
+//
+// The rank gets a column of its own rather than a word on the line under the
+// player's name. That line is 80px at the app's own window size and already
+// truncates, so a rank there swallowed the champion; and read down a column,
+// the whole lobby's ranks compare at a glance, which is the point of showing
+// them. The table scrolls sideways when it must, as it already did.
+const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_64px_64px_72px_92px_92px_52px_52px_176px_92px]";
+// A twelfth column is only affordable where the rows are laid out wider than
 // the app lays them out: at the app's own window size every column above is
 // already at its floor, so the extra would come out of the player name.
 const GRID_COLS_MULTIKILLS =
-  "grid-cols-[52px_minmax(80px,1fr)_64px_76px_110px_110px_56px_56px_176px_100px_92px]";
+  "grid-cols-[52px_minmax(80px,1fr)_64px_64px_76px_110px_110px_56px_56px_176px_100px_92px]";
 
 export default function MatchScoreboard({
   detail,
@@ -77,12 +88,20 @@ export default function MatchScoreboard({
     return { dmg: dmg || 1, taken: taken || 1, gold: gold || 1, heal: heal || 1 };
   }, [participants]);
 
+  // What can be said about the lobby's ranks: an average only when more than
+  // half of them have one, and always the count it was drawn from.
+  const lobby = useMemo(
+    () => summarizeLobbyRanks(participants.map((p) => p.rank ?? null)),
+    [participants],
+  );
+
   if (participants.length === 0) {
     return <div className="text-sm text-lol-text text-center py-4">{t("scoreboard.noData")}</div>;
   }
 
   return (
     <div className="space-y-3">
+      {lobby.ranked > 0 && <LobbyRankLine lobby={lobby} />}
       {Array.from(teams.entries()).map(([teamId, players]) => (
         <TeamScoreboard
           key={teamId}
@@ -186,6 +205,7 @@ function TeamScoreboard({
       >
         <span></span>
         <span>{t("live.player")}</span>
+        <span className="text-center">{t("scoreboard.rank")}</span>
         <span className="text-center">{t("scoreboard.score")}</span>
         <span className="text-center">{t("live.kda")}</span>
         <span className="text-center">{t("recap.damage")}</span>
@@ -318,6 +338,15 @@ function PlayerRow({
           {p.vision != null && ` · ${t("scoreboard.vision", { count: p.vision })}`}
           {p.position && ` · ${p.position}`}
         </div>
+      </div>
+
+      {/* Rank when the game is one the app was there for; see shared/ranks */}
+      <div className="text-center text-[10px] leading-tight">
+        {p.rank ? (
+          <span className="text-lol-text-bright">{formatRank(p.rank, t)}</span>
+        ) : (
+          <span className="text-lol-text/50">—</span>
+        )}
       </div>
 
       {/* Score, with where this player placed among the ten */}
@@ -554,6 +583,37 @@ function ScoreBreakdownTooltip({
           {breakdown.score.toFixed(1)}
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One line above the two teams with what the lobby was ranked.
+ *
+ * The count is always there and the average only sometimes, which is the
+ * point: in ARAM two ranked players out of ten is normal, and an "average"
+ * drawn from two would read as a fact about the game when it is a fact about
+ * two people. Above half it is still an approximation, so it says out loud
+ * how many it came from.
+ */
+function LobbyRankLine({ lobby }: { lobby: ReturnType<typeof summarizeLobbyRanks> }) {
+  const t = useT();
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 px-1 text-[11px]">
+      {lobby.average ? (
+        <>
+          <span className="text-lol-text-bright">
+            {t("rank.lobbyAverage", { rank: formatRank(lobby.average, t) })}
+          </span>
+          <span className="text-[10px] text-lol-text">
+            {t("rank.lobbyOf", { ranked: lobby.ranked, total: lobby.total })}
+          </span>
+        </>
+      ) : (
+        <span className="text-[10px] text-lol-text">
+          {t("rank.lobbyFew", { ranked: lobby.ranked, total: lobby.total })}
+        </span>
+      )}
     </div>
   );
 }

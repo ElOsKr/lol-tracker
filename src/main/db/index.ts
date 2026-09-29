@@ -3,6 +3,13 @@ export { getSetting, setSetting } from "./settings";
 export { getStoredQueues, selectedQueue } from "./filters";
 export { upsertSummoner, getProfile, getAllPuuids, getSummoner } from "./summoner";
 export { checkScoreBackfill } from "./scoring";
+export {
+  getGameForRanks,
+  getParticipantPuuids,
+  hasGameRanks,
+  saveGameRanks,
+  getGameRanks,
+} from "./ranks";
 export { initDatabase } from "./schema";
 export {
   getMatchSessions,
