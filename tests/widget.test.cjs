@@ -1234,6 +1234,32 @@ test("the ladder shown follows the game, and unranked players are dropped", () =
   const flexOnly = parsed.filter((p) => p.queueType === "RANKED_FLEX_SR");
   assert.equal(r.pickRank(flexOnly, 450).queueType, "RANKED_FLEX_SR");
 
+  // Maestro y arriba no tienen division, pero Riot manda "I" igualmente.
+  // Ni se guarda ni se ensena: al lado del emblema va el PL, que es lo unico
+  // que separa a esos tres niveles.
+  const apex = ranks.parseRankedStats({
+    queues: [
+      { queueType: "RANKED_SOLO_5x5", tier: "MASTER", division: "I", leaguePoints: 312 },
+      { queueType: "RANKED_FLEX_SR", tier: "CHALLENGER", division: "I", leaguePoints: 1203 },
+    ],
+  });
+  assert.equal(apex[0].division, null);
+  assert.equal(apex[1].division, null);
+  // Y si una fila vieja llegara con la "I", tampoco se ensena
+  assert.equal(
+    r.effectiveDivision({ tier: "GRANDMASTER", division: "I", lp: 500, queueType: "x" }),
+    null,
+  );
+  assert.equal(
+    r.effectiveDivision({ tier: "DIAMOND", division: "I", lp: 50, queueType: "x" }),
+    "I",
+  );
+  const t = (k, v) => (k === "rank.tierLp" ? v.tier + " " + v.lp + " PL" : String(k).split(".")[1]);
+  assert.equal(
+    r.formatRank({ tier: "MASTER", division: "I", lp: 312, queueType: "x" }, t),
+    "master 312 PL",
+  );
+
   // Y sin ninguna, nada
   assert.equal(r.pickRank([], 450), null);
   assert.deepEqual(ranks.parseRankedStats(null), []);
