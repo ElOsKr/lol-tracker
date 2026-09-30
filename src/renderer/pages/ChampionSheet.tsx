@@ -122,6 +122,16 @@ export default function ChampionSheet() {
             ))}
           </div>
         </div>
+        {/* The other sheet for the same champion exists and nothing here said
+            so. Labelled by whose data it holds, because that is the whole
+            difference between the two pages. */}
+        <Link
+          to={`/global/champion/${id}`}
+          className="ml-auto shrink-0 text-xs text-lol-gold transition-colors hover:text-lol-gold-light"
+        >
+          {t("champions.seeEveryone")}
+          <span aria-hidden> →</span>
+        </Link>
       </div>
 
       {/* What the player has done with them, in the queue they are looking at */}

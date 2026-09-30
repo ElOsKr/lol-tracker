@@ -476,6 +476,7 @@ export const es: Dictionary = {
   "champions.noAbilities": "Riot no está sirviendo ahora mismo las habilidades de este campeón.",
   "champions.ofGames": "Las más recientes, de {count} en esta cola.",
   "champions.sheet": "Ficha del campeón",
+  "champions.seeEveryone": "Cómo le va a todo el mundo",
 
   "champions.sheetOf": "Ficha de {champion}",
   "history.placeShort": "{rank}.º",

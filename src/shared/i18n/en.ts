@@ -468,6 +468,7 @@ export const en = {
   "champions.noAbilities": "Riot is not serving this champion’s abilities right now.",
   "champions.ofGames": "The most recent, of {count} in this queue.",
   "champions.sheet": "Champion sheet",
+  "champions.seeEveryone": "How it goes for everyone",
 
   "champions.sheetOf": "{champion} sheet",
   "history.placeShort": "#{rank}",
