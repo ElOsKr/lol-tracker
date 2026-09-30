@@ -13,6 +13,7 @@ import { EMPTY_FILTER_OPTIONS } from "../hooks/useFilterOptions";
 import type {
   MatchListItem,
   MatchDetail,
+  GameRecap,
   DashboardData,
   MatchFilterOptions,
   MatchSession,
@@ -43,8 +44,10 @@ import {
   ZapIcon,
 } from "../components/icons";
 import { ExportImageMessage, useGameImageExport } from "../components/ExportImage";
+import { buildVerdict } from "../../shared/verdict";
 import {
   LOCALE,
+  formatCompact,
   formatDateTime,
   formatDuration,
   formatPlaytime,
@@ -297,6 +300,9 @@ export default function MatchHistory() {
     match: MatchListItem;
   } | null>(null);
   const [detail, setDetail] = useState<MatchDetail | null>(null);
+  // The sentences need career and per-champion averages, which the detail
+  // does not carry; the recap does, and answers for any game.
+  const [recap, setRecap] = useState<GameRecap | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   // One instance for the page: both of the right-click menu's image items
   // report through the same message
@@ -407,13 +413,23 @@ export default function MatchHistory() {
       if (expandedId === gameId) {
         setExpandedId(null);
         setDetail(null);
+        setRecap(null);
         return;
       }
       setExpandedId(gameId);
       setDetailLoading(true);
+      setRecap(null);
       try {
-        const d = await window.api.getMatchDetail(gameId);
+        // Together rather than one after the other: the scoreboard is what
+        // the user is waiting for and the recap is a few milliseconds of
+        // career rows, so there is no reason to make either queue behind the
+        // other.
+        const [d, r] = await Promise.all([
+          window.api.getMatchDetail(gameId),
+          window.api.getGameRecap(gameId),
+        ]);
         setDetail(d);
+        setRecap(r);
       } finally {
         setDetailLoading(false);
       }
@@ -747,6 +763,7 @@ export default function MatchHistory() {
             champData={champData}
             expanded={expandedId === m.game_id}
             detail={expandedId === m.game_id ? detail : null}
+            recap={expandedId === m.game_id ? recap : null}
             detailLoading={expandedId === m.game_id && detailLoading}
             puuids={puuids}
             onToggle={() => toggleExpand(m.game_id)}
@@ -1036,6 +1053,7 @@ interface GameRowProps {
   champData: ChampionData;
   expanded: boolean;
   detail: MatchDetail | null;
+  recap: GameRecap | null;
   detailLoading: boolean;
   puuids: string[] | null;
   onToggle: () => void;
@@ -1066,6 +1084,7 @@ function GameRow({
   champData,
   expanded,
   detail,
+  recap,
   detailLoading,
   puuids,
   onToggle,
@@ -1201,6 +1220,7 @@ function GameRow({
             {t("champions.sheetOf", { champion: getChampionName(champData, match.champion_id) })}
             <span aria-hidden>→</span>
           </Link>
+          {recap && <VerdictLines recap={recap} />}
           {detailLoading ? (
             <PageLoading compact />
           ) : detail ? (
@@ -1211,5 +1231,32 @@ function GameRow({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The two or three plain sentences about a game, in the strip above the
+ * scoreboard.
+ *
+ * They live inside the expanded panel rather than in the row because the row
+ * is scanned, not read: someone running down the list looking for one game
+ * should not have to read past three sentences per entry. Expanding is a
+ * deliberate act, so nothing here costs the list anything.
+ */
+function VerdictLines({ recap }: { recap: GameRecap }) {
+  const t = useT();
+  const lines = useMemo(() => buildVerdict(recap, formatCompact), [recap]);
+  if (lines.length === 0) return null;
+  return (
+    <ul className="mb-2 space-y-0.5">
+      {lines.map((line) => (
+        <li key={line.key} className="flex gap-2 text-xs text-lol-text-bright">
+          <span aria-hidden className="text-lol-gold/60">
+            ·
+          </span>
+          <span>{t(line.key, line.vars)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
