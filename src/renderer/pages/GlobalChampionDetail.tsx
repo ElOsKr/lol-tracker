@@ -314,8 +314,23 @@ export default function GlobalChampionDetailPage() {
             </h1>
             <span className="text-sm text-lol-text">
               {t("global.seenIn", { count: data.games, total: data.totalGames })}
-              {data.ownGames === 1 && ` · ${t("global.playedByYouOne")}`}
-              {data.ownGames > 1 && ` · ${t("global.playedByYou", { count: data.ownGames })}`}
+              {/* "Played by you 12 times" was a dead end, and it is the one
+                  place on this page that is about the reader rather than
+                  about everyone. */}
+              {data.ownGames > 0 && (
+                <>
+                  {" · "}
+                  <Link
+                    to={`/champion/${id}`}
+                    className="text-lol-gold transition-colors hover:text-lol-gold-light"
+                  >
+                    {data.ownGames === 1
+                      ? t("global.playedByYouOne")
+                      : t("global.playedByYou", { count: data.ownGames })}
+                    <span aria-hidden> →</span>
+                  </Link>
+                </>
+              )}
             </span>
           </div>
         </div>
