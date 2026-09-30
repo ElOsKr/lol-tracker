@@ -6,6 +6,8 @@ import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
 import { useT } from "../lib/i18n";
+import PlayerTags from "./PlayerTags";
+import { livePlayerTag } from "../../shared/tags";
 import Kda from "./Kda";
 
 const GRID_COLS = "grid-cols-[44px_minmax(90px,1fr)_34px_72px_44px_minmax(176px,auto)_108px]";
@@ -93,6 +95,7 @@ function LiveTeam({
 
 function LivePlayerRow({ player, champData }: { player: LivePlayer; champData: ChampionData }) {
   const t = useT();
+  const liveTag = player.shared ? livePlayerTag(player.shared) : null;
   const championName =
     player.championId > 0 ? getChampionName(champData, player.championId) : player.championName;
 
@@ -137,6 +140,9 @@ function LivePlayerRow({ player, champData }: { player: LivePlayer; champData: C
           )}
         </div>
         <div className="text-[10px] text-lol-text truncate">{championName}</div>
+        {/* Only for someone familiar: on nine rows out of ten this is a
+            stranger and there is nothing true to say about them. */}
+        {liveTag && <PlayerTags className="mt-0.5" tags={[liveTag]} />}
       </div>
 
       <div className="text-right text-[11px] text-lol-text-bright tabular-nums">

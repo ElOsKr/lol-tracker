@@ -45,7 +45,7 @@ export {
   markIgnoredGame,
   insertGameFull,
 } from "./ingest";
-export { getTeammateStats, getTeammateDetail } from "./teammates";
+export { getTeammateStats, getTeammateDetail, ownRecord as getOwnRecord } from "./teammates";
 export { getRecords } from "./records";
 export { getHomeSummary } from "./home";
 export { getGameRecap } from "./recap";

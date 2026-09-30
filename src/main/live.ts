@@ -412,9 +412,11 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
       overallRecord: null,
       gamesWithUs: 0,
       friendKey: null,
+      shared: null,
     };
   });
 
+  const own = db.getOwnRecord();
   const histories = playerHistories(snapshot.gameId, snapshot.players, snapshot.queueId);
   for (const player of snapshot.players) {
     const history = histories[player.key];
@@ -423,6 +425,16 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
     player.overallRecord = history.overall;
     player.gamesWithUs = history.withUs;
     player.friendKey = history.friendKey;
+    // Our own record minus the games they were in, which is what makes the
+    // comparison possible at all.
+    if (history.withUs > 0) {
+      player.shared = {
+        games: history.withUs,
+        wins: history.winsWithUs,
+        withoutGames: Math.max(0, own.games - history.withUs),
+        withoutWins: Math.max(0, own.wins - history.winsWithUs),
+      };
+    }
   }
 
   const byName = new Map<string, LivePlayer>();
