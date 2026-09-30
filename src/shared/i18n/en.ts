@@ -575,6 +575,16 @@ export const en = {
   "trends.winRateByPatch": "Win Rate by Patch",
   "trends.byWeekday": "By Day of Week",
   "trends.byHour": "By Hour of Day",
+  "trends.byDuration": "Win rate by game length",
+  "trends.scoreByDuration": "Average score by game length",
+  "trends.durationUnder": "under {to}",
+  "trends.durationRange": "{from}-{to}",
+  "trends.durationOver": "{from}+",
+  "trends.durationLong": "{range} minutes",
+  "trends.durationCaveat":
+    "Read with care: a game you are winning ends sooner, so part of this is the result deciding the length rather than the length deciding the result.",
+  "trends.scoreDurationNote":
+    "This one is not circular. Your score is measured against the other nine players, so it does not rise or fall just because a game ran long.",
   "trends.dayGames": "{date} — {games} ({wins}W–{losses}L)",
   "trends.dayNone": "{date} — no games",
   "trends.gamesRecord": "{games} games · {wins}W–{losses}L",
