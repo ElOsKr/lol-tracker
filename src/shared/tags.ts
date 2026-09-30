@@ -25,7 +25,28 @@ export interface PlayerTag {
    * know it means percentage points of win rate and can see the two records
    * it came from — and the numbers are also what lets you disagree with it.
    */
-  hint: { key: TranslationKey; vars: Record<string, string | number> };
+  hint: {
+    key: TranslationKey;
+    vars: Record<string, string | number>;
+    /**
+     * The two records a comparison tag was built from, when there are two.
+     *
+     * Structured rather than folded into the sentence because the whole
+     * point of a comparison is the two numbers sitting side by side; written
+     * out as prose the reader has to hold one in their head to weigh it
+     * against the other.
+     */
+    compare?: SwingCompare;
+  };
+}
+
+export interface SwingCompare {
+  withRate: number;
+  withWins: number;
+  withGames: number;
+  withoutRate: number;
+  withoutWins: number;
+  withoutGames: number;
 }
 
 export const MAX_TAGS = 2;
@@ -106,7 +127,7 @@ export function swingNoiseFloor(player: SharedRecord): number {
 
 // The two records the swing came from, spelled out. What makes the badge
 // arguable rather than an oracle: you can see the games behind it.
-function swingHintVars(player: SharedRecord): Record<string, number> {
+function swingCompare(player: SharedRecord): SwingCompare {
   return {
     withRate: Math.round((player.wins / player.games) * 100),
     withWins: player.wins,
@@ -146,7 +167,7 @@ export function teammateTags(
       vars: { points: Math.abs(Math.round(swing)) },
       weight: 90 + Math.min(9, Math.round(Math.abs(swing))),
       tone: swing > 0 ? "good" : "bad",
-      hint: { key: "tag.hint.swing", vars: swingHintVars(player) },
+      hint: { key: "tag.hint.swing", vars: {}, compare: swingCompare(player) },
     });
   }
 
@@ -239,7 +260,7 @@ export function livePlayerTag(player: SharedRecord): PlayerTag | null {
       vars: { games: player.games, points: Math.abs(Math.round(swing)) },
       weight: 90,
       tone: swing > 0 ? "good" : "bad",
-      hint: { key: "tag.hint.swing", vars: swingHintVars(player) },
+      hint: { key: "tag.hint.swing", vars: {}, compare: swingCompare(player) },
     };
   }
   return {
@@ -250,6 +271,6 @@ export function livePlayerTag(player: SharedRecord): PlayerTag | null {
     },
     weight: 50,
     tone: "neutral",
-    hint: { key: "tag.hint.together", vars: { games: player.games, wins: player.wins } },
+    hint: { key: "tag.hint.liveTogether", vars: { games: player.games, wins: player.wins } },
   };
 }

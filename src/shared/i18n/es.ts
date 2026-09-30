@@ -558,7 +558,7 @@ export const es: Dictionary = {
   "tag.youOutscore": "Sacas mejor nota {out} de cada 10",
   "tag.liveTogether": "{games} juntos · {rate}%",
   "tag.hint.swing":
-    "Ganas el {withRate}% de las partidas en las que está en tu equipo ({withWins} de {withGames}), frente al {withoutRate}% de las partidas en las que no ({withoutWins} de {withoutGames}). Son puntos de winrate, no de la nota. Dice lo que pasa, no por qué.",
+    "Son puntos de winrate, no de la nota. Dice lo que pasa, no por qué: puede que juntos juguéis partidas más tranquilas.",
   "tag.hint.regular": "Con quien más partidas has jugado: {games}.",
   "tag.hint.winStreak": "Habéis ganado las últimas {length} partidas juntos.",
   "tag.hint.lossStreak": "Habéis perdido las últimas {length} partidas juntos.",
@@ -566,7 +566,10 @@ export const es: Dictionary = {
   "tag.hint.new": "Apareció por primera vez hace {days} días, {games} partidas hasta ahora.",
   "tag.hint.outscore":
     "De las {scored} partidas juntos con nota para los dos, la suya fue mejor en {better}.",
-  "tag.hint.together": "{wins} victorias en las {games} partidas que ha estado en tu equipo.",
+  "tag.hint.together": "Juntos",
+  "tag.hint.apart": "Sin esa persona",
+  "tag.hint.outOf": "{wins} de {games}",
+  "tag.hint.liveTogether": "{wins} victorias en las {games} partidas que ha estado en tu equipo.",
   "tag.liveWinMore": "{games} juntos · +{points} pts",
   "tag.liveWinLess": "{games} juntos · -{points} pts",
   "trends.title": "Tendencias",

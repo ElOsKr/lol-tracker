@@ -549,7 +549,7 @@ export const en = {
   "tag.youOutscore": "You outscore them {out} games in 10",
   "tag.liveTogether": "{games} together · {rate}%",
   "tag.hint.swing":
-    "You win {withRate}% of the games they are on your team ({withWins} of {withGames}), against {withoutRate}% of the games they are not ({withoutWins} of {withoutGames}). Percentage points of win rate, not score. It says what happens, not why.",
+    "Percentage points of win rate, not score. It says what happens, not why: you might simply play more relaxed games together.",
   "tag.hint.regular": "The person you have played the most games with: {games}.",
   "tag.hint.winStreak": "You have won your last {length} games together.",
   "tag.hint.lossStreak": "You have lost your last {length} games together.",
@@ -558,7 +558,10 @@ export const en = {
   "tag.hint.new": "First seen {days} days ago, {games} games so far.",
   "tag.hint.outscore":
     "Of the {scored} shared games both of you were scored in, their score was higher in {better}.",
-  "tag.hint.together": "{wins} wins in the {games} games they have been on your team.",
+  "tag.hint.together": "Together",
+  "tag.hint.apart": "Without them",
+  "tag.hint.outOf": "{wins} of {games}",
+  "tag.hint.liveTogether": "{wins} wins in the {games} games they have been on your team.",
   "tag.liveWinMore": "{games} together · +{points} pts",
   "tag.liveWinLess": "{games} together · -{points} pts",
   "trends.title": "Trends",
