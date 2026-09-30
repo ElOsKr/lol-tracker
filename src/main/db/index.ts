@@ -50,6 +50,7 @@ export { getRecords } from "./records";
 export { getHomeSummary } from "./home";
 export { getGameRecap } from "./recap";
 export { getMatchExtras } from "./match-extras";
+export { getMatchTimeline } from "./timeline-view";
 export {
   saveChallenges,
   getStoredChallenges,

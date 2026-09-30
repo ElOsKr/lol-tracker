@@ -2394,6 +2394,73 @@ test("the detail page's path is named once, not typed out in each link", () => {
   }
 });
 
+test("the match chart reads from your side of the game, not from Riot's team order", () => {
+  const { goldSwing, ownVersusAverage, peakOf, worstMoment, dotPosition, mapSpan, hasMap } = load(
+    "src/shared/match-timeline.ts",
+  );
+
+  // Dos minutos de una partida de cinco contra cinco. El equipo 100 va
+  // ganando por 300 en el primero y por 900 en el segundo.
+  const frames = [
+    { minute: 0, kills: 0, gold: { 1: 500, 2: 500, 3: 500, 6: 350, 7: 350, 8: 500 } },
+    { minute: 1, kills: 3, gold: { 1: 900, 2: 900, 3: 900, 6: 600, 7: 600, 8: 600 } },
+  ];
+  const teams = { 1: 100, 2: 100, 3: 100, 6: 200, 7: 200, 8: 200 };
+  const teamOf = (id) => teams[id];
+
+  // El mismo dato, leido desde cada lado, sale con el signo cambiado. Esto es
+  // lo que evita que la grafica se lea al reves en la mitad de las partidas.
+  assert.deepEqual(goldSwing(frames, teamOf, 100), [300, 900]);
+  assert.deepEqual(goldSwing(frames, teamOf, 200), [-300, -900]);
+
+  // Tu oro y la media de los diez de esa partida
+  const mio = ownVersusAverage(frames, 7);
+  assert.deepEqual(mio.own, [350, 600]);
+  assert.deepEqual(mio.average, [450, 750]);
+  // Sin saber quien eres, la media sigue siendo util
+  assert.deepEqual(ownVersusAverage(frames, null).own, [0, 0]);
+
+  // LA ARAM REAL 7999040233, desde el lado de Oscar (equipo 200): por delante
+  // los tres primeros minutos y por detras los veintiuno siguientes.
+  const aram = [
+    0, -3, 220, 228, 166, -895, -313, -393, -1110, -1772, -3206, -3155, -3803, -3712, -3407, -3535,
+    -3203, -2869, -4656, -3393, -3285, -2359, -1888, -2005, -2951,
+  ];
+  assert.deepEqual(worstMoment(aram), { minute: 18, gap: -4656 });
+  assert.equal(peakOf(aram), 4656);
+  assert.equal(aram.filter((v) => v > 0).length, 3, "solo tres minutos por delante");
+
+  // Una partida en la que nunca se va por detras no tiene peor momento
+  assert.equal(worstMoment([0, 100, 250]), null);
+  // Y una escala nunca es cero, o cada barra saldria llena en vez de vacia
+  assert.equal(peakOf([]), 1);
+  assert.equal(peakOf([0, 0, 0]), 1);
+
+  // El mapa: la y del juego crece al norte y la de la pantalla hacia abajo
+  const abismo = mapSpan(12);
+  assert.equal(abismo, 12850);
+  const centro = dotPosition({ x: 6425, y: 6425 }, abismo);
+  assert.equal(Math.round(centro.left), 50);
+  assert.equal(Math.round(centro.top), 50);
+  const arriba = dotPosition({ x: 1000, y: 12000 }, abismo);
+  assert.ok(arriba.top < 10, "una muerte al norte se pinta arriba, no abajo");
+  // Una coordenada imposible se queda dentro del cuadro en vez de salirse
+  const fuera = dotPosition({ x: 99999, y: -5000 }, abismo);
+  assert.equal(fuera.left, 100);
+  assert.equal(fuera.top, 100);
+  // Un mapa que nadie ha medido usa el mayor, que mete los puntos hacia
+  // dentro en vez de sacarlos del cuadro
+  assert.equal(mapSpan(30), 14870);
+  assert.equal(mapSpan(null), 14870);
+
+  // Sin dibujo del mapa o sin muertes, el bloque no sale
+  const base = { gameId: 1, mapId: 12, span: 12850, frames: [], kills: [{ x: 1, y: 1 }] };
+  assert.equal(hasMap({ ...base, minimapUrl: "https://x/map12.png" }), true);
+  assert.equal(hasMap({ ...base, minimapUrl: null }), false);
+  assert.equal(hasMap({ ...base, minimapUrl: "https://x/map12.png", kills: [] }), false);
+  assert.equal(hasMap(null), false);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

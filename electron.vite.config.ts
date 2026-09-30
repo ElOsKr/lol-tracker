@@ -14,7 +14,11 @@ import type { Plugin } from "vite";
 const BASE_CSP = [
   "default-src 'none'",
   "style-src 'self' file: 'unsafe-inline'",
-  "img-src 'self' file: data: https://raw.communitydragon.org",
+  // Data Dragon joins Community Dragon for the minimaps the kill map draws
+  // on: the game-data plugin serves a picture of the Abyss but none of the
+  // Rift, and Data Dragon serves both on every patch. The widget's own policy
+  // has allowed the same host since it was written.
+  "img-src 'self' file: data: https://raw.communitydragon.org https://ddragon.leagueoflegends.com",
   "font-src 'self' file: data:",
   "object-src 'none'",
   "base-uri 'none'",

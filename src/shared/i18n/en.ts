@@ -904,6 +904,33 @@ export const en = {
   "detail.missingVision": "vision",
   "detail.missingEconomy": "farm per minute",
   "detail.listJoin": ", ",
+  // Match timeline: the chart and the kill map
+  "timeline.chart": "How the game went",
+  "timeline.chartHint": "one frame a minute · {count} in all",
+  "timeline.viewSwing": "Gold lead",
+  "timeline.viewOwn": "Your gold against the average",
+  "timeline.viewKills": "Kills per minute",
+  "timeline.ahead": "you were ahead",
+  "timeline.behind": "you were behind",
+  "timeline.killsAxis": "kills",
+  "timeline.swingAt": "Minute {minute}: {gold} gold",
+  "timeline.ownAt": "Minute {minute}: {gold} gold, the lobby averaged {average}",
+  "timeline.killsAt": "Minute {minute}: {count} kills",
+  "timeline.worst":
+    "The widest the gap got was minute {minute}, {gold} gold behind, in a game of {duration}.",
+  "timeline.neverBehind": "Your team was never behind on gold, across {duration}.",
+  "timeline.aboveAverage": "You finished {gold} gold above the lobby average.",
+  "timeline.belowAverage": "You finished {gold} gold below the lobby average.",
+  "timeline.map": "Where everyone died",
+  "timeline.mapHint": "one dot per kill, on the game's own minimap",
+  "timeline.killsAll": "All",
+  "timeline.killsMine": "Yours",
+  "timeline.killsDeaths": "Where you died",
+  "timeline.byYourTeam": "Killed by your team",
+  "timeline.byTheirTeam": "Killed by theirs",
+  "timeline.assists": "with {names}",
+  "timeline.mapNote":
+    "The timeline carries no item purchases or skill ups, so build order and skill order are not here: the data does not exist, rather than having been left out.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -76,6 +76,14 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
 
   handle("getMatchExtras", (_event, gameId) => db.getMatchExtras(gameId));
 
+  // The minimap comes from Data Dragon, so the timeline needs to know which
+  // version the rest of the art is on. Passed in rather than imported, so the
+  // database layer keeps not depending on the asset loader.
+  handle("getMatchTimeline", async (_event, gameId) => {
+    await dragon.waitForChampionData();
+    return db.getMatchTimeline(gameId, dragon.getChampionDataVersion());
+  });
+
   handle("toggleFavorite", (_event, gameId) => db.toggleFavorite(gameId));
 
   handle("getChampionStats", (_event, patch, queue) => db.getChampionStatsAll(patch, queue));
