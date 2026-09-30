@@ -11,6 +11,7 @@ import {
 import { BrowserWindow } from "electron";
 import * as db from "./db";
 import { captureGameRanks } from "./ranks";
+import { backfillTimelines, captureTimeline } from "./timelines";
 import { sendToRenderer } from "./ipc";
 import { findClient, installDirCandidates } from "./lockfile";
 import { TRACKED_QUEUE_IDS, CAPTURE_POLICY_VERSION } from "../shared/queues";
@@ -689,6 +690,7 @@ export async function fetchNewGames(
       // the app was closed. captureGameRanks decides for itself whether one
       // is still fresh enough for its players' ranks to mean anything.
       await captureGameRanks(fullGame.gameId, lcuJson);
+      await captureTimeline(fullGame.gameId, lcuJson);
     }
   }
 
@@ -815,6 +817,27 @@ export function onEogCaptured(listener: EogListener): void {
   eogListener = listener;
 }
 
+// The timeline backfill runs once per connection, a little after the client
+// settles, and only while it stays connected and out of a game. It is pure
+// housekeeping: it gives way to anything the user is doing, and picks up
+// where it left off on the next launch.
+const TIMELINE_BACKFILL_DELAY_MS = 30_000;
+let timelineBackfillRunning = false;
+
+function startTimelineBackfill(): void {
+  if (timelineBackfillRunning) return;
+  timelineBackfillRunning = true;
+  const timer = setTimeout(() => {
+    void backfillTimelines(lcuJson, () => status === "connected")
+      .catch((err) => console.log("Timeline backfill stopped:", err))
+      .finally(() => {
+        timelineBackfillRunning = false;
+      });
+  }, TIMELINE_BACKFILL_DELAY_MS);
+  // Never the reason the app cannot exit
+  timer.unref?.();
+}
+
 async function captureEogGame(
   win: BrowserWindow | null | undefined,
   gameId: number,
@@ -848,6 +871,10 @@ async function captureEogGame(
       // Before the interface is told, so a detail opened straight away
       // already has them. It is ten local requests and never throws.
       await captureGameRanks(gameId, lcuJson);
+      // The timeline is immutable history, so unlike the ranks there is no
+      // freshness rule: it is only ever worth taking while the client still
+      // has the game.
+      await captureTimeline(gameId, lcuJson);
       sendToRenderer(win, "lcu:games-updated");
       eogListener?.(win, gameId);
     }
@@ -1217,6 +1244,7 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
       clearInterval(connectTimer);
       connectTimer = null;
     }
+    startTimelineBackfill();
 
     // Installed before the first sync runs, never after. The client can be found
     // before it is ready to answer (authenticate() reads its command line the

@@ -83,6 +83,26 @@ function createTables() {
       PRIMARY KEY (game_id, participant_id)
     );
 
+    -- A game's timeline: a frame a minute with everyone's gold, experience,
+    -- level, minions and position, and every kill with who killed whom, where
+    -- and when. Stored gzipped, about 8 KB a game.
+    --
+    -- Its own table because the games table is scanned by nearly every
+    -- statistics query and a blob per row would make those pages heavier for
+    -- nothing, and because repairing a game rewrites its games row, which
+    -- would throw away a capture that may no longer be obtainable.
+    CREATE TABLE IF NOT EXISTS game_timelines (
+      game_id     INTEGER PRIMARY KEY,
+      timeline_gz BLOB NOT NULL,
+      captured_at INTEGER NOT NULL
+    );
+
+    -- Games the client had no timeline for, so the backfill stops asking.
+    CREATE TABLE IF NOT EXISTS game_timelines_missing (
+      game_id    INTEGER PRIMARY KEY,
+      checked_at INTEGER NOT NULL
+    );
+
     -- The rank each player held when the app first saw this game. Its own
     -- table because a player holds several at once (solo and flex) and
     -- because match_participants gets wiped and rewritten on a repair, which

@@ -4,6 +4,14 @@ export { getStoredQueues, selectedQueue } from "./filters";
 export { upsertSummoner, getProfile, getAllPuuids, getSummoner } from "./summoner";
 export { checkScoreBackfill } from "./scoring";
 export {
+  hasTimeline,
+  saveTimeline,
+  getTimeline,
+  gamesMissingTimeline,
+  markTimelineUnavailable,
+  timelineCoverage,
+} from "./timelines";
+export {
   getGameForRanks,
   getParticipantPuuids,
   hasGameRanks,

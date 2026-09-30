@@ -24,7 +24,7 @@ export function migrateHiddenQueues() {
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -41,6 +41,7 @@ export function runMigrations() {
   if (current < 4) migrateToV4();
   if (current < 5) migrateToV5();
   if (current < 6) migrateToV6();
+  if (current < 7) migrateToV7();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -216,6 +217,23 @@ function migrateToV6() {
     );
     CREATE TABLE IF NOT EXISTS game_ranks_taken (
       game_id INTEGER PRIMARY KEY
+    );
+  `);
+}
+
+// Adds the two tables that hold the timelines. Nothing to backfill here:
+// the capture pass fills them from the client in the background, and it
+// would be the wrong place anyway — a migration cannot make requests.
+function migrateToV7() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS game_timelines (
+      game_id     INTEGER PRIMARY KEY,
+      timeline_gz BLOB NOT NULL,
+      captured_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS game_timelines_missing (
+      game_id    INTEGER PRIMARY KEY,
+      checked_at INTEGER NOT NULL
     );
   `);
 }
