@@ -55,6 +55,19 @@ const QUEUE_LADDER: Record<number, string> = {
  * is a ranked queue, otherwise solo, otherwise flex. A blank or "NONE" tier is
  * the client's way of saying unranked and never survives this.
  */
+/**
+ * The division to show, which for Master and above is none.
+ *
+ * Those three tiers have no divisions — they are one pool ordered by LP — but
+ * Riot reports them with "I" anyway, by a convention that keeps the field
+ * populated. Taken at face value it puts a meaningless "I" next to every
+ * Master, Grandmaster and Challenger on screen. This is where that is dropped,
+ * so nothing downstream has to remember.
+ */
+export function effectiveDivision(rank: PlayerRank): RankDivision | null {
+  return APEX_TIERS.includes(rank.tier) ? null : rank.division;
+}
+
 export function pickRank(entries: PlayerRank[], queueId: number): PlayerRank | null {
   const ladders = [QUEUE_LADDER[queueId], RANKED_SOLO, RANKED_FLEX].filter(Boolean) as string[];
   for (const ladder of ladders) {
@@ -161,6 +174,7 @@ export function formatRank(
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string,
 ): string {
   const tier = t(tierLabelKey(rank.tier));
-  if (rank.division) return `${tier} ${rank.division}`;
+  const division = effectiveDivision(rank);
+  if (division) return `${tier} ${division}`;
   return t("rank.tierLp", { tier, lp: Math.round(rank.lp) });
 }

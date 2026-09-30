@@ -10,7 +10,7 @@
 // presented as that day's — see RANK_MAX_AGE_MS.
 
 import * as db from "./db";
-import { RANKED_FLEX, RANKED_SOLO, RANK_DIVISIONS, RANK_TIERS } from "../shared/ranks";
+import { APEX_TIERS, RANKED_FLEX, RANKED_SOLO, RANK_DIVISIONS, RANK_TIERS } from "../shared/ranks";
 import type { PlayerRank, RankDivision, RankTier } from "../shared/ranks";
 
 // How old a game may be and still have its players' ranks taken as that game's.
@@ -41,9 +41,12 @@ export function parseRankedStats(payload: any): PlayerRank[] {
     const tier = String(q?.tier ?? "").toUpperCase();
     if (!TIERS.has(tier)) continue;
     const division = String(q?.division ?? "").toUpperCase();
+    // Apex tiers arrive carrying "I" and have no divisions, so it is dropped
+    // here too: stored data should not need reinterpreting to be read.
+    const apex = APEX_TIERS.includes(tier as RankTier);
     out.push({
       tier: tier as RankTier,
-      division: DIVISIONS.has(division) ? (division as RankDivision) : null,
+      division: !apex && DIVISIONS.has(division) ? (division as RankDivision) : null,
       lp: Number.isFinite(q?.leaguePoints) ? Number(q.leaguePoints) : 0,
       queueType,
     });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { rankCrestUrl } from "../../shared/cdragon";
-import { formatRank, tierLabelKey, type PlayerRank } from "../../shared/ranks";
+import { effectiveDivision, formatRank, tierLabelKey, type PlayerRank } from "../../shared/ranks";
 import { useT } from "../lib/i18n";
 
 // One crest per tier for the whole renderer, so a tier whose art is missing is
@@ -20,7 +20,9 @@ export default function RankIcon({ rank, size = 18 }: { rank: PlayerRank; size?:
   const t = useT();
   const [broken, setBroken] = useState(() => deadTiers.has(rank.tier));
   const full = formatRank(rank, t);
-  const suffix = rank.division ?? String(Math.round(rank.lp));
+  // No division above Diamond, so the number beside the crest is the LP,
+  // which is the only thing separating those three tiers.
+  const suffix = effectiveDivision(rank) ?? String(Math.round(rank.lp));
 
   if (broken) {
     return (
