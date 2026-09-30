@@ -22,8 +22,9 @@ export type { GameNotice };
 import type { ChallengeLevel } from "./challenges";
 import type { MatchExtras } from "./match-detail";
 import type { MatchTimeline } from "./match-timeline";
+import type { SkillAxes } from "./skill-axes";
 
-export type { ChallengeLevel, MatchExtras, MatchTimeline };
+export type { ChallengeLevel, MatchExtras, MatchTimeline, SkillAxes };
 
 export interface GameRecord {
   game_id: number;
@@ -1115,6 +1116,9 @@ export interface ElectronAPI {
   getMatchExtras: (gameId: number) => Promise<MatchExtras | null>;
   // The chart and the kill map, from the timeline captured in v0.7.9.
   getMatchTimeline: (gameId: number) => Promise<MatchTimeline | null>;
+  // Reads every stored payload of the queue, so it is a page that opens
+  // rather than a number a list asks for — see src/main/db/skill-axes.ts.
+  getSkillAxes: (queue?: number) => Promise<SkillAxes>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
   getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
@@ -1246,6 +1250,7 @@ export const INVOKE_CHANNELS = {
   getMatchDetail: "db:match-detail",
   getMatchExtras: "db:match-extras",
   getMatchTimeline: "db:match-timeline",
+  getSkillAxes: "db:skill-axes",
   toggleFavorite: "db:toggle-favorite",
   getChampionStats: "db:champion-stats",
   getAugmentStats: "db:augment-stats",

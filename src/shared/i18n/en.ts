@@ -931,6 +931,43 @@ export const en = {
   "timeline.assists": "with {names}",
   "timeline.mapNote":
     "The timeline carries no item purchases or skill ups, so build order and skill order are not here: the data does not exist, rather than having been left out.",
+  // Skill axes
+  "nav.skills": "Skills",
+  "axes.title": "Your skill profile",
+  "axes.subtitle": "over {count} games in this queue",
+  "axes.empty": "No games with enough detail in this queue yet.",
+  "axes.profile": "The axes",
+  "axes.profileHint": "50% is the middle player of your games",
+  "axes.profileNote":
+    "Each axis is a percentile inside its own game: of the other nine players, how many you beat. Compared with the lobby and not with yourself, because your own average is always your average and the profile would be flat by construction. Expect it to be nearly round — where it separates is champion by champion, below.",
+  "axes.trend": "How you have changed",
+  "axes.trendHint": "your first {count} games against your last {count}",
+  "axes.trendNote":
+    "A gap only counts when it clears 1.5 standard errors of the difference; anything inside that reads as flat. Fair in ARAM, where the champion is random and both halves carry a comparable mix — in a queue where you pick, this would partly measure what you chose to play.",
+  "axes.flat": "flat",
+  "axes.byChampion": "Champion by champion",
+  "axes.byChampionHint": "with {count} games or more",
+  "axes.noChampions": "No champion has {count} games in this queue yet.",
+  "axes.champion": "Champion",
+  "axes.games": "Games",
+  "axes.worse": "Worse than the lobby",
+  "axes.better": "Better than the lobby",
+  "axes.aggression": "Aggression",
+  "axes.damage": "Damage",
+  "axes.toughness": "Toughness",
+  "axes.survival": "Survival",
+  "axes.control": "Control",
+  "axes.economy": "Economy",
+  "axes.vision": "Vision",
+  "axes.farm": "Farm",
+  "axes.aggressionWhat": "Your share of your team's kills, counting assists.",
+  "axes.damageWhat": "Damage to champions per minute.",
+  "axes.toughnessWhat": "Damage taken plus damage mitigated, per minute.",
+  "axes.survivalWhat": "Deaths per minute, the other way up: higher means you died less.",
+  "axes.controlWhat": "Seconds of crowd control applied to enemy champions, per minute.",
+  "axes.economyWhat": "Gold earned per minute.",
+  "axes.visionWhat": "Wards placed and cleared. Only in games where somebody warded.",
+  "axes.farmWhat": "Minions and camps per minute. Only where the map has a jungle.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

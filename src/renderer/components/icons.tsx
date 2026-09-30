@@ -171,6 +171,15 @@ export function TrendingUpIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function RadarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 2.5 20.2 7v10L12 21.5 3.8 17V7z" />
+      <path d="M12 7.5 16.8 10v5L12 17.5 7.2 15v-5z" />
+    </Icon>
+  );
+}
+
 export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
