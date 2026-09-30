@@ -2093,6 +2093,33 @@ test("the live tag only speaks about someone the app actually knows", () => {
   assert.equal(plano.vars.rate, 50);
 });
 
+test("a game falls in the duration bucket its length belongs to", () => {
+  const { DURATION_BUCKETS, durationBucket } = load("src/shared/trends.ts");
+  const min = (m) => m * 60;
+
+  // Los bordes: una partida justo en el corte cae en el tramo de arriba
+  assert.equal(durationBucket(min(8)), 0);
+  assert.equal(durationBucket(min(11.9)), 0);
+  assert.equal(durationBucket(min(12)), 12);
+  assert.equal(durationBucket(min(17.9)), 15);
+  assert.equal(durationBucket(min(18)), 18);
+  assert.equal(durationBucket(min(21)), 21);
+  // Y la cola no tiene techo: una de 40 minutos sigue en el ultimo tramo
+  assert.equal(durationBucket(min(25)), 25);
+  assert.equal(durationBucket(min(40)), 25);
+  // Una duracion imposible no revienta
+  assert.equal(durationBucket(0), 0);
+
+  // Los tramos van en orden y sin huecos
+  for (let i = 1; i < DURATION_BUCKETS.length; i++) {
+    assert.ok(DURATION_BUCKETS[i] > DURATION_BUCKETS[i - 1], "los cortes deben ir en orden");
+  }
+  // Y todo minuto plausible cae en alguno
+  for (let m = 0; m <= 60; m++) {
+    assert.ok(DURATION_BUCKETS.includes(durationBucket(min(m))), m + " min sin tramo");
+  }
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

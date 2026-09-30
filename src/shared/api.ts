@@ -469,6 +469,9 @@ export interface TrendsData {
   hours: { hour: number; games: number; wins: number }[];
   // 0 = Sunday, matching strftime('%w')
   weekdays: { weekday: number; games: number; wins: number }[];
+  // Games grouped by how long they ran, in the buckets of DURATION_BUCKETS.
+  // `from` is the bucket's lower edge in minutes.
+  durations: { from: number; games: number; wins: number; avgScore: number | null }[];
 }
 
 // Just enough of a game to draw a record's context line and open its match.

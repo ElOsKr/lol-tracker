@@ -9,6 +9,7 @@ import type {
   GlobalChampionDetail,
   TrendsData,
 } from "../../shared/api";
+import { DURATION_BUCKETS, durationBucket } from "../../shared/trends";
 import { db } from "./connection";
 import { applyQueueFilter } from "./filters";
 
@@ -646,5 +647,38 @@ export function getTrendsData(queue?: number): TrendsData {
     `)
     .all(...params) as TrendsData["weekdays"];
 
-  return { daily, patches, hours, weekdays };
+  // Bucketed here rather than in SQL: the edges live in shared/trends.ts so
+  // the query and the chart cannot drift apart, and a CASE expression built
+  // from them would be harder to read than the loop.
+  const durationRows = db
+    .prepare(`
+      SELECT g.game_duration as duration, ps.win as win, ps.score as score
+      ${fromSql}
+      ${whereSql}
+    `)
+    .all(...params) as { duration: number; win: number; score: number | null }[];
+
+  const buckets = new Map<number, { games: number; wins: number; sum: number; scored: number }>();
+  for (const edge of DURATION_BUCKETS) {
+    buckets.set(edge, { games: 0, wins: 0, sum: 0, scored: 0 });
+  }
+  for (const row of durationRows) {
+    const bucket = buckets.get(durationBucket(row.duration))!;
+    bucket.games++;
+    bucket.wins += row.win;
+    if (row.score != null) {
+      bucket.sum += row.score;
+      bucket.scored++;
+    }
+  }
+  const durations = [...buckets.entries()]
+    .filter(([, b]) => b.games > 0)
+    .map(([from, b]) => ({
+      from,
+      games: b.games,
+      wins: b.wins,
+      avgScore: b.scored > 0 ? b.sum / b.scored : null,
+    }));
+
+  return { daily, patches, hours, weekdays, durations };
 }

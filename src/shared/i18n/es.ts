@@ -584,6 +584,16 @@ export const es: Dictionary = {
   "trends.winRateByPatch": "Winrate por parche",
   "trends.byWeekday": "Por día de la semana",
   "trends.byHour": "Por hora del día",
+  "trends.byDuration": "Winrate por duración",
+  "trends.scoreByDuration": "Nota media por duración",
+  "trends.durationUnder": "menos de {to}",
+  "trends.durationRange": "{from}-{to}",
+  "trends.durationOver": "{from}+",
+  "trends.durationLong": "{range} minutos",
+  "trends.durationCaveat":
+    "Léelo con cuidado: una partida que vas ganando se acaba antes, así que parte de esto es el resultado decidiendo la duración y no al revés.",
+  "trends.scoreDurationNote":
+    "Esta no es circular. Tu nota se mide contra los otros nueve jugadores, así que no sube ni baja solo porque la partida se alargue.",
   "trends.dayGames": "{date} — {games} ({wins}V–{losses}D)",
   "trends.dayNone": "{date} — sin partidas",
   "trends.gamesRecord": "{games} partidas · {wins}V–{losses}D",

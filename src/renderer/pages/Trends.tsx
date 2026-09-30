@@ -668,6 +668,81 @@ function clockPoint(
   };
 }
 
+// The label for a bucket, from its lower edge and the next one along.
+function durationLabel(t: Translate, from: number, next: number | undefined): string {
+  if (from === 0) return t("trends.durationUnder", { to: next ?? 0 });
+  if (next === undefined) return t("trends.durationOver", { from });
+  return t("trends.durationRange", { from, to: next });
+}
+
+function durationPoints(
+  t: Translate,
+  durations: TrendsData["durations"],
+  value: (row: TrendsData["durations"][number]) => number | null,
+  detail: (row: TrendsData["durations"][number]) => string,
+): SeriesPoint[] {
+  const edges = durations.map((d) => d.from);
+  return durations.map((row, i) => {
+    const label = durationLabel(t, row.from, edges[i + 1]);
+    return {
+      label,
+      // The axis has no room for the unit, so the hover carries it: "15-18"
+      // alone does not say minutes.
+      long: t("trends.durationLong", { range: label }),
+      games: row.games,
+      value: row.games >= MIN_PLOTTED_GAMES ? value(row) : null,
+      detail: row.games > 0 ? detail(row) : t("common.noGames"),
+    };
+  });
+}
+
+function DurationWinRateChart({ durations }: { durations: TrendsData["durations"] }) {
+  const t = useT();
+  const points = durationPoints(
+    t,
+    durations,
+    (row) => (row.wins / row.games) * 100,
+    (row) =>
+      t("trends.gamesRecord", {
+        games: row.games,
+        wins: row.wins,
+        losses: row.games - row.wins,
+      }),
+  );
+  return (
+    <TimeSeriesChart
+      points={points}
+      yMin={0}
+      yMax={100}
+      ticks={[0, 25, 50, 75, 100]}
+      refValue={50}
+      format={(v) => `${Math.round(v)}%`}
+    />
+  );
+}
+
+function DurationScoreChart({ durations }: { durations: TrendsData["durations"] }) {
+  const t = useT();
+  const points = durationPoints(
+    t,
+    durations,
+    (row) => row.avgScore,
+    (row) =>
+      row.avgScore != null
+        ? t("trends.avgScore", { score: row.avgScore.toFixed(2) })
+        : t("common.noGames"),
+  );
+  return (
+    <TimeSeriesChart
+      points={points}
+      yMin={4}
+      yMax={8}
+      ticks={[4, 5, 6, 7, 8]}
+      format={(v) => v.toFixed(1)}
+    />
+  );
+}
+
 function WeekdayChart({ weekdays }: { weekdays: TrendsData["weekdays"] }) {
   const t = useT();
   const byDay = new Map(weekdays.map((w) => [w.weekday, w]));
@@ -869,6 +944,26 @@ export default function Trends() {
         <Card title={t("trends.winRateByPatch")}>
           <PatchBars patches={data.patches} />
         </Card>
+      )}
+
+      {data.durations.length > 1 && (
+        <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
+          <Card title={t("trends.byDuration")}>
+            <DurationWinRateChart durations={data.durations} />
+            {/* Said out loud because the curve invites the wrong reading: a
+                game you are winning ends sooner, so part of this is the
+                result deciding the length rather than the other way round. */}
+            <p className="mt-2 text-[11px] leading-snug text-lol-text">
+              {t("trends.durationCaveat")}
+            </p>
+          </Card>
+          <Card title={t("trends.scoreByDuration")}>
+            <DurationScoreChart durations={data.durations} />
+            <p className="mt-2 text-[11px] leading-snug text-lol-text">
+              {t("trends.scoreDurationNote")}
+            </p>
+          </Card>
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
