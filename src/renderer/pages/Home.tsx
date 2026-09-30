@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { EmptyState, PageLoading } from "../components/PageState";
 import { Link } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -40,7 +40,8 @@ import {
   formatChallengeValue,
 } from "../lib/challenges";
 import { challengeFraction } from "../../shared/challenges";
-import { sessionDay } from "../../shared/session";
+import { SESSION_SEEN_SETTING, sessionDay, shouldShowSession } from "../../shared/session";
+import SessionSummary from "../components/SessionSummary";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -395,6 +396,28 @@ export default function Home() {
   );
   useEffect(() => window.api.onGamesUpdated(refetch), [refetch]);
 
+  // Which night the panel was last closed on, and the clock the heading
+  // reads. Undefined until the setting comes back: starting at "nothing
+  // seen" would flash the panel for a frame before learning it was closed.
+  const [seen, setSeen] = useState<{ day: number | null; now: number } | null>(null);
+  useEffect(() => {
+    let active = true;
+    window.api.getSetting(SESSION_SEEN_SETTING).then((value) => {
+      if (active) setSeen({ day: value == null ? null : Number(value), now: Date.now() });
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const session = summary?.session ?? null;
+  const showSession = seen != null && shouldShowSession(session, seen.day);
+  const dismissSession = useCallback(() => {
+    if (!session) return;
+    setSeen((prev) => ({ day: session.day, now: prev?.now ?? session.day }));
+    void window.api.setSetting(SESSION_SEEN_SETTING, String(session.day));
+  }, [session]);
+
   if (!summary) return <PageLoading />;
 
   const hasGames = summary.totalGames > 0;
@@ -414,6 +437,10 @@ export default function Home() {
           </span>
         )}
       </div>
+
+      {showSession && session && seen && (
+        <SessionSummary session={session} now={seen.now} onDismiss={dismissSession} />
+      )}
 
       {hasGames ? (
         <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @4xl:grid-cols-4">

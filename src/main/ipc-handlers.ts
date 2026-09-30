@@ -16,7 +16,7 @@ import { handle, sendToRenderer } from "./ipc";
 import { getQueueLifetimeTotals } from "./queue-totals";
 import { t } from "./i18n";
 import { refreshTrayMenu } from "./tray";
-import { SESSION_GROUPING_SETTING } from "../shared/session";
+import { SESSION_GROUPING_SETTING, SESSION_SEEN_SETTING } from "../shared/session";
 import { LANGUAGE_SETTING } from "../shared/i18n";
 import { HOME_PAGE_SETTING, NAV_LAYOUT_SETTING } from "../shared/navigation";
 import { GAME_NOTICE_OBS_SETTING, GAME_NOTICE_SETTING } from "../shared/notice";
@@ -46,6 +46,7 @@ const RENDERER_SETTINGS = new Set([
   GAME_NOTICE_OBS_SETTING,
   OPEN_ON_CLIENT_SETTING,
   UI_SCALE_SETTING,
+  SESSION_SEEN_SETTING,
 ]);
 
 // Registered once for the lifetime of the app — ipcMain.handle throws on a

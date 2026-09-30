@@ -688,6 +688,32 @@ export interface HomeSession {
   avgScore: number | null;
   // Seconds of game time
   duration: number;
+  // Every game of the session, oldest first. The card ignores these; the
+  // panel draws the night's shape from them.
+  played: HomeSessionGame[];
+  // When the first started and the last ended, for "from 21:08 to 23:01"
+  startedAt: number;
+  endedAt: number;
+  // False while the session is still today: a night is not summarised until
+  // it is over, and the day of play ends at 5am, not at midnight.
+  finished: boolean;
+  // The player's usual score, so the session average can be placed against
+  // something. Null in queues that carry no score.
+  careerAvgScore: number | null;
+  // Days back to the last session with more games than this one, or null if
+  // there has never been a longer one. Only for saying "your longest night
+  // in three weeks" and nothing else.
+  longerAgoDays: number | null;
+}
+
+export interface HomeSessionGame {
+  gameId: number;
+  championId: number;
+  win: boolean;
+  score: number | null;
+  scoreBadge: "MVP" | "ACE" | null;
+  gameCreation: number;
+  gameDuration: number;
 }
 
 export interface HomeChampion {

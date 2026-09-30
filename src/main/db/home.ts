@@ -1,4 +1,4 @@
-import type { HomeChampion, HomeSummary } from "../../shared/api";
+import type { HomeChampion, HomeSessionGame, HomeSummary } from "../../shared/api";
 import { hasScore } from "../../shared/queues";
 import { sessionDay } from "../../shared/session";
 import { selectedQueue } from "./filters";
@@ -23,6 +23,41 @@ interface ChampionTally {
   wins: number;
   scoreSum: number;
   scored: number;
+}
+
+// The score the player usually gets, over everything this queue has stored.
+// Only the average is compared, never totals: a total says as much about how
+// long a game ran as about how it went.
+function careerAverageScore(rows: CareerRow[]): number | null {
+  let sum = 0;
+  let scored = 0;
+  for (const r of rows) {
+    if (r.score == null) continue;
+    sum += r.score;
+    scored++;
+  }
+  return scored > 0 ? sum / scored : null;
+}
+
+/**
+ * How long ago the last bigger session was, in days, or null if this is the
+ * biggest there has ever been.
+ *
+ * Only worth knowing to say "your longest night in three weeks", so a tie
+ * does not count: another six-game night last week makes this one ordinary.
+ */
+function daysSinceLongerSession(rows: CareerRow[], day: number, games: number): number | null {
+  const counts = new Map<number, number>();
+  for (const r of rows) {
+    const d = sessionDay(r.game_creation);
+    if (d >= day) continue;
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  let newest: number | null = null;
+  for (const [d, count] of counts) {
+    if (count > games && (newest == null || d > newest)) newest = d;
+  }
+  return newest == null ? null : Math.round((day - newest) / DAY_MS);
 }
 
 function averageScore(tally: { scoreSum: number; scored: number }): number | null {
@@ -118,6 +153,7 @@ export function summarizeHome(rows: CareerRow[], queue: number, now = Date.now()
   summary.streak = { kind: last.win ? "win" : "loss", length, best };
 
   const day = sessionDay(last.game_creation);
+  const played: HomeSessionGame[] = [];
   const session = {
     day,
     games: 0,
@@ -128,6 +164,14 @@ export function summarizeHome(rows: CareerRow[], queue: number, now = Date.now()
     assists: 0,
     avgScore: null as number | null,
     duration: 0,
+    played,
+    startedAt: last.game_creation,
+    endedAt: last.game_creation + last.game_duration * 1000,
+    // A night is not summarised while it is still going on, and the day of
+    // play ends at 5am rather than at midnight.
+    finished: sessionDay(now) !== day,
+    careerAvgScore: null as number | null,
+    longerAgoDays: null as number | null,
   };
   let scoreSum = 0;
   let scored = 0;
@@ -144,8 +188,25 @@ export function summarizeHome(rows: CareerRow[], queue: number, now = Date.now()
       scoreSum += r.score;
       scored++;
     }
+    // Oldest first, which is the order the night is read in
+    played.unshift({
+      gameId: r.game_id,
+      championId: r.champion_id,
+      win: r.win === 1,
+      score: r.score,
+      scoreBadge: r.score_badge,
+      gameCreation: r.game_creation,
+      gameDuration: r.game_duration,
+    });
   }
   if (scored > 0) session.avgScore = scoreSum / scored;
+  if (played.length > 0) {
+    session.startedAt = played[0].gameCreation;
+    const end = played[played.length - 1];
+    session.endedAt = end.gameCreation + end.gameDuration * 1000;
+  }
+  session.careerAvgScore = careerAverageScore(rows);
+  session.longerAgoDays = daysSinceLongerSession(rows, day, session.games);
   summary.session = session;
 
   const since = now - CHAMPION_WINDOW_DAYS * DAY_MS;
