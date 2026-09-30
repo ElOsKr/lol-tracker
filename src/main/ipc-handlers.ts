@@ -154,6 +154,14 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
     }
   });
 
+  handle("getPerkData", async (_event, patch) => {
+    try {
+      return await dragon.loadPerkData(patch);
+    } catch {
+      return {};
+    }
+  });
+
   handle("getSummonerSpellData", async () => {
     try {
       return await dragon.loadSummonerSpellData();

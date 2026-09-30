@@ -11,6 +11,16 @@ export function cdragonAssetUrl(branch: string, iconPath: string): string {
     .toLowerCase()}`;
 }
 
+// Rune art is the exception to the rule above: perks.json names its icons
+// with the same "/lol-game-data/assets/..." prefix as items do, but the files
+// sit under the game-data plugin rather than under /game/, where the same
+// path answers 404.
+export function cdragonPerkUrl(branch: string, iconPath: string): string {
+  return `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/${iconPath
+    .replace("/lol-game-data/assets/", "")
+    .toLowerCase()}`;
+}
+
 export function cherryAugmentsUrl(branch: string): string {
   return `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json`;
 }

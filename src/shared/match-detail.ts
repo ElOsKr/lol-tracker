@@ -52,6 +52,13 @@ export interface MatchTeamStats {
   bans: number[];
 }
 
+export interface PlayerPerks {
+  primaryStyle: number;
+  subStyle: number;
+  /** Six ids: four from the primary tree, two from the secondary. */
+  selected: number[];
+}
+
 /** One player's row, keyed back to the scoreboard by `participantId`. */
 export interface MatchPlayerExtras {
   participantId: number;
@@ -75,6 +82,14 @@ export interface MatchPlayerExtras {
   wardsKilled: number;
   controlWards: number;
   visionScore: number;
+  /**
+   * The runes this player took: the two style ids and the six keystones and
+   * minor runes, in the order the client lists them.
+   *
+   * Empty where the queue picks them for you — ARAM Mayhem answers every
+   * perk field with a zero.
+   */
+  perks: PlayerPerks;
   /** Minions plus jungle camps. */
   cs: number;
   /** Jungle camps alone — the one field that tells a laned map from ARAM. */
@@ -120,6 +135,8 @@ export interface DetailSections {
   economy: boolean;
   /** Anyone did damage to a turret, dragon, baron or camp. */
   objectiveDamage: boolean;
+  /** Somebody chose runes. ARAM Mayhem picks them for you and reports zeros. */
+  runes: boolean;
 }
 
 /**
@@ -140,6 +157,7 @@ export function detailSections(extras: MatchExtras): DetailSections {
     vision: players.some((p) => p.wardsPlaced + p.wardsKilled > 0),
     economy: maxOf(players, (p) => p.neutralCs) >= MIN_JUNGLE_CAMPS,
     objectiveDamage: players.some((p) => p.toObjectives > 0),
+    runes: players.some((p) => p.perks.selected.length > 0),
   };
 }
 

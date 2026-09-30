@@ -212,6 +212,69 @@ async function resolveDataBranch(patch?: string): Promise<string> {
   return patch;
 }
 
+// Runas y ramas en un solo mapa: las dos listas se leen por id y el payload
+// de fin de partida no distingue entre una runa y el estilo que la contiene.
+const perkCache = new Map<string, Record<number, PerkInfo>>();
+const perkPromises = new Map<string, Promise<Record<number, PerkInfo>>>();
+
+type PerkInfo = {
+  name: string;
+  shortDesc: string;
+  iconPath: string;
+  branch: string;
+  /** Una rama (Precisión, Dominación…) en vez de una runa suelta. */
+  isStyle: boolean;
+};
+
+const perksJsonUrl = (branch: string) =>
+  `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/perks.json`;
+const perkStylesJsonUrl = (branch: string) =>
+  `https://raw.communitydragon.org/${branch}/plugins/rcp-be-lol-game-data/global/default/v1/perkstyles.json`;
+
+export function loadPerkData(patch?: string): Promise<Record<number, PerkInfo>> {
+  const key = patch ?? "latest";
+  const cached = perkCache.get(key);
+  if (cached) return Promise.resolve(cached);
+
+  let promise = perkPromises.get(key);
+  if (!promise) {
+    promise = (async () => {
+      const branch = await resolveDataBranch(patch);
+      const fetchBoth = async (from: string) =>
+        Promise.all([fetchJson(perksJsonUrl(from)), fetchJson(perkStylesJsonUrl(from))]);
+      let perks: any, styles: any;
+      try {
+        [perks, styles] = await fetchBoth(branch);
+      } catch (err) {
+        if (branch === "latest") throw err;
+        [perks, styles] = await fetchBoth("latest");
+      }
+
+      const data: Record<number, PerkInfo> = {};
+      const add = (entry: any, isStyle: boolean) => {
+        if (!entry || typeof entry.id !== "number") return;
+        data[entry.id] = {
+          name: entry.name || "",
+          shortDesc: entry.shortDesc || entry.tooltip || "",
+          iconPath: entry.iconPath || "",
+          branch,
+          isStyle,
+        };
+      };
+      if (Array.isArray(perks)) for (const perk of perks) add(perk, false);
+      const styleList = Array.isArray(styles) ? styles : styles?.styles;
+      if (Array.isArray(styleList)) for (const style of styleList) add(style, true);
+
+      perkCache.set(key, data);
+      console.log(`Loaded ${Object.keys(data).length} runes from CommunityDragon (${branch})`);
+      return data;
+    })();
+    promise.catch(() => perkPromises.delete(key));
+    perkPromises.set(key, promise);
+  }
+  return promise;
+}
+
 export function loadItemData(patch?: string): Promise<Record<number, ItemInfo>> {
   const key = patch ?? "latest";
   const cached = itemCache.get(key);

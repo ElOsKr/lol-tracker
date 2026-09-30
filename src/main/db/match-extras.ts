@@ -70,6 +70,14 @@ function playerFromRaw(raw: any, participant: any, index: number): MatchPlayerEx
     wardsKilled: num(s.wardsKilled),
     controlWards: num(s.visionWardsBoughtInGame),
     visionScore: num(s.visionScore),
+    perks: {
+      primaryStyle: num(s.perkPrimaryStyle),
+      subStyle: num(s.perkSubStyle),
+      // A slot a queue doesn't fill comes back as 0, which is not a rune.
+      selected: [s.perk0, s.perk1, s.perk2, s.perk3, s.perk4, s.perk5]
+        .map(num)
+        .filter((id) => id > 0),
+    },
     cs: mode.cs ?? 0,
     neutralCs: num(s.neutralMinionsKilled),
     totalHeal: num(s.totalHeal),

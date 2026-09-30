@@ -347,6 +347,18 @@ export interface AugmentData {
   };
 }
 
+export interface PerkData {
+  [id: number]: {
+    name: string;
+    /** Riot markup, como el de los objetos: pintar con RiotText. */
+    shortDesc: string;
+    iconPath: string;
+    branch: string;
+    /** Una rama entera, no una runa suelta. */
+    isStyle: boolean;
+  };
+}
+
 export interface ItemData {
   [id: number]: {
     name: string;
@@ -1155,6 +1167,7 @@ export interface ElectronAPI {
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
+  getPerkData: (patch?: string) => Promise<PerkData>;
   getItemUsage: (queue?: number) => Promise<ItemUsage[]>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;
@@ -1262,6 +1275,7 @@ export const INVOKE_CHANNELS = {
   getAugmentData: "dragon:augments",
   resolveAugmentIcon: "dragon:augment-icon",
   getItemData: "dragon:items",
+  getPerkData: "dragon:perks",
   getItemUsage: "db:item-usage",
   getSummonerSpellData: "dragon:summoner-spells",
   getSetting: "settings:get",

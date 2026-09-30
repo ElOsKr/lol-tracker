@@ -2237,6 +2237,7 @@ test("a detail block is only drawn when the queue actually has the thing it meas
     wardsKilled: 0,
     controlWards: 0,
     visionScore: 0,
+    perks: { primaryStyle: 0, subStyle: 0, selected: [] },
     cs: 0,
     neutralCs: 0,
     totalHeal: 0,
@@ -2278,6 +2279,7 @@ test("a detail block is only drawn when the queue actually has the thing it meas
   assert.equal(enAram.vision, false, "cero guardianes no es informacion");
   assert.equal(enAram.economy, false, "sin jungla, el farmeo por minuto no compara nada");
   assert.equal(enAram.objectiveDamage, true, "a las torres si se les pega");
+  assert.equal(enAram.runes, false, "Mayhem las elige por ti y devuelve ceros");
 
   // La Flex real 7761941067: aparece todo
   const grieta = {
@@ -2303,6 +2305,11 @@ test("a detail block is only drawn when the queue actually has the thing it meas
       player({
         participantId: 7,
         teamId: 200,
+        perks: {
+          primaryStyle: 8000,
+          subStyle: 8300,
+          selected: [8010, 9111, 9104, 8299, 8347, 8304],
+        },
         visionScore: 25,
         wardsKilled: 5,
         cs: 300,
@@ -2319,6 +2326,7 @@ test("a detail block is only drawn when the queue actually has the thing it meas
     vision: true,
     economy: true,
     objectiveDamage: true,
+    runes: true,
   });
 
   // Una Gwen que no pone guardianes pero rompe cinco sigue contando como vision

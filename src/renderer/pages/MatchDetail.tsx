@@ -22,6 +22,7 @@ import { queueLabel } from "../components/QueueSelect";
 import { EmptyState, PageLoading } from "../components/PageState";
 import ChampionIcon from "../components/ChampionIcon";
 import VerdictLines from "../components/VerdictLines";
+import PerkIcon from "../components/PerkIcon";
 import Kda from "../components/Kda";
 import { LOCALE, formatDateTime, formatDuration, kdaRatio } from "../lib/format";
 import { useT, type Translate } from "../lib/i18n";
@@ -119,6 +120,7 @@ export default function MatchDetail() {
               color="bg-lol-win"
             />
           </div>
+          {sections.runes && <Runes rows={rows} patch={detail.game.game_version} t={t} />}
           {sections.bans && <Bans teams={extras.teams} champData={champData} t={t} />}
           <Objectives teams={extras.teams} rows={rows} sections={sections} t={t} />
           {sections.vision && <Vision rows={rows} t={t} />}
@@ -453,6 +455,42 @@ function Bans({
   );
 }
 
+/**
+ * Everyone's runes, one row each.
+ *
+ * The keystone is drawn bigger than the three minor runes of its tree, and
+ * the secondary pair sits after a divider, which is the shape the client
+ * uses and the only thing that makes six circles readable at a glance.
+ */
+function Runes({ rows, patch, t }: { rows: Row[]; patch?: string | null; t: Translate }) {
+  return (
+    <Card title={t("detail.runes")} hint={t("detail.runesHint")}>
+      <div className="flex flex-col gap-1">
+        {rows.map((row) => {
+          const [keystone, ...rest] = row.perks.selected;
+          const primary = rest.slice(0, 3);
+          const secondary = rest.slice(3);
+          return (
+            <PlayerRow key={row.participantId} row={row}>
+              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                <PerkIcon perkId={keystone ?? 0} size={26} patch={patch} />
+                {primary.map((id, i) => (
+                  <PerkIcon key={i} perkId={id} size={19} patch={patch} />
+                ))}
+                <span aria-hidden className="mx-1 h-4 w-px bg-lol-border" />
+                <PerkIcon perkId={row.perks.subStyle} size={16} patch={patch} />
+                {secondary.map((id, i) => (
+                  <PerkIcon key={i} perkId={id} size={19} patch={patch} />
+                ))}
+              </span>
+            </PlayerRow>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function teamDot(teamId: number): string {
   if (teamId === 100) return "bg-sky-400";
   if (teamId === 200) return "bg-lol-loss";
@@ -621,6 +659,7 @@ function MissingNote({ sections, t }: { sections: DetailSections; t: Translate }
   if (!sections.epics) missing.push("detail.missingEpics");
   if (!sections.vision) missing.push("detail.missingVision");
   if (!sections.economy) missing.push("detail.missingEconomy");
+  if (!sections.runes) missing.push("detail.missingRunes");
   if (missing.length === 0) return null;
   const list = missing.map((key) => t(key)).join(t("detail.listJoin"));
   return (
