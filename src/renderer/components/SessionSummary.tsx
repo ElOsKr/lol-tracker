@@ -147,7 +147,7 @@ export default function SessionSummary({
             {session.played.map((game) => (
               <Link
                 key={game.gameId}
-                to={`/history?game=${game.gameId}`}
+                to={`/?game=${game.gameId}`}
                 className="flex flex-col items-center gap-1"
                 title={game.score != null ? game.score.toFixed(1) : undefined}
               >
@@ -174,7 +174,7 @@ export default function SessionSummary({
                 <div>
                   <span className="mr-1">{t("session.bestLabel")}</span>
                   <Link
-                    to={`/history?game=${extremes.best.gameId}`}
+                    to={`/?game=${extremes.best.gameId}`}
                     className="font-semibold text-lol-gold hover:text-lol-gold-light"
                   >
                     {getChampionName(champData, extremes.best.championId)}{" "}
@@ -184,7 +184,7 @@ export default function SessionSummary({
                 <div>
                   <span className="mr-1">{t("session.worstLabel")}</span>
                   <Link
-                    to={`/history?game=${extremes.worst.gameId}`}
+                    to={`/?game=${extremes.worst.gameId}`}
                     className="hover:text-lol-text-bright"
                   >
                     {getChampionName(champData, extremes.worst.championId)}{" "}

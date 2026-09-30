@@ -1,5 +1,5 @@
 import WidgetSettings from "./pages/WidgetSettings";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import MatchHistory from "./pages/MatchHistory";
@@ -42,6 +42,11 @@ export default function App() {
           <Route path="/global/champion/:championId" element={<GlobalChampionDetail />} />
           <Route path="/widget" element={<WidgetSettings />} />
           <Route path="/settings" element={<Settings />} />
+          {/* A path nothing matches used to render an empty window: the layout
+              route is pathless, so with no child matching, the sidebar went too
+              and there was no way back except restarting. A bad link should cost
+              a redirect, not the app. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
         {/* Outside the layout: this one is drawn to be captured as an image,
             not to be navigated to, so it carries no sidebar or title bar. */}

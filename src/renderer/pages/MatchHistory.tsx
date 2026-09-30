@@ -1,5 +1,5 @@
 import { hasAugments } from "../../shared/queues";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { EmptyState, PageLoading } from "../components/PageState";
 import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
@@ -101,6 +101,12 @@ const SORT_OPTIONS: { value: MatchSort; label: TranslationKey }[] = [
   { value: "damageTaken", label: "sort.damageTaken" },
   { value: "healing", label: "sort.healing" },
 ];
+
+// How a link names the game it wants opened: /?game=<id>
+const GAME_PARAM = "game";
+// Long enough for the row to have rendered with its detail open, so the
+// scroll lands on the whole panel rather than on where the row used to be.
+const SCROLL_DELAY_MS = 120;
 
 interface Session {
   // Doubles as the React key and as what the database's totals are looked up by
@@ -408,6 +414,12 @@ export default function MatchHistory() {
     [filterOptions.champions, champData],
   );
 
+  // A link from elsewhere can name a game: open it and scroll to it, once.
+  // The parameter is dropped afterwards so going back or reloading does not
+  // reopen it, and so the history is its plain self from then on.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedGame = searchParams.get(GAME_PARAM);
+
   const toggleExpand = useCallback(
     async (gameId: number) => {
       if (expandedId === gameId) {
@@ -436,6 +448,24 @@ export default function MatchHistory() {
     },
     [expandedId],
   );
+
+  useEffect(() => {
+    if (!requestedGame) return;
+    const gameId = Number(requestedGame);
+    setSearchParams({}, { replace: true });
+    if (!Number.isFinite(gameId)) return;
+    void toggleExpand(gameId);
+    // After the row has rendered with its detail open
+    const timer = setTimeout(() => {
+      document
+        .getElementById(`game-${gameId}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, SCROLL_DELAY_MS);
+    return () => clearTimeout(timer);
+    // Runs for the parameter alone: toggleExpand changes as rows expand, and
+    // depending on it would reopen this game every time another one is closed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedGame]);
 
   const handleToggleFavorite = useCallback(
     async (match: MatchListItem) => {
@@ -1111,7 +1141,7 @@ function GameRow({
       : "from-lol-loss/12 to-lol-loss/[0.04]";
 
   return (
-    <div>
+    <div id={`game-${match.game_id}`}>
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
