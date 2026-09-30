@@ -2120,6 +2120,37 @@ test("a game falls in the duration bucket its length belongs to", () => {
   }
 });
 
+test("every match filter reaches the list, not just the summaries", () => {
+  // useMatches no reenvia el objeto de filtros: lo desmonta y lo vuelve a
+  // montar clave por clave. Olvidar una no rompe nada visible — la lista
+  // ignora ese filtro mientras el resto de la pagina lo obedece, que es
+  // exactamente como se colo el filtro por objeto.
+  const api = fs.readFileSync(path.resolve(__dirname, "../src/shared/api.ts"), "utf8");
+  const hook = fs.readFileSync(
+    path.resolve(__dirname, "../src/renderer/hooks/useMatches.ts"),
+    "utf8",
+  );
+
+  const block = api.slice(api.indexOf("export interface MatchFilters {"));
+  const body = block.slice(block.indexOf("{") + 1, block.indexOf("\n}"));
+  const keys = [...body.matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1]);
+  assert.ok(keys.length >= 8, "esperaba varias claves, encontre " + keys.length);
+
+  for (const key of keys) {
+    // multikills viaja como una cadena unida, asi que se busca su llave
+    const needle = key === "multikills" ? "multikillsKey" : key;
+    const veces = hook.split(needle).length - 1;
+    assert.ok(
+      veces >= 3,
+      "useMatches solo nombra " +
+        key +
+        " " +
+        veces +
+        " vez/veces; hacen falta tres: desmontarla, meterla en la clave de filtros y enviarla",
+    );
+  }
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

@@ -309,6 +309,8 @@ export const en = {
   "common.w": "W",
   "common.l": "L",
   "history.title": "Match History",
+  "history.filteredByItem": "Games with {item}",
+  "history.clearItemFilter": "Clear",
   "history.importingProgress":
     "Importing your match history — {current} of {total} games checked...",
   "history.importing": "Importing your match history...",
@@ -454,6 +456,7 @@ export const en = {
   "items.buildsFrom": "Built from",
   "items.buildsInto": "Builds into",
   "items.yourGames": "Your games with it",
+  "items.openGames": "{games} · see them",
   "items.neverUsed": "You have not finished a game holding it.",
 
   "augments.noDesc": "No description for this augment.",

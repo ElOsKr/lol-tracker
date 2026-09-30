@@ -313,6 +313,8 @@ export const es: Dictionary = {
   "common.w": "V",
   "common.l": "D",
   "history.title": "Historial",
+  "history.filteredByItem": "Partidas con {item}",
+  "history.clearItemFilter": "Quitar",
   "history.importingProgress":
     "Importando tu historial — {current} de {total} partidas comprobadas...",
   "history.importing": "Importando tu historial...",
@@ -462,6 +464,7 @@ export const es: Dictionary = {
   "items.buildsFrom": "Se compone de",
   "items.buildsInto": "Se convierte en",
   "items.yourGames": "Tus partidas con él",
+  "items.openGames": "{games} · verlas",
   "items.neverUsed": "No has terminado ninguna partida con él.",
 
   "augments.noDesc": "Este aumento no tiene descripción.",

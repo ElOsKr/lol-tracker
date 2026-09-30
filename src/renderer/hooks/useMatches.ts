@@ -4,7 +4,12 @@ import type { MatchFilters, MatchListItem, MultikillType } from "../lib/types";
 const PAGE_SIZE = 20;
 
 export function useMatches(filters: MatchFilters = {}) {
-  const { championId, patch, queue, account, sort, sortDir, multikills, favorites } = filters;
+  // Every filter has to be named three times here — destructured, keyed, and
+  // sent — because the hook rebuilds the request object rather than passing
+  // `filters` through. Miss one and the filter silently does nothing: the
+  // list keeps its old contents while everything else on the page obeys it.
+  const { championId, patch, queue, account, sort, sortDir, multikills, favorites, itemId } =
+    filters;
   // Arrays are recreated each render, so the joined string is what the hook
   // actually depends on. The list is rebuilt from it below rather than closing
   // over the array, which keeps every dependency here a primitive.
@@ -24,6 +29,7 @@ export function useMatches(filters: MatchFilters = {}) {
     sortDir,
     multikillsKey,
     favorites,
+    itemId,
   ]);
   const [loadingFor, setLoadingFor] = useState(filtersKey);
   if (loadingFor !== filtersKey) {
@@ -49,6 +55,7 @@ export function useMatches(filters: MatchFilters = {}) {
           sort,
           sortDir,
           favorites,
+          itemId,
           // Safe to narrow: the key was joined from these same values
           multikills: multikillsKey ? (multikillsKey.split(",") as MultikillType[]) : [],
         });
@@ -63,7 +70,7 @@ export function useMatches(filters: MatchFilters = {}) {
         setLoading(false);
       }
     },
-    [championId, patch, queue, account, sort, sortDir, multikillsKey, favorites],
+    [championId, patch, queue, account, sort, sortDir, multikillsKey, favorites, itemId],
   );
 
   // `load` changes only when a filter changes, so this both loads the first
