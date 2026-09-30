@@ -27,7 +27,10 @@ export default function PlayerTags({
       {tags.map((tag) => (
         <span
           key={tag.key}
-          className={`rounded border px-1.5 py-0.5 text-[10px] leading-none whitespace-nowrap ${TONE[tag.tone]}`}
+          // A badge is too short to explain itself, so the whole sentence and
+          // the figures behind it are a hover away.
+          title={t(tag.hint.key, tag.hint.vars)}
+          className={`cursor-help rounded border px-1.5 py-0.5 text-[10px] leading-none whitespace-nowrap ${TONE[tag.tone]}`}
         >
           {t(tag.key, tag.vars)}
         </span>

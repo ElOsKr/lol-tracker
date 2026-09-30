@@ -18,6 +18,14 @@ export interface PlayerTag {
   weight: number;
   /** Colours the badge. Nothing here is an insult; `bad` is just a losing record. */
   tone: "good" | "bad" | "neutral";
+  /**
+   * What the badge means, shown on hover, with the figures it was built from.
+   *
+   * Every tag has one. A badge that says "+9 points" is a riddle until you
+   * know it means percentage points of win rate and can see the two records
+   * it came from — and the numbers are also what lets you disagree with it.
+   */
+  hint: { key: TranslationKey; vars: Record<string, string | number> };
 }
 
 export const MAX_TAGS = 2;
@@ -96,6 +104,19 @@ export function swingNoiseFloor(player: SharedRecord): number {
   return NOISE_MULTIPLE * Math.sqrt(variance) * 100;
 }
 
+// The two records the swing came from, spelled out. What makes the badge
+// arguable rather than an oracle: you can see the games behind it.
+function swingHintVars(player: SharedRecord): Record<string, number> {
+  return {
+    withRate: Math.round((player.wins / player.games) * 100),
+    withWins: player.wins,
+    withGames: player.games,
+    withoutRate: Math.round((player.withoutWins / player.withoutGames) * 100),
+    withoutWins: player.withoutWins,
+    withoutGames: player.withoutGames,
+  };
+}
+
 /** The swing, but only when it is both big enough to matter and to believe. */
 function meaningfulSwing(player: SharedRecord): number | null {
   const swing = winRateSwing(player);
@@ -125,11 +146,18 @@ export function teammateTags(
       vars: { points: Math.abs(Math.round(swing)) },
       weight: 90 + Math.min(9, Math.round(Math.abs(swing))),
       tone: swing > 0 ? "good" : "bad",
+      hint: { key: "tag.hint.swing", vars: swingHintVars(player) },
     });
   }
 
   if (isMostPlayed) {
-    candidates.push({ key: "tag.regular", vars: {}, weight: 70, tone: "neutral" });
+    candidates.push({
+      key: "tag.regular",
+      vars: {},
+      weight: 70,
+      tone: "neutral",
+      hint: { key: "tag.hint.regular", vars: { games: player.games } },
+    });
   }
 
   if (player.streak && player.streak.length >= MIN_STREAK) {
@@ -138,6 +166,10 @@ export function teammateTags(
       vars: { length: player.streak.length },
       weight: 75 + Math.min(15, player.streak.length * 3),
       tone: player.streak.win ? "good" : "bad",
+      hint: {
+        key: player.streak.win ? "tag.hint.winStreak" : "tag.hint.lossStreak",
+        vars: { length: player.streak.length },
+      },
     });
   }
 
@@ -146,16 +178,26 @@ export function teammateTags(
     // "221 days" is a number nobody pictures; past a couple of months the
     // useful fact is just how many months.
     const months = Math.round(away / 30);
+    const hint = {
+      key: "tag.hint.away" as TranslationKey,
+      vars: { days: away, games: player.games },
+    };
     candidates.push(
       months >= 2
-        ? { key: "tag.awayMonths", vars: { months }, weight: 65, tone: "neutral" }
-        : { key: "tag.away", vars: { days: away }, weight: 65, tone: "neutral" },
+        ? { key: "tag.awayMonths", vars: { months }, weight: 65, tone: "neutral", hint }
+        : { key: "tag.away", vars: { days: away }, weight: 65, tone: "neutral", hint },
     );
   }
 
   const known = Math.floor((now - player.firstPlayed) / DAY_MS);
   if (known <= NEW_WITHIN_DAYS && player.games <= NEW_MAX_GAMES) {
-    candidates.push({ key: "tag.new", vars: {}, weight: 80, tone: "neutral" });
+    candidates.push({
+      key: "tag.new",
+      vars: {},
+      weight: 80,
+      tone: "neutral",
+      hint: { key: "tag.hint.new", vars: { days: known, games: player.games } },
+    });
   }
 
   const score = player.betterScore;
@@ -168,6 +210,10 @@ export function teammateTags(
         vars: { out: Math.round((theirs ? share : 1 - share) * 10) },
         weight: 60,
         tone: "neutral",
+        hint: {
+          key: "tag.hint.outscore",
+          vars: { better: score.better, scored: score.scored },
+        },
       });
     }
   }
@@ -193,6 +239,7 @@ export function livePlayerTag(player: SharedRecord): PlayerTag | null {
       vars: { games: player.games, points: Math.abs(Math.round(swing)) },
       weight: 90,
       tone: swing > 0 ? "good" : "bad",
+      hint: { key: "tag.hint.swing", vars: swingHintVars(player) },
     };
   }
   return {
@@ -203,5 +250,6 @@ export function livePlayerTag(player: SharedRecord): PlayerTag | null {
     },
     weight: 50,
     tone: "neutral",
+    hint: { key: "tag.hint.together", vars: { games: player.games, wins: player.wins } },
   };
 }
