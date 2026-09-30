@@ -1,6 +1,6 @@
 {
   "name": "loleanding",
-  "version": "0.7.13",
+  "version": "0.7.14",
   "description": "League of Legends match history tracker for every queue, born from ARAM Mayhem",
   "license": "MIT",
   "main": "./out/main/index.js",
