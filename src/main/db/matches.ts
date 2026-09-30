@@ -88,12 +88,24 @@ interface MatchListFilters {
   sortDir?: string;
   multikills?: string[];
   favorites?: boolean;
+  itemId?: number;
 }
 
 // The WHERE the match list is built on, shared with anything that has to
 // describe the same set of games. Sorting and paging are the caller's business;
 // everything that decides *which* games are in the list is here, so a summary
 // over the list can't drift from the list itself.
+// Every slot a finished game records, trinket included.
+const ITEM_COLUMNS = [
+  "ps.item0",
+  "ps.item1",
+  "ps.item2",
+  "ps.item3",
+  "ps.item4",
+  "ps.item5",
+  "ps.item6",
+] as const;
+
 function matchListWhere(filters?: MatchListFilters): { whereSql: string; params: any[] } {
   const where: string[] = [];
   const params: any[] = [];
@@ -114,6 +126,13 @@ function matchListWhere(filters?: MatchListFilters): { whereSql: string; params:
   if (filters?.patch) {
     where.push("g.game_version = ?");
     params.push(filters.patch);
+  }
+  if (filters?.itemId != null) {
+    // The seven slots are separate columns rather than a list, so this is
+    // seven comparisons. They are what player_stats stores, and an item can
+    // sit in any of them — including slot 6, the trinket.
+    where.push(`(${ITEM_COLUMNS.map((col) => `${col} = ?`).join(" OR ")})`);
+    params.push(...ITEM_COLUMNS.map(() => filters.itemId));
   }
   applyQueueFilter(where, params, filters?.queue);
   if (filters?.multikills && filters.multikills.length > 0) {

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useItemData } from "../hooks/useChampions";
@@ -130,7 +131,15 @@ function ItemDetail({ item, onSelect }: { item: CatalogItem; onSelect: (id: numb
         </span>
         {item.games > 0 ? (
           <>
-            <span className="text-sm text-lol-text-bright">{gamesLabel(t, item.games)}</span>
+            {/* The count used to be a dead end: it said how many games and
+                gave no way to reach them. */}
+            <Link
+              to={`/?item=${item.id}`}
+              className="text-sm text-lol-gold transition-colors hover:text-lol-gold-light"
+            >
+              {t("items.openGames", { games: gamesLabel(t, item.games) })}
+              <span aria-hidden> →</span>
+            </Link>
             <WinRateBar wins={item.wins} total={item.games} />
           </>
         ) : (

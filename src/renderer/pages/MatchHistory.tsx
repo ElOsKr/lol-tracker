@@ -5,6 +5,7 @@ import { useQueueSelection } from "../hooks/useQueueSelection";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMatches } from "../hooks/useMatches";
 import { useChampionData, getChampionName } from "../hooks/useChampions";
+import { useItemData } from "../hooks/useChampions";
 import { useIpc } from "../hooks/useIpc";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useBackfill } from "../hooks/useBackfill";
@@ -104,6 +105,8 @@ const SORT_OPTIONS: { value: MatchSort; label: TranslationKey }[] = [
 
 // How a link names the game it wants opened: /?game=<id>
 const GAME_PARAM = "game";
+// How the items page names the item whose games it wants: /?item=<id>
+const ITEM_PARAM = "item";
 // Long enough for the row to have rendered with its detail open, so the
 // scroll lands on the whole panel rather than on where the row used to be.
 const SCROLL_DELAY_MS = 120;
@@ -243,6 +246,26 @@ export default function MatchHistory() {
   const [sort, setSort] = useViewState<MatchSort | undefined>("matches.sort", undefined);
   const [sortDir, setSortDir] = useViewState<MatchSortDir>("matches.sortDir", "desc");
   const [favoritesOnly, setFavoritesOnly] = useViewState("matches.favorites", false);
+  // A link from elsewhere can name a game: open it and scroll to it, once.
+  // The parameter is dropped afterwards so going back or reloading does not
+  // reopen it, and so the history is its plain self from then on.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedGame = searchParams.get(GAME_PARAM);
+  // Set by the items page, and cleared from here rather than from there: a
+  // filter you cannot see how to remove is a trap.
+  const itemParam = Number(searchParams.get(ITEM_PARAM));
+  const itemFilter = Number.isFinite(itemParam) && itemParam > 0 ? itemParam : undefined;
+  const clearItemFilter = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete(ITEM_PARAM);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
+
   const { matches, loading, hasMore, loadMore, reload } = useMatches({
     championId: championFilter,
     patch: patchFilter,
@@ -252,6 +275,7 @@ export default function MatchHistory() {
     sortDir,
     multikills: multikillFilter,
     favorites: favoritesOnly,
+    itemId: itemFilter,
   });
 
   const toggleMultikill = useCallback(
@@ -263,6 +287,7 @@ export default function MatchHistory() {
     [setMultikillFilter],
   );
   const champData = useChampionData();
+  const itemData = useItemData();
   // Read once on mount, which is every time the page is opened: coming back
   // from Settings is what changes it.
   const { data: storedGrouping } = useIpc<string | null>(
@@ -291,8 +316,17 @@ export default function MatchHistory() {
         account: accountFilter,
         multikills: multikillFilter,
         favorites: favoritesOnly,
+        itemId: itemFilter,
       }),
-    [championFilter, patchFilter, queueFilter, accountFilter, multikillFilter, favoritesOnly],
+    [
+      championFilter,
+      patchFilter,
+      queueFilter,
+      accountFilter,
+      multikillFilter,
+      favoritesOnly,
+      itemFilter,
+    ],
   );
 
   // Null until the first answer. The effects below drop selections the data no
@@ -413,12 +447,6 @@ export default function MatchHistory() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filterOptions.champions, champData],
   );
-
-  // A link from elsewhere can name a game: open it and scroll to it, once.
-  // The parameter is dropped afterwards so going back or reloading does not
-  // reopen it, and so the history is its plain self from then on.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedGame = searchParams.get(GAME_PARAM);
 
   const toggleExpand = useCallback(
     async (gameId: number) => {
@@ -672,6 +700,24 @@ export default function MatchHistory() {
         </div>
       )}
 
+      {itemFilter != null && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-lol-gold/40 bg-lol-gold/5 px-3 py-2">
+          <ItemIcon itemId={itemFilter} size={26} />
+          <span className="text-sm text-lol-text-bright">
+            {t("history.filteredByItem", {
+              item: itemData[itemFilter]?.name ?? String(itemFilter),
+            })}
+          </span>
+          <button
+            type="button"
+            onClick={clearItemFilter}
+            className="ml-auto rounded border border-lol-border px-2 py-1 text-xs text-lol-text transition-colors hover:text-lol-text-bright"
+          >
+            {t("history.clearItemFilter")}
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-lol-text-bright">{t("history.title")}</h1>
         <div className="flex flex-wrap items-center gap-2">
@@ -779,7 +825,8 @@ export default function MatchHistory() {
           patchFilter !== undefined ||
           accountFilter !== undefined ||
           multikillFilter.length > 0 ||
-          favoritesOnly
+          favoritesOnly ||
+          itemFilter != null
             ? t("history.noMatchFilters")
             : emptyStateMessage(t, lcuStatus, backfill)}
         </EmptyState>

@@ -141,6 +141,9 @@ export interface MatchFilters {
   sortDir?: MatchSortDir;
   multikills?: MultikillType[];
   favorites?: boolean;
+  // Games we finished holding this item, in any slot including the trinket.
+  // What the items page links to, so the count it shows has somewhere to go.
+  itemId?: number;
 }
 
 // One session of play under the current match-list filters. The list is paged,
