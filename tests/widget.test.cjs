@@ -1988,6 +1988,71 @@ test("a teammate's tags describe the shared record, and stay quiet without one",
   assert.equal(elegidas[0].key, "tag.winMore");
 });
 
+test("every tag carries an explanation with the figures behind it", () => {
+  const tags = load("src/shared/tags.ts");
+  const i18n = load("src/shared/i18n/index.ts");
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = 1_700_000_000_000;
+
+  // Un jugador que dispara todas las reglas a la vez, para recorrerlas
+  const todas = [
+    {
+      games: 183,
+      wins: 106,
+      withoutGames: 864,
+      withoutWins: 432,
+      lastPlayed: now - DAY,
+      firstPlayed: now - 400 * DAY,
+      streak: { win: true, length: 4 },
+    },
+    {
+      games: 100,
+      wins: 30,
+      withoutGames: 900,
+      withoutWins: 495,
+      lastPlayed: now - 200 * DAY,
+      firstPlayed: now - 400 * DAY,
+      streak: { win: false, length: 5 },
+    },
+    {
+      games: 4,
+      wins: 2,
+      withoutGames: 900,
+      withoutWins: 450,
+      lastPlayed: now,
+      firstPlayed: now - 3 * DAY,
+      streak: null,
+    },
+    {
+      games: 200,
+      wins: 100,
+      withoutGames: 800,
+      withoutWins: 400,
+      lastPlayed: now,
+      firstPlayed: now - 400 * DAY,
+      streak: null,
+      betterScore: { better: 16, scored: 20 },
+    },
+  ];
+
+  const vistas = new Set();
+  for (const p of todas) {
+    for (const marca of [...tags.teammateTags(p, now, true), tags.livePlayerTag(p)]) {
+      if (!marca) continue;
+      vistas.add(marca.key);
+      assert.ok(marca.hint, "sin explicacion: " + marca.key);
+      // La explicacion existe en los dos idiomas y no deja huecos sin rellenar
+      for (const lang of ["es", "en"]) {
+        const texto = i18n.translate(lang, marca.hint.key, marca.hint.vars);
+        assert.ok(texto.length > 20, marca.hint.key + " en " + lang + " es demasiado corta");
+        assert.ok(!/{w+}/.test(texto), marca.hint.key + " deja un hueco sin rellenar en " + lang);
+      }
+    }
+  }
+  // Y que el recorrido haya tocado de verdad varias familias
+  assert.ok(vistas.size >= 6, "esperaba recorrer mas etiquetas, vi " + vistas.size);
+});
+
 test("the live tag only speaks about someone the app actually knows", () => {
   const tags = load("src/shared/tags.ts");
 
