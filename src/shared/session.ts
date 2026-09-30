@@ -58,3 +58,30 @@ export function sessionKey(
       return sessionDayKey(sessionDay(game.game_creation));
   }
 }
+
+// The session the panel on the home page has already shown. Holds that
+// session's day, so a night is summarised once and the next one appears on
+// its own. It must also be listed in RENDERER_SETTINGS or the renderer's
+// write is refused with only a console warning — the interface looks like it
+// worked and nothing persists.
+export const SESSION_SEEN_SETTING = "session_seen";
+
+// Below this a night has no shape worth a panel of its own, and everything
+// it could say is already in that one game's own recap.
+export const SESSION_MIN_GAMES = 2;
+
+/**
+ * Whether there is a night to summarise that has not been summarised already.
+ *
+ * The session must be over — the day of play ends at 5am, not at midnight —
+ * have more than one game, and not be the one the panel was last closed on.
+ * `seen` is the day stored under SESSION_SEEN_SETTING.
+ */
+export function shouldShowSession(
+  session: { day: number; games: number; finished: boolean } | null,
+  seen: number | null,
+): boolean {
+  if (!session || !session.finished) return false;
+  if (session.games < SESSION_MIN_GAMES) return false;
+  return seen !== session.day;
+}

@@ -1652,6 +1652,128 @@ test("a game is judged against this champion once there is enough of one", () =>
   assert.ok(carry.some((l) => l.key === "verdict.damageUpOnChamp"));
 });
 
+test("a night gets sentences only when it has a shape worth describing", () => {
+  const { buildSessionVerdict, VERDICT_MAX_LINES } = load("src/shared/verdict.ts");
+  const g = (win, championId) => ({
+    gameId: championId * 1000 + (win ? 1 : 0),
+    championId,
+    win,
+    score: 6,
+    scoreBadge: null,
+    gameCreation: 0,
+    gameDuration: 1200,
+  });
+  const session = (played, over = {}) => ({
+    day: 0,
+    games: played.length,
+    wins: played.filter((p) => p.win).length,
+    losses: played.filter((p) => !p.win).length,
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    avgScore: 6,
+    duration: played.length * 1200,
+    played,
+    startedAt: 0,
+    endedAt: 0,
+    finished: true,
+    careerAvgScore: 6,
+    longerAgoDays: 1,
+    ...over,
+  });
+
+  // Dos partidas no son una noche
+  assert.deepEqual(buildSessionVerdict(session([g(true, 1), g(false, 2)])), []);
+
+  // La remontada: iba 1-3 y gano las dos ultimas
+  const comeback = buildSessionVerdict(
+    session([g(false, 1), g(true, 2), g(false, 3), g(false, 4), g(true, 5), g(true, 6)]),
+  );
+  const line = comeback.find((l) => l.key === "session.comeback");
+  assert.ok(line, "deberia contar la remontada");
+  assert.deepEqual(line.vars, { wins: 1, losses: 3, tail: 2 });
+
+  // Y al reves, cuando la noche se tuerce al final
+  const collapse = buildSessionVerdict(
+    session([g(true, 1), g(true, 2), g(true, 3), g(false, 4), g(false, 5), g(false, 6)]),
+  );
+  assert.ok(collapse.some((l) => l.key === "session.collapse"));
+
+  // Ganar la ultima yendo por delante no es una remontada: no se dice nada
+  const steady = buildSessionVerdict(
+    session([g(true, 1), g(true, 2), g(false, 3), g(true, 4), g(true, 5)]),
+  );
+  assert.ok(!steady.some((l) => l.key === "session.comeback"));
+
+  // Pleno
+  const perfect = buildSessionVerdict(session([g(true, 1), g(true, 2), g(true, 3)]));
+  assert.equal(perfect[0].key, "session.allWins");
+
+  // Campeones: todos distintos, o siempre el mismo
+  assert.ok(
+    buildSessionVerdict(session([g(true, 1), g(false, 2), g(true, 3), g(false, 4)])).some(
+      (l) => l.key === "session.allDifferent",
+    ),
+  );
+  assert.ok(
+    buildSessionVerdict(session([g(true, 7), g(false, 7), g(true, 7)])).some(
+      (l) => l.key === "session.oneChampion",
+    ),
+  );
+
+  // "La mas larga desde" solo si hace de verdad unos dias
+  const played6 = [g(false, 1), g(true, 2), g(false, 3), g(false, 4), g(true, 5), g(true, 6)];
+  assert.ok(
+    buildSessionVerdict(session(played6, { longerAgoDays: 21 })).some(
+      (l) => l.key === "session.longestSince",
+    ),
+  );
+  assert.ok(
+    !buildSessionVerdict(session(played6, { longerAgoDays: 2 })).some(
+      (l) => l.key === "session.longestSince",
+    ),
+  );
+  assert.ok(
+    buildSessionVerdict(session(played6, { longerAgoDays: null })).some(
+      (l) => l.key === "session.longestEver",
+    ),
+  );
+
+  // El mismo tope y el mismo orden de lectura que las frases de partida
+  const loud = buildSessionVerdict(
+    session([g(false, 1), g(false, 2), g(true, 3), g(true, 4), g(true, 5)], {
+      longerAgoDays: null,
+    }),
+  );
+  assert.ok(loud.length <= VERDICT_MAX_LINES);
+  assert.equal(new Set(loud.map((l) => l.family)).size, loud.length);
+  assert.deepEqual(
+    loud.map((l) => l.family),
+    [...loud.map((l) => l.family)].sort(
+      (a, b) => ["result", "stat", "context"].indexOf(a) - ["result", "stat", "context"].indexOf(b),
+    ),
+  );
+});
+
+test("the session panel appears once, and only for a night that is over", () => {
+  const { shouldShowSession, SESSION_MIN_GAMES } = load("src/shared/session.ts");
+
+  const night = (over = {}) => ({ day: 100, games: 4, finished: true, ...over });
+
+  assert.equal(shouldShowSession(night(), null), true);
+  // Ya cerrado: esa noche no vuelve
+  assert.equal(shouldShowSession(night(), 100), false);
+  // Pero la siguiente si
+  assert.equal(shouldShowSession(night({ day: 200 }), 100), true);
+  // Mientras sigues jugando, no
+  assert.equal(shouldShowSession(night({ finished: false }), null), false);
+  // Una partida suelta no es una sesion
+  assert.equal(shouldShowSession(night({ games: 1 }), null), false);
+  assert.equal(shouldShowSession(night({ games: SESSION_MIN_GAMES }), null), true);
+  // Y sin sesion no hay nada que ensenar
+  assert.equal(shouldShowSession(null, null), false);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

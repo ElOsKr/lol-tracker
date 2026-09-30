@@ -21,7 +21,7 @@
 // the player. The sentences say "per minute" out loud, so they cannot be read
 // as contradicting the plain totals shown above them.
 
-import type { GameRecap, PlayerStatsRecord } from "./api";
+import type { GameRecap, HomeSession, PlayerStatsRecord } from "./api";
 import type { TranslationKey } from "./i18n";
 
 export interface VerdictLine {
@@ -301,6 +301,119 @@ export function buildVerdict(recap: GameRecap, compact: Compact): VerdictLine[] 
   }
   // Read in a fixed order rather than by weight: what happened, then how you
   // played, then where it leaves you. A paragraph, not a ranking.
+  const order: VerdictLine["family"][] = ["result", "stat", "context"];
+  return picked.sort((a, b) => order.indexOf(a.family) - order.indexOf(b.family));
+}
+
+// ---- A night's worth of games ----
+
+// Below this a night has no shape worth describing: two games are a pair of
+// results, not a session.
+const MIN_SESSION_GAMES = 3;
+// A run has to be this long before "and won the last three" means anything.
+const MIN_TAIL = 2;
+// Older than this and "your longest night since" stops being a fact about
+// now; it just means the account is old.
+const MAX_LONGEST_DAYS = 60;
+
+/** The run of identical results the session ends on. */
+function tailRun(played: { win: boolean }[]): { win: boolean; length: number } {
+  const last = played[played.length - 1];
+  let length = 0;
+  for (let i = played.length - 1; i >= 0 && played[i].win === last.win; i--) length++;
+  return { win: last.win, length };
+}
+
+/**
+ * Two or three sentences about a night, under the same rules as a game: a
+ * weight each, at most three, and nothing said unless it is worth saying.
+ *
+ * Nothing here compares totals — a long night beats a short one on every
+ * total there is. What is compared is the shape of the night and the average
+ * score, which does not grow with the clock.
+ */
+export function buildSessionVerdict(session: HomeSession): VerdictLine[] {
+  const played = session.played;
+  if (played.length < MIN_SESSION_GAMES) return [];
+  const candidates: VerdictLine[] = [];
+
+  const all = played.every((g) => g.win);
+  const none = played.every((g) => !g.win);
+  if (all) {
+    candidates.push({
+      key: "session.allWins",
+      vars: { games: played.length },
+      weight: 100,
+      family: "result",
+    });
+  } else if (none) {
+    candidates.push({
+      key: "session.allLosses",
+      vars: { games: played.length },
+      weight: 90,
+      family: "result",
+    });
+  } else {
+    // How the night turned: what the record was before the closing run, and
+    // how long that run was. Only interesting when the run reversed it.
+    const tail = tailRun(played);
+    if (tail.length >= MIN_TAIL) {
+      const before = played.slice(0, played.length - tail.length);
+      const wins = before.filter((g) => g.win).length;
+      const losses = before.length - wins;
+      const wasBehind = losses > wins;
+      if (before.length > 0 && wasBehind === tail.win) {
+        candidates.push({
+          key: tail.win ? "session.comeback" : "session.collapse",
+          vars: { wins, losses, tail: tail.length },
+          weight: 70 + Math.min(20, tail.length * 6),
+          family: "result",
+        });
+      }
+    }
+  }
+
+  const champions = new Set(played.map((g) => g.championId));
+  if (champions.size === played.length && played.length >= 4) {
+    candidates.push({
+      key: "session.allDifferent",
+      vars: { games: played.length },
+      weight: 55,
+      family: "stat",
+    });
+  } else if (champions.size === 1) {
+    candidates.push({
+      key: "session.oneChampion",
+      vars: { games: played.length },
+      weight: 60,
+      family: "stat",
+    });
+  }
+
+  if (session.longerAgoDays == null && played.length >= 4) {
+    candidates.push({
+      key: "session.longestEver",
+      vars: { games: played.length },
+      weight: 75,
+      family: "context",
+    });
+  } else if (session.longerAgoDays != null && session.longerAgoDays >= 7) {
+    candidates.push({
+      key: "session.longestSince",
+      vars: { days: Math.min(session.longerAgoDays, MAX_LONGEST_DAYS) },
+      weight: 50 + Math.min(20, Math.round(session.longerAgoDays / 7) * 5),
+      family: "context",
+    });
+  }
+
+  const picked: VerdictLine[] = [];
+  const used = new Set<VerdictLine["family"]>();
+  for (const line of [...candidates].sort((a, b) => b.weight - a.weight)) {
+    if (used.has(line.family)) continue;
+    used.add(line.family);
+    picked.push(line);
+    if (picked.length === VERDICT_MAX_LINES) break;
+  }
   const order: VerdictLine["family"][] = ["result", "stat", "context"];
   return picked.sort((a, b) => order.indexOf(a.family) - order.indexOf(b.family));
 }
