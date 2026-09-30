@@ -2051,6 +2051,24 @@ test("every tag carries an explanation with the figures behind it", () => {
   }
   // Y que el recorrido haya tocado de verdad varias familias
   assert.ok(vistas.size >= 6, "esperaba recorrer mas etiquetas, vi " + vistas.size);
+
+  // La etiqueta de diferencia de winrate lleva los dos registros aparte, para
+  // poder pintarlos como dos filas en vez de como un parrafo
+  const onji = { games: 183, wins: 106, withoutGames: 864, withoutWins: 432 };
+  const c = tags.livePlayerTag(onji).hint.compare;
+  assert.ok(c, "la comparacion deberia viajar estructurada");
+  assert.deepEqual({ r: c.withRate, w: c.withWins, g: c.withGames }, { r: 58, w: 106, g: 183 });
+  assert.deepEqual(
+    { r: c.withoutRate, w: c.withoutWins, g: c.withoutGames },
+    { r: 50, w: 432, g: 864 },
+  );
+  // Y las que no comparan nada no la llevan
+  assert.equal(
+    tags
+      .teammateTags({ ...onji, lastPlayed: 0, firstPlayed: 0, streak: { win: true, length: 5 } }, 0)
+      .find((x) => x.key === "tag.winStreak").hint.compare,
+    undefined,
+  );
 });
 
 test("the live tag only speaks about someone the app actually knows", () => {
