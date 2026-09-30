@@ -23,6 +23,8 @@ import { EmptyState, PageLoading } from "../components/PageState";
 import ChampionIcon from "../components/ChampionIcon";
 import VerdictLines from "../components/VerdictLines";
 import PerkIcon from "../components/PerkIcon";
+import { GoldChart, KillMap, type TimelinePlayer } from "../components/MatchTimeline";
+import { hasChart, hasMap, type MatchTimeline } from "../../shared/match-timeline";
 import Kda from "../components/Kda";
 import { LOCALE, formatDateTime, formatDuration, kdaRatio } from "../lib/format";
 import { useT, type Translate } from "../lib/i18n";
@@ -39,11 +41,10 @@ const num = (value: number) => value.toLocaleString(LOCALE);
 const oneDecimal = (value: number) => value.toLocaleString(LOCALE, { maximumFractionDigits: 1 });
 
 /** A player's row on this page: the scoreboard record plus the extra numbers. */
-interface Row extends MatchPlayerExtras {
-  name: string;
-  championName: string;
-  isSelf: boolean;
-}
+// Extends TimelinePlayer as well as the payload's numbers, so the chart and
+// the map can take these rows straight, and a field renamed on either side
+// stops compiling rather than quietly emptying a tooltip.
+interface Row extends MatchPlayerExtras, TimelinePlayer {}
 
 export default function MatchDetail() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -65,6 +66,13 @@ export default function MatchDetail() {
     [id],
   );
   const { data: recap } = useIpc<GameRecap | null>(() => window.api.getGameRecap(id), [id]);
+  // Its own request, not part of the page's loading gate: a game captured
+  // before v0.7.9 has no timeline, and the rest of the page should not wait
+  // for that answer or vanish because of it.
+  const { data: timeline } = useIpc<MatchTimeline | null>(
+    () => window.api.getMatchTimeline(id),
+    [id],
+  );
 
   const rows = useMemo(
     () => buildRows(detail, extras, champData, puuids),
@@ -126,6 +134,10 @@ export default function MatchDetail() {
           {sections.vision && <Vision rows={rows} t={t} />}
           {sections.economy && <Economy rows={rows} duration={detail.game.game_duration} t={t} />}
           {sections.objectiveDamage && <ObjectiveDamage rows={rows} t={t} />}
+          {hasChart(timeline) && (
+            <GoldChart timeline={timeline!} players={rows} duration={detail.game.game_duration} />
+          )}
+          {hasMap(timeline) && <KillMap timeline={timeline!} players={rows} />}
           <YourGame detail={detail} rows={rows} t={t} />
           <MissingNote sections={sections} t={t} />
         </>
