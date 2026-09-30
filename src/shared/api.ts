@@ -20,8 +20,9 @@ export type { GameNotice };
 // unchanged.
 
 import type { ChallengeLevel } from "./challenges";
+import type { MatchExtras } from "./match-detail";
 
-export type { ChallengeLevel };
+export type { ChallengeLevel, MatchExtras };
 
 export interface GameRecord {
   game_id: number;
@@ -1096,6 +1097,9 @@ export interface ElectronAPI {
   getStoredQueues: () => Promise<number[]>;
   getQueueLifetimeTotals: () => Promise<QueueLifetimeTotal[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail | null>;
+  // The detail page only. Read out of the stored payload, so it is a parse per
+  // call rather than a query — see src/main/db/match-extras.ts.
+  getMatchExtras: (gameId: number) => Promise<MatchExtras | null>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
   getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
@@ -1224,6 +1228,7 @@ export const INVOKE_CHANNELS = {
   getMatchFilterOptions: "db:match-filters",
   getStoredQueues: "db:stored-queues",
   getMatchDetail: "db:match-detail",
+  getMatchExtras: "db:match-extras",
   toggleFavorite: "db:toggle-favorite",
   getChampionStats: "db:champion-stats",
   getAugmentStats: "db:augment-stats",

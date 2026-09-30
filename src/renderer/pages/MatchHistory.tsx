@@ -28,6 +28,8 @@ import type {
 import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
+import VerdictLines from "../components/VerdictLines";
+import { MATCH_DETAIL_PATH } from "../../shared/match-detail";
 import MatchScoreboard from "../components/MatchScoreboard";
 import MultikillBadge from "../components/MultikillBadge";
 import StatBars from "../components/StatBars";
@@ -45,10 +47,8 @@ import {
   ZapIcon,
 } from "../components/icons";
 import { ExportImageMessage, useGameImageExport } from "../components/ExportImage";
-import { buildVerdict } from "../../shared/verdict";
 import {
   LOCALE,
-  formatCompact,
   formatDateTime,
   formatDuration,
   formatPlaytime,
@@ -1290,13 +1290,22 @@ function GameRow({
 
       {expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
-          <Link
-            to={`/champion/${match.champion_id}`}
-            className="mb-2 inline-flex items-center gap-1.5 text-xs text-lol-gold transition-colors hover:text-lol-gold-light"
-          >
-            {t("champions.sheetOf", { champion: getChampionName(champData, match.champion_id) })}
-            <span aria-hidden>→</span>
-          </Link>
+          <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link
+              to={`/champion/${match.champion_id}`}
+              className="inline-flex items-center gap-1.5 text-xs text-lol-gold transition-colors hover:text-lol-gold-light"
+            >
+              {t("champions.sheetOf", { champion: getChampionName(champData, match.champion_id) })}
+              <span aria-hidden>→</span>
+            </Link>
+            <Link
+              to={`${MATCH_DETAIL_PATH}/${match.game_id}`}
+              className="inline-flex items-center gap-1.5 text-xs text-lol-gold transition-colors hover:text-lol-gold-light"
+            >
+              {t("detail.open")}
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
           {recap && <VerdictLines recap={recap} />}
           {detailLoading ? (
             <PageLoading compact />
@@ -1308,32 +1317,5 @@ function GameRow({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * The two or three plain sentences about a game, in the strip above the
- * scoreboard.
- *
- * They live inside the expanded panel rather than in the row because the row
- * is scanned, not read: someone running down the list looking for one game
- * should not have to read past three sentences per entry. Expanding is a
- * deliberate act, so nothing here costs the list anything.
- */
-function VerdictLines({ recap }: { recap: GameRecap }) {
-  const t = useT();
-  const lines = useMemo(() => buildVerdict(recap, formatCompact), [recap]);
-  if (lines.length === 0) return null;
-  return (
-    <ul className="mb-2 space-y-0.5">
-      {lines.map((line) => (
-        <li key={line.key} className="flex gap-2 text-xs text-lol-text-bright">
-          <span aria-hidden className="text-lol-gold/60">
-            ·
-          </span>
-          <span>{t(line.key, line.vars)}</span>
-        </li>
-      ))}
-    </ul>
   );
 }

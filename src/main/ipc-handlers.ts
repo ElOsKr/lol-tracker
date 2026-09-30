@@ -74,6 +74,8 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
 
   handle("getMatchDetail", (_event, gameId) => db.getMatchDetail(gameId));
 
+  handle("getMatchExtras", (_event, gameId) => db.getMatchExtras(gameId));
+
   handle("toggleFavorite", (_event, gameId) => db.toggleFavorite(gameId));
 
   handle("getChampionStats", (_event, patch, queue) => db.getChampionStatsAll(patch, queue));

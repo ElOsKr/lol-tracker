@@ -2211,6 +2211,181 @@ test("a champion is only judged when the record can carry the verdict", () => {
   assert.ok(flojo.scoreGap < 0);
 });
 
+test("a detail block is only drawn when the queue actually has the thing it measures", () => {
+  const { detailSections, barWidth, maxOf, perMinute, splitTotal, MIN_JUNGLE_CAMPS } = load(
+    "src/shared/match-detail.ts",
+  );
+
+  // Un jugador con todo a cero salvo lo que se le pase
+  const player = (over = {}) => ({
+    participantId: 1,
+    championId: 1,
+    teamId: 100,
+    dealt: { physical: 0, magic: 0, trueDamage: 0 },
+    taken: { physical: 0, magic: 0, trueDamage: 0 },
+    selfMitigated: 0,
+    toObjectives: 0,
+    toTurrets: 0,
+    ccTime: 0,
+    longestAlive: 0,
+    champLevel: 18,
+    goldEarned: 0,
+    goldSpent: 0,
+    largestCrit: 0,
+    killingSprees: 0,
+    wardsPlaced: 0,
+    wardsKilled: 0,
+    controlWards: 0,
+    visionScore: 0,
+    cs: 0,
+    neutralCs: 0,
+    totalHeal: 0,
+    ...over,
+  });
+  const team = (over = {}) => ({
+    teamId: 100,
+    win: false,
+    towers: 0,
+    inhibitors: 0,
+    dragons: 0,
+    barons: 0,
+    heralds: 0,
+    firstBlood: false,
+    firstTower: false,
+    firstInhibitor: false,
+    firstBaron: false,
+    firstDragon: false,
+    bans: [],
+    ...over,
+  });
+
+  // La ARAM real 7999040233: torres e inhibidores si, y nada mas. Los diez
+  // jugadores pusieron cero guardianes y nadie piso un campamento.
+  const aram = {
+    gameId: 7999040233,
+    teams: [
+      team({ teamId: 100, win: true, towers: 4, inhibitors: 3, firstTower: true }),
+      team({ teamId: 200, towers: 2, inhibitors: 1, firstBlood: true }),
+    ],
+    players: [
+      player({ participantId: 1, toObjectives: 625, ccTime: 73, cs: 27 }),
+      player({ participantId: 7, teamId: 200, toObjectives: 0, ccTime: 5, cs: 35 }),
+    ],
+  };
+  const enAram = detailSections(aram);
+  assert.equal(enAram.bans, false, "el Abismo no tiene seleccion");
+  assert.equal(enAram.epics, false, "ni dragones ni barones");
+  assert.equal(enAram.vision, false, "cero guardianes no es informacion");
+  assert.equal(enAram.economy, false, "sin jungla, el farmeo por minuto no compara nada");
+  assert.equal(enAram.objectiveDamage, true, "a las torres si se les pega");
+
+  // La Flex real 7761941067: aparece todo
+  const grieta = {
+    gameId: 7761941067,
+    teams: [
+      team({ teamId: 100, towers: 4, dragons: 1, bans: [53, 35, 555, 54, 90] }),
+      team({
+        teamId: 200,
+        win: true,
+        towers: 9,
+        inhibitors: 1,
+        dragons: 4,
+        barons: 1,
+        heralds: 1,
+        firstBlood: true,
+        firstTower: true,
+        firstBaron: true,
+        bans: [711, 164, 145, 800, 35],
+      }),
+    ],
+    players: [
+      player({ participantId: 5, visionScore: 126, wardsPlaced: 48, wardsKilled: 15, cs: 41 }),
+      player({
+        participantId: 7,
+        teamId: 200,
+        visionScore: 25,
+        wardsKilled: 5,
+        cs: 300,
+        neutralCs: 223,
+        toObjectives: 48564,
+        goldEarned: 17748,
+      }),
+    ],
+  };
+  const enGrieta = detailSections(grieta);
+  assert.deepEqual(enGrieta, {
+    bans: true,
+    epics: true,
+    vision: true,
+    economy: true,
+    objectiveDamage: true,
+  });
+
+  // Una Gwen que no pone guardianes pero rompe cinco sigue contando como vision
+  const soloRompe = { ...grieta, players: [player({ wardsKilled: 5, neutralCs: 300 })] };
+  assert.equal(detailSections(soloRompe).vision, true);
+
+  // EL CASO QUE OBLIGO A MEDIR: 194 ARAM guardadas dan puntos de vision a uno
+  // o dos jugadores sin que nadie ponga ni rompa un guardian. Ese numero no
+  // es control de vision, y el bloque no puede colgar de el.
+  const aramConPuntos = {
+    ...aram,
+    players: [player({ visionScore: 2 }), player({ participantId: 2 })],
+  };
+  assert.equal(detailSections(aramConPuntos).vision, false);
+
+  // Y el otro extremo medido: 7 campamentos en una ARAM no son una jungla,
+  // 32 en la Grieta mas corta si lo son
+  assert.ok(
+    MIN_JUNGLE_CAMPS > 7 && MIN_JUNGLE_CAMPS < 32,
+    "el umbral debe caer en el hueco medido",
+  );
+  assert.equal(detailSections({ ...aram, players: [player({ neutralCs: 7 })] }).economy, false);
+  assert.equal(detailSections({ ...aram, players: [player({ neutralCs: 32 })] }).economy, true);
+
+  // Un baneo saltado llega como -1 y el lector lo quita antes; una lista vacia
+  // no enciende el bloque
+  assert.equal(detailSections({ ...grieta, teams: [team(), team()] }).bans, false);
+
+  // Las barras: una escala por seccion, y cero maximo deja todo vacio en vez
+  // de todo lleno
+  assert.equal(
+    maxOf(grieta.players, (p) => p.toObjectives),
+    48564,
+  );
+  assert.equal(barWidth(48564, 48564), 100);
+  assert.equal(barWidth(24282, 48564), 50);
+  assert.equal(barWidth(0, 48564), 0);
+  assert.equal(barWidth(5, 0), 0, "sin maximo, nadie llena la barra");
+  assert.equal(barWidth(200, 100), 100, "una barra nunca se sale de su carril");
+
+  // Por minuto, que es como compara el resto de la app
+  assert.equal(Math.round(perMinute(300, 2184) * 10) / 10, 8.2);
+  assert.equal(perMinute(300, 0), 0);
+
+  assert.equal(splitTotal({ physical: 48063, magic: 0, trueDamage: 9526 }), 57589);
+});
+
+test("the detail page's path is named once, not typed out in each link", () => {
+  const shared = fs.readFileSync(path.resolve(__dirname, "../src/shared/match-detail.ts"), "utf8");
+  assert.match(shared, /export const MATCH_DETAIL_PATH = "\/match"/);
+
+  // La pantalla en negro de la v0.7.8 salio de una ruta escrita a mano que no
+  // coincidia con ninguna del router. Aqui la ruta y los enlaces salen de la
+  // misma constante, y esto lo vigila.
+  for (const file of ["src/renderer/App.tsx", "src/renderer/pages/MatchHistory.tsx"]) {
+    const source = fs.readFileSync(path.resolve(__dirname, "..", file), "utf8");
+    assert.ok(
+      source.includes("MATCH_DETAIL_PATH"),
+      file + " deberia usar MATCH_DETAIL_PATH en vez de escribir la ruta",
+    );
+    assert.ok(
+      !/(to|path)=\{?"\/match/.test(source),
+      file + " escribe /match a mano; usa la constante",
+    );
+  }
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

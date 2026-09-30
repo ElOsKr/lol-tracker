@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import MatchHistory from "./pages/MatchHistory";
+import MatchDetail from "./pages/MatchDetail";
 import LiveGame from "./pages/LiveGame";
 import Champions from "./pages/Champions";
 import ChampionSheet from "./pages/ChampionSheet";
@@ -19,6 +20,7 @@ import Settings from "./pages/Settings";
 import GameCard from "./pages/GameCard";
 import GameNotice from "./pages/GameNotice";
 import { CARD_ROUTE } from "../shared/card";
+import { MATCH_DETAIL_PATH } from "../shared/match-detail";
 import { NOTICE_ROUTE } from "../shared/notice";
 
 export default function App() {
@@ -27,6 +29,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<MatchHistory />} />
+          <Route path={`${MATCH_DETAIL_PATH}/:gameId`} element={<MatchDetail />} />
           <Route path="/home" element={<Home />} />
           <Route path="/live" element={<LiveGame />} />
           <Route path="/champions" element={<Champions />} />
