@@ -10,6 +10,7 @@ export const NAV_ITEMS = [
   { id: "items", path: "/items" },
   { id: "friends", path: "/friends" },
   { id: "trends", path: "/trends" },
+  { id: "skills", path: "/skills" },
   { id: "records", path: "/records" },
   { id: "widget", path: "/widget" },
   { id: "challenges", path: "/challenges" },

@@ -2461,6 +2461,94 @@ test("the match chart reads from your side of the game, not from Riot's team ord
   assert.equal(hasMap(null), false);
 });
 
+test("a skill axis is a place inside its own game, and a trend has to beat its noise", () => {
+  const {
+    axisValues,
+    percentileAmong,
+    axesFor,
+    summarize,
+    meaningfulShift,
+    canCompareTrend,
+    CORE_AXES,
+    MIN_JUNGLE_CAMPS,
+    TREND_WINDOW,
+  } = load("src/shared/skill-axes.ts");
+
+  const jugador = (over = {}) => ({
+    kills: 0,
+    assists: 0,
+    teamKills: 20,
+    deaths: 0,
+    damageToChampions: 0,
+    damageTaken: 0,
+    selfMitigated: 0,
+    ccTime: 0,
+    gold: 0,
+    wardsPlaced: 0,
+    wardsKilled: 0,
+    cs: 0,
+    neutralCs: 0,
+    minutes: 20,
+    ...over,
+  });
+
+  // Todos los ejes apuntan al mismo lado: mas es mejor. Las muertes van
+  // negadas, o la tabla tendria una fila que se lee al reves.
+  const muereMucho = axisValues(jugador({ deaths: 10 }));
+  const muerePoco = axisValues(jugador({ deaths: 2 }));
+  assert.ok(muerePoco.survival > muereMucho.survival, "morir menos puntua mas");
+
+  // Y todo lo acumulable va por minuto, como el resto de la app
+  assert.equal(axisValues(jugador({ damageToChampions: 40000, minutes: 20 })).damage, 2000);
+  assert.equal(axisValues(jugador({ damageToChampions: 40000, minutes: 40 })).damage, 1000);
+  assert.equal(axisValues(jugador({ kills: 3, assists: 7, teamKills: 20 })).aggression, 0.5);
+  // Una partida sin una sola muerte del equipo no divide por cero
+  assert.equal(axisValues(jugador({ kills: 0, teamKills: 0 })).aggression, 0);
+
+  // El percentil: de los otros nueve, a cuantos superas
+  const diez = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  assert.equal(percentileAmong(diez, 10), 100, "el mejor supera a los nueve");
+  assert.equal(percentileAmong(diez, 1), 0, "el peor no supera a nadie");
+  assert.equal(Math.round(percentileAmong(diez, 6)), 56);
+  // Empatar no es superar: un eje donde nadie puntuo no da un 100 a los diez
+  assert.equal(percentileAmong([0, 0, 0, 0], 0), 0);
+
+  // Vision y farmeo solo donde la cola los tiene, con el mismo umbral que la
+  // pagina de detalle. En ARAM nadie pone un guardian ni pisa un campamento.
+  const aram = [jugador(), jugador({ cs: 70 })];
+  assert.deepEqual(axesFor(aram), [...CORE_AXES]);
+  assert.ok(axesFor([jugador({ wardsPlaced: 1 })]).includes("vision"));
+  assert.ok(axesFor([jugador({ wardsKilled: 1 })]).includes("vision"), "romperlo tambien cuenta");
+  assert.ok(!axesFor([jugador({ neutralCs: 7 })]).includes("farm"), "7 campamentos no son jungla");
+  assert.ok(axesFor([jugador({ neutralCs: 32 })]).includes("farm"), "32 si");
+  assert.ok(MIN_JUNGLE_CAMPS > 7 && MIN_JUNGLE_CAMPS < 32);
+
+  // LOS CAMBIOS REALES MEDIDOS sobre las 994 ARAM de Oscar, primeras 200
+  // frente a ultimas 200. La supervivencia sube 19 puntos y eso es un
+  // hallazgo; el control baja 3 y eso es ruido.
+  const conSd = (mean, sd, count) => ({ mean, sd, count });
+  const sd = 30; // dispersion tipica de un percentil sobre 200 partidas
+  assert.equal(meaningfulShift(conSd(38.8, sd, 200), conSd(58.1, sd, 200)), true, "supervivencia");
+  assert.equal(meaningfulShift(conSd(61.9, sd, 200), conSd(50.8, sd, 200)), true, "aguante");
+  assert.equal(
+    meaningfulShift(conSd(55.7, sd, 200), conSd(52.4, sd, 200)),
+    false,
+    "control es ruido",
+  );
+
+  // Muestras diminutas no hablan por espectaculares que parezcan
+  assert.equal(meaningfulShift(conSd(10, 30, 1), conSd(90, 30, 1)), false);
+  assert.equal(canCompareTrend(TREND_WINDOW * 2 - 1), false);
+  assert.equal(canCompareTrend(TREND_WINDOW * 2), true);
+
+  // El resumen, que es de donde sale todo lo anterior
+  const m = summarize([10, 20, 30]);
+  assert.equal(m.mean, 20);
+  assert.equal(m.count, 3);
+  assert.ok(Math.abs(m.sd - 8.165) < 0.01);
+  assert.deepEqual(summarize([]), { mean: 0, sd: 0, count: 0 });
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");
