@@ -2151,6 +2151,66 @@ test("every match filter reaches the list, not just the summaries", () => {
   }
 });
 
+test("a champion is only judged when the record can carry the verdict", () => {
+  const { judgeChampion, MIN_POOL_GAMES } = load("src/shared/champion-pool.ts");
+
+  // Una muestra con media y dispersion dadas, en las sumas que pide el modulo
+  const scores = (n, mean, sd) => ({
+    scored: n,
+    scoreSum: n * mean,
+    scoreSumSq: n * (sd * sd + mean * mean),
+  });
+  // La base de Oscar: 792 partidas, 51.1%, nota 6.54
+  const base = { games: 792, wins: 405, ...scores(792, 6.54, 1.5) };
+  const champ = (n, w, mean) => ({ games: n, wins: w, ...scores(n, mean, 1.5) });
+
+  // Pocas partidas: nada que decir por espectacular que parezca
+  assert.equal(judgeChampion(champ(4, 4, 9), base).verdict, null);
+  assert.equal(judgeChampion(champ(MIN_POOL_GAMES - 1, 7, 8), base).verdict, null);
+
+  // Sion: 10 partidas, 80%, nota 7.22 — gana mas y la nota acompaña
+  const sion = judgeChampion(champ(10, 8, 7.22), base);
+  assert.equal(sion.verdict, "reliable");
+  assert.ok(sion.winGap > 25 && sion.winGap < 32, sion.winGap);
+
+  // Azir: 8 partidas, 25%, nota 5.59 — pierde mas y la nota lo confirma
+  assert.equal(judgeChampion(champ(8, 2, 5.59), base).verdict, "struggles");
+
+  // EL CASO QUE MOTIVO EL REDISEÑO: gana mucho mas y la nota NO se mueve.
+  // El veredicto sigue siendo que gana, pero el matiz dice que las victorias
+  // no vienen de como juega. Pedir que la nota bajase de forma significativa
+  // no disparaba nunca con muestras de diez o veinte partidas.
+  const plano = judgeChampion(champ(30, 24, 6.54), base);
+  assert.equal(plano.verdict, "reliable");
+  assert.equal(plano.agreement, "flat");
+
+  // Si la nota si baja de verdad, el matiz lo dice
+  const suerte = judgeChampion(champ(30, 24, 5.2), base);
+  assert.equal(suerte.verdict, "reliable");
+  assert.equal(suerte.agreement, "contradicts");
+
+  // Y al perder, los papeles se invierten: una nota que sube contradice
+  const mala = judgeChampion(champ(30, 8, 7.8), base);
+  assert.equal(mala.verdict, "struggles");
+  assert.equal(mala.agreement, "contradicts");
+  const coherente = judgeChampion(champ(30, 8, 5.2), base);
+  assert.equal(coherente.agreement, "supports");
+
+  // Una diferencia dentro del ruido no se etiqueta: 12 partidas al 58%
+  // sobre una base del 51% es casualidad, no un hallazgo
+  assert.equal(judgeChampion(champ(12, 7, 6.54), base).verdict, null);
+
+  // Y una nota que se mueve menos que su propia dispersion tampoco cuenta
+  const ruidosa = judgeChampion({ games: 30, wins: 24, ...scores(30, 6.3, 4) }, base);
+  assert.equal(ruidosa.verdict, "reliable", "con la nota indistinguible, manda el winrate");
+  assert.equal(ruidosa.agreement, "flat");
+
+  // Los huecos se informan aunque no haya veredicto, para poder enseñarlos
+  const flojo = judgeChampion(champ(12, 5, 6.2), base);
+  assert.ok(flojo.winGap < 0);
+  assert.ok(flojo.scoreGap < 0);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

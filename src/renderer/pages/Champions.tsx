@@ -25,6 +25,8 @@ import {
 import Kda from "../components/Kda";
 import SearchInput from "../components/SearchInput";
 import { useT } from "../lib/i18n";
+import PoolBadge from "../components/PoolBadge";
+import { judgeChampion } from "../../shared/champion-pool";
 
 type SortKey =
   | "games"
@@ -200,6 +202,33 @@ export default function Champions() {
     setExpandedId((prev) => (prev === championId ? null : championId));
   };
 
+  // Everything is measured against the whole record under the same filters,
+  // so a champion is compared with how the player actually plays rather than
+  // with an even 50%.
+  const judge = useMemo(() => {
+    const base = (data ?? []).reduce(
+      (acc, c) => ({
+        games: acc.games + c.games,
+        wins: acc.wins + c.wins,
+        scored: acc.scored + c.scored,
+        scoreSum: acc.scoreSum + c.score_sum,
+        scoreSumSq: acc.scoreSumSq + c.score_sum_sq,
+      }),
+      { games: 0, wins: 0, scored: 0, scoreSum: 0, scoreSumSq: 0 },
+    );
+    return (c: ChampionStats) =>
+      judgeChampion(
+        {
+          games: c.games,
+          wins: c.wins,
+          scored: c.scored,
+          scoreSum: c.score_sum,
+          scoreSumSq: c.score_sum_sq,
+        },
+        base,
+      );
+  }, [data]);
+
   const sorted = useMemo(() => {
     if (!data) return [];
     let filtered = data.filter((c) => {
@@ -364,6 +393,7 @@ export default function Champions() {
                       >
                         {getChampionName(champData, c.champion_id)}
                       </Link>
+                      <PoolBadge judgement={judge(c)} />
                     </div>
                   </td>
                   <td className="px-2 py-2 text-sm text-lol-text-bright text-right tabular-nums">

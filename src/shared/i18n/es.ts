@@ -498,6 +498,24 @@ export const es: Dictionary = {
   "rank.lobbyFew": "{ranked} de {total} jugadores con rango",
   "rank.solo": "solo",
   "rank.flex": "flexible",
+  "pool.reliable": "Se te da bien",
+  "pool.struggles": "Se te atraganta",
+  "pool.winGap": "{points} pts de winrate",
+  "pool.scoreGap": "{points} de nota",
+  "pool.reliableSupports": "Ganas más de lo normal con él, y tu nota lo respalda.",
+  "pool.reliableContradicts":
+    "Ganas más de lo normal con él mientras sacas peor nota de lo normal. Las victorias no vienen de cómo estás jugando.",
+  "pool.reliableFlat":
+    "Ganas más de lo normal con él, pero tu nota no se aparta claramente de la habitual. Los datos no dicen que las victorias de más vengan de jugar mejor.",
+  "pool.strugglesSupports": "Ganas menos de lo normal con él, y tu nota dice lo mismo.",
+  "pool.strugglesContradicts":
+    "Ganas menos de lo normal con él aunque sacas mejor nota de lo normal. Con esta evidencia no es un campeón que evitar.",
+  "pool.strugglesFlat":
+    "Ganas menos de lo normal con él, pero tu nota no se aparta claramente de la habitual. Los datos no dicen que juegues peor con él.",
+  "pool.luckyWinsWhy":
+    "Ganas más de lo normal con él mientras sacas peor nota de lo normal. Las victorias vienen de algún sitio que no es cómo estás jugando.",
+  "pool.unluckyLossesWhy":
+    "Sacas mejor nota de lo normal con él y aun así pierdes más. Con esta evidencia no es un campeón que evitar.",
   "records.title": "Récords",
   "records.across": "mejores marcas en {games}",
   "records.viewMatch": "Ver partida",
