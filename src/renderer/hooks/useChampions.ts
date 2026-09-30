@@ -1,10 +1,18 @@
 import { useState, useEffect } from "react";
-import type { ChampionData, AugmentData, ItemData, SummonerSpellData } from "../lib/types";
+import type {
+  ChampionData,
+  AugmentData,
+  ItemData,
+  PerkData,
+  SummonerSpellData,
+} from "../lib/types";
 
 let champCache: ChampionData | null = null;
 let spellCache: SummonerSpellData | null = null;
 const augCaches = new Map<string, AugmentData>();
 const augPromises = new Map<string, Promise<AugmentData>>();
+const perkCaches = new Map<string, PerkData>();
+const perkPromises = new Map<string, Promise<PerkData>>();
 const itemCaches = new Map<string, ItemData>();
 const itemPromises = new Map<string, Promise<ItemData>>();
 
@@ -115,6 +123,39 @@ export function useItemData(patch?: string | null): ItemData {
   }, [key]);
 
   return items;
+}
+
+// Igual que useItemData: una cache por parche, compartida entre componentes,
+// porque cada fila de la pantalla de detalle pide las mismas runas.
+export function usePerkData(patch?: string | null): PerkData {
+  const key = patch || "latest";
+  const [perks, setPerks] = useState<PerkData>(() => perkCaches.get(key) ?? {});
+  const [perksFor, setPerksFor] = useState(key);
+  if (perksFor !== key) {
+    setPerksFor(key);
+    setPerks(perkCaches.get(key) ?? {});
+  }
+
+  useEffect(() => {
+    const cached = perkCaches.get(key);
+    if (cached && Object.keys(cached).length > 0) return;
+    let promise = perkPromises.get(key);
+    if (!promise) {
+      promise = window.api.getPerkData(key === "latest" ? undefined : key);
+      perkPromises.set(key, promise);
+    }
+    let active = true;
+    promise.then((d) => {
+      if (Object.keys(d).length > 0) perkCaches.set(key, d);
+      else perkPromises.delete(key);
+      if (active) setPerks(d);
+    });
+    return () => {
+      active = false;
+    };
+  }, [key]);
+
+  return perks;
 }
 
 export function getChampionName(data: ChampionData, id: number): string {

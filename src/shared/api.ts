@@ -20,8 +20,9 @@ export type { GameNotice };
 // unchanged.
 
 import type { ChallengeLevel } from "./challenges";
+import type { MatchExtras } from "./match-detail";
 
-export type { ChallengeLevel };
+export type { ChallengeLevel, MatchExtras };
 
 export interface GameRecord {
   game_id: number;
@@ -343,6 +344,18 @@ export interface AugmentData {
     // CommunityDragon branch this entry came from. iconPath is only valid
     // against that branch, since paths move between patches.
     branch: string;
+  };
+}
+
+export interface PerkData {
+  [id: number]: {
+    name: string;
+    /** Riot markup, como el de los objetos: pintar con RiotText. */
+    shortDesc: string;
+    iconPath: string;
+    branch: string;
+    /** Una rama entera, no una runa suelta. */
+    isStyle: boolean;
   };
 }
 
@@ -1096,6 +1109,9 @@ export interface ElectronAPI {
   getStoredQueues: () => Promise<number[]>;
   getQueueLifetimeTotals: () => Promise<QueueLifetimeTotal[]>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail | null>;
+  // The detail page only. Read out of the stored payload, so it is a parse per
+  // call rather than a query — see src/main/db/match-extras.ts.
+  getMatchExtras: (gameId: number) => Promise<MatchExtras | null>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
   getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
@@ -1151,6 +1167,7 @@ export interface ElectronAPI {
   getAugmentData: (patch?: string) => Promise<AugmentData>;
   resolveAugmentIcon: (id: number, patch?: string) => Promise<string | null>;
   getItemData: (patch?: string) => Promise<ItemData>;
+  getPerkData: (patch?: string) => Promise<PerkData>;
   getItemUsage: (queue?: number) => Promise<ItemUsage[]>;
   getSummonerSpellData: () => Promise<SummonerSpellData>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;
@@ -1224,6 +1241,7 @@ export const INVOKE_CHANNELS = {
   getMatchFilterOptions: "db:match-filters",
   getStoredQueues: "db:stored-queues",
   getMatchDetail: "db:match-detail",
+  getMatchExtras: "db:match-extras",
   toggleFavorite: "db:toggle-favorite",
   getChampionStats: "db:champion-stats",
   getAugmentStats: "db:augment-stats",
@@ -1257,6 +1275,7 @@ export const INVOKE_CHANNELS = {
   getAugmentData: "dragon:augments",
   resolveAugmentIcon: "dragon:augment-icon",
   getItemData: "dragon:items",
+  getPerkData: "dragon:perks",
   getItemUsage: "db:item-usage",
   getSummonerSpellData: "dragon:summoner-spells",
   getSetting: "settings:get",

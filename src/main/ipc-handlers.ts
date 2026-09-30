@@ -74,6 +74,8 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
 
   handle("getMatchDetail", (_event, gameId) => db.getMatchDetail(gameId));
 
+  handle("getMatchExtras", (_event, gameId) => db.getMatchExtras(gameId));
+
   handle("toggleFavorite", (_event, gameId) => db.toggleFavorite(gameId));
 
   handle("getChampionStats", (_event, patch, queue) => db.getChampionStatsAll(patch, queue));
@@ -147,6 +149,14 @@ export function registerIpcHandlers(main: () => BrowserWindow | null) {
   handle("getItemData", async (_event, patch) => {
     try {
       return await dragon.loadItemData(patch);
+    } catch {
+      return {};
+    }
+  });
+
+  handle("getPerkData", async (_event, patch) => {
+    try {
+      return await dragon.loadPerkData(patch);
     } catch {
       return {};
     }

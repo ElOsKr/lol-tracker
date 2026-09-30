@@ -49,6 +49,7 @@ export { getTeammateStats, getTeammateDetail, ownRecord as getOwnRecord } from "
 export { getRecords } from "./records";
 export { getHomeSummary } from "./home";
 export { getGameRecap } from "./recap";
+export { getMatchExtras } from "./match-extras";
 export {
   saveChallenges,
   getStoredChallenges,
