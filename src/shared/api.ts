@@ -237,6 +237,12 @@ export interface ChampionStats {
   avg_gold: number;
   // Null when none of the champion's games have a stored score
   avg_score: number | null;
+  // The running sums behind that average. Carried so the pool judgement can
+  // measure how spread out the scores are: an average alone cannot say
+  // whether a gap is a finding or a coincidence.
+  scored: number;
+  score_sum: number;
+  score_sum_sq: number;
   mvps: number;
   aces: number;
   double_kills: number;

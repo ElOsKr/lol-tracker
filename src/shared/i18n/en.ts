@@ -490,6 +490,25 @@ export const en = {
   "rank.lobbyFew": "{ranked} of {total} players ranked",
   "rank.solo": "solo",
   "rank.flex": "flex",
+  "pool.reliable": "Goes well",
+  "pool.struggles": "Goes badly",
+  "pool.winGap": "{points} pts of win rate",
+  "pool.scoreGap": "{points} of score",
+  "pool.reliableSupports": "You win more than usual on this champion, and your score backs it up.",
+  "pool.reliableContradicts":
+    "You win more than usual on this champion while scoring worse than usual. The wins are not coming from how you are playing.",
+  "pool.reliableFlat":
+    "You win more than usual on this champion, but your score is not clearly different from your normal. The record does not show that the extra wins come from playing better.",
+  "pool.strugglesSupports":
+    "You win less than usual on this champion, and your score says the same.",
+  "pool.strugglesContradicts":
+    "You win less than usual on this champion even though you score better than usual. Not one to avoid on this evidence.",
+  "pool.strugglesFlat":
+    "You win less than usual on this champion, but your score is not clearly different from your normal. The record does not show that you play it any worse.",
+  "pool.luckyWinsWhy":
+    "You win more than usual on this champion while scoring worse than usual. The wins are coming from somewhere other than how you are playing.",
+  "pool.unluckyLossesWhy":
+    "You score better than usual on this champion and still lose more. Not a champion to avoid on this evidence.",
   "records.title": "Records",
   "records.across": "personal bests across {games}",
   "records.viewMatch": "View match",
