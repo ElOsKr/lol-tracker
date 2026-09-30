@@ -1774,6 +1774,122 @@ test("the session panel appears once, and only for a night that is over", () => 
   assert.equal(shouldShowSession(null, null), false);
 });
 
+test("timelines are taken once, skipped when absent, and give way to the user", async () => {
+  // Una base fingida con el estado en el cierre: el cargador copia el modulo
+  // simulado, asi que escribir sobre la copia no llegaria hasta aqui.
+  function makeDb(pending) {
+    const state = { saved: new Map(), missing: new Set(), pending: [...pending] };
+    return {
+      state,
+      hasTimeline: (id) => state.saved.has(id),
+      saveTimeline: (id, data) => {
+        state.saved.set(id, data);
+        state.pending = state.pending.filter((g) => g !== id);
+      },
+      markTimelineUnavailable: (id) => {
+        state.missing.add(id);
+        state.pending = state.pending.filter((g) => g !== id);
+      },
+      gamesMissingTimeline: (limit) => state.pending.slice(0, limit),
+      timelineCoverage: () => ({
+        stored: state.saved.size,
+        total: state.saved.size + state.pending.length,
+        bytes: state.saved.size * 8192,
+      }),
+    };
+  }
+
+  const buena = { frames: [{ timestamp: 60000, participantFrames: {}, events: [] }] };
+
+  // Una partida normal: se pide, se guarda, y no se vuelve a pedir
+  {
+    const base = makeDb([1]);
+    const tl = load("src/main/timelines.ts", { "./db": base });
+    const pedidas = [];
+    const get = async (p) => {
+      pedidas.push(p);
+      return buena;
+    };
+    assert.equal(await tl.captureTimeline(1, get), true);
+    assert.equal(base.state.saved.size, 1);
+    assert.match(pedidas[0], /\/lol-match-history\/v1\/game-timelines\/1$/);
+    // Ya guardada: ni una peticion mas
+    assert.equal(await tl.captureTimeline(1, get), false);
+    assert.equal(pedidas.length, 1);
+  }
+
+  // Una respuesta sin fotogramas no se guarda, y se apunta para no insistir
+  {
+    const base = makeDb([2]);
+    const tl = load("src/main/timelines.ts", { "./db": base });
+    assert.equal(await tl.captureTimeline(2, async () => ({ frames: [] })), false);
+    assert.equal(base.state.saved.size, 0);
+    assert.ok(base.state.missing.has(2));
+    // Y una que no contesta nada, igual
+    const base2 = makeDb([3]);
+    const tl2 = load("src/main/timelines.ts", { "./db": base2 });
+    assert.equal(await tl2.captureTimeline(3, async () => null), false);
+    assert.ok(base2.state.missing.has(3));
+  }
+
+  // Un cliente que revienta no puede tumbar la captura de la partida
+  {
+    const base = makeDb([4]);
+    const tl = load("src/main/timelines.ts", { "./db": base });
+    assert.equal(
+      await tl.captureTimeline(4, async () => {
+        throw new Error("cliente caido");
+      }),
+      false,
+    );
+  }
+
+  // El repaso recorre lo que falta y para cuando se le dice
+  {
+    const base = makeDb([10, 11, 12, 13, 14]);
+    const tl = load("src/main/timelines.ts", { "./db": base });
+    const res = await tl.backfillTimelines(
+      async () => buena,
+      () => true,
+      0,
+    );
+    assert.equal(res.saved, 5);
+    assert.equal(res.remaining, 0);
+    assert.equal(base.state.saved.size, 5);
+  }
+
+  // Si el usuario empieza una partida, el repaso se aparta sin guardar nada
+  {
+    const base = makeDb([20, 21, 22]);
+    const tl = load("src/main/timelines.ts", { "./db": base });
+    const res = await tl.backfillTimelines(
+      async () => buena,
+      () => false,
+      0,
+    );
+    assert.equal(res.saved, 0);
+    assert.equal(base.state.saved.size, 0);
+  }
+
+  // Y si el cliente deja de contestar, se rinde en vez de insistir mil veces
+  {
+    const muchas = Array.from({ length: 50 }, (_, i) => 100 + i);
+    const base = makeDb(muchas);
+    const tl = load("src/main/timelines.ts", { "./db": base });
+    let peticiones = 0;
+    const res = await tl.backfillTimelines(
+      async () => {
+        peticiones++;
+        return null;
+      },
+      () => true,
+      0,
+    );
+    assert.equal(res.saved, 0);
+    assert.ok(peticiones <= 10, "deberia rendirse pronto, hizo " + peticiones);
+  }
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");
