@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { PageLoading } from "../components/PageState";
 import { useNavigate } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
@@ -12,6 +12,8 @@ import WinRateBar from "../components/WinRateBar";
 import SortHeader from "../components/SortHeader";
 import { formatTimeAgo, kdaRatio, kdaColor } from "../lib/format";
 import { useT } from "../lib/i18n";
+import PlayerTags from "../components/PlayerTags";
+import { teammateTags } from "../../shared/tags";
 import Kda from "../components/Kda";
 import SearchInput from "../components/SearchInput";
 
@@ -19,12 +21,25 @@ type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
 
 export default function Friends() {
   const navigate = useNavigate();
+  // Read once per render rather than per row, so every tag on the page
+  // measures the same moment.
+  const [now] = useState(() => Date.now());
   const t = useT();
   const champData = useChampionData();
   const { data, loading, refetch } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats());
   const [search, setSearch] = useViewState("friends.search", "");
   const sort = useSort<SortKey>("friends", "games");
   const { sortKey, sortDir } = sort;
+  // The only tag that depends on everybody else, so it is settled here and
+  // handed down. By games played, never by whatever column is sorted.
+  const mostPlayedKey = useMemo(
+    () =>
+      (data ?? []).reduce<TeammateStats | null>(
+        (best, p) => (best && best.games >= p.games ? best : p),
+        null,
+      )?.key,
+    [data],
+  );
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -138,7 +153,13 @@ export default function Friends() {
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <SummonerIcon iconId={t.profileIcon} size={28} />
-                      <span className="text-sm text-lol-text-bright">{t.name}</span>
+                      <div className="min-w-0">
+                        <span className="text-sm text-lol-text-bright">{t.name}</span>
+                        <PlayerTags
+                          className="mt-0.5"
+                          tags={teammateTags(t, now, t.key === mostPlayedKey)}
+                        />
+                      </div>
                     </div>
                   </td>
                   <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums">

@@ -26,8 +26,12 @@ import {
 } from "../lib/format";
 import Kda from "../components/Kda";
 import { gamesLabel, useT } from "../lib/i18n";
+import PlayerTags from "../components/PlayerTags";
+import { teammateTags } from "../../shared/tags";
 
 export default function FriendDetail() {
+  // Read once per mount so every tag measures the same moment.
+  const [now] = useState(() => Date.now());
   const { key = "" } = useParams();
   const t = useT();
   const champData = useChampionData();
@@ -114,6 +118,7 @@ export default function FriendDetail() {
                   ago: formatTimeAgo(player.lastPlayed),
                 })}
               </span>
+              <PlayerTags className="mt-1.5" tags={teammateTags(player, now)} />
             </div>
           </div>
 

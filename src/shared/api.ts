@@ -1,3 +1,4 @@
+import type { SharedRecord } from "./tags";
 import type { PlayerRank } from "./ranks";
 export interface QueueLifetimeTotal {
   puuid: string;
@@ -385,6 +386,16 @@ export interface TeammateStats {
   assists: number;
   champions: { champion_id: number; games: number }[];
   lastPlayed: number;
+  // The first game ever shared, so someone who has just started turning up
+  // can be told apart from someone who always has been around.
+  firstPlayed: number;
+  // The run of identical results the shared games end on, newest first.
+  streak: { win: boolean; length: number } | null;
+  // Our own record in the games this teammate was NOT in, so the two can be
+  // compared. Carried per teammate rather than once, so whatever draws a row
+  // has everything it needs in the row.
+  withoutGames: number;
+  withoutWins: number;
 }
 
 // A shared game, seen from both sides: our stats on the row itself, theirs
@@ -417,6 +428,11 @@ export interface TeammateChampionStats {
 // breaks every champion down.
 export interface TeammateProfile extends Omit<TeammateStats, "champions"> {
   champions: TeammateChampionStats[];
+  // In how many of the shared games their score beat ours, out of the games
+  // where both were scored. Only on the profile: working it out means scoring
+  // all ten players of every shared game, which is fine for one teammate and
+  // far too much for the whole list at once.
+  betterScore: { better: number; scored: number } | null;
 }
 
 export interface TeammateDetail {
@@ -789,6 +805,9 @@ export interface LivePlayer {
   // there are enough of those to have earned a profile
   gamesWithUs: number;
   friendKey: string | null;
+  // Our record with them against our record without them, ready for the tag.
+  // Null for a stranger, which is nearly everyone in a random lobby.
+  shared: SharedRecord | null;
 }
 
 export type LiveEventTone = "kill" | "objective" | "special";

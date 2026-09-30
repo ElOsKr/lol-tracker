@@ -1890,6 +1890,126 @@ test("timelines are taken once, skipped when absent, and give way to the user", 
   }
 });
 
+test("a teammate's tags describe the shared record, and stay quiet without one", () => {
+  const tags = load("src/shared/tags.ts");
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = 1_700_000_000_000;
+
+  const player = (over = {}) => ({
+    games: 200,
+    wins: 100,
+    withoutGames: 800,
+    withoutWins: 400,
+    lastPlayed: now - DAY,
+    firstPlayed: now - 400 * DAY,
+    streak: null,
+    ...over,
+  });
+
+  // Alguien con quien te va igual que sin el no merece ninguna etiqueta
+  assert.deepEqual(tags.teammateTags(player(), now), []);
+  assert.equal(tags.winRateSwing(player()), 0);
+
+  // La diferencia de winrate, con los numeros reales de onji: 57.9% juntos
+  // sobre 183, 50.0% sin el sobre 864
+  const onji = player({ games: 183, wins: 106, withoutGames: 864, withoutWins: 432 });
+  const swing = tags.winRateSwing(onji);
+  assert.ok(swing > 7 && swing < 9, "esperaba unos 8 puntos, salio " + swing);
+  const suyas = tags.teammateTags(onji, now);
+  assert.equal(suyas[0].key, "tag.winMore");
+  assert.equal(suyas[0].vars.points, 8);
+  assert.equal(suyas[0].tone, "good");
+
+  // Y al reves
+  const peor = player({ games: 100, wins: 40, withoutGames: 900, withoutWins: 495 });
+  assert.equal(tags.teammateTags(peor, now)[0].key, "tag.winLess");
+
+  // Muestra pequena: no se afirma nada aunque la diferencia parezca enorme
+  assert.equal(tags.winRateSwing(player({ games: 10, wins: 10 })), null);
+  assert.equal(tags.winRateSwing(player({ withoutGames: 40, withoutWins: 10 })), null);
+  // Y una diferencia de menos de cuatro puntos es ruido, no una etiqueta
+  const casi = player({ games: 100, wins: 52, withoutGames: 900, withoutWins: 450 });
+  assert.ok(!tags.teammateTags(casi, now).some((x) => x.key === "tag.winMore"));
+
+  // Rachas compartidas
+  assert.equal(
+    tags.teammateTags(player({ streak: { win: false, length: 4 } }), now)[0].key,
+    "tag.lossStreak",
+  );
+  // Dos seguidas no son una racha
+  assert.ok(
+    !tags
+      .teammateTags(player({ streak: { win: true, length: 2 } }), now)
+      .some((x) => String(x.key).includes("Streak")),
+  );
+
+  // Ausencia: solo de alguien que fue habitual, y en meses cuando se alarga,
+  // porque "221 dias" es un numero que nadie se imagina
+  const semanas = player({ lastPlayed: now - 35 * DAY });
+  assert.ok(tags.teammateTags(semanas, now).some((x) => x.key === "tag.away"));
+  const ido = player({ lastPlayed: now - 221 * DAY });
+  const meses = tags.teammateTags(ido, now).find((x) => x.key === "tag.awayMonths");
+  assert.ok(meses, "una ausencia larga se cuenta en meses");
+  assert.equal(meses.vars.months, 7);
+  const conocido = player({ games: 5, lastPlayed: now - 60 * DAY, withoutGames: 800 });
+  assert.ok(!tags.teammateTags(conocido, now).some((x) => x.key === "tag.away"));
+
+  // Recien aparecido
+  const nuevo = player({ games: 4, firstPlayed: now - 5 * DAY });
+  assert.ok(tags.teammateTags(nuevo, now).some((x) => x.key === "tag.new"));
+  // Alguien de siempre con pocas partidas no es nuevo
+  const viejo = player({ games: 4, firstPlayed: now - 300 * DAY });
+  assert.ok(!tags.teammateTags(viejo, now).some((x) => x.key === "tag.new"));
+
+  // Comparacion de notas, solo con recorrido suficiente
+  const mejor = player({ betterScore: { better: 14, scored: 20 } });
+  assert.equal(
+    tags.teammateTags(mejor, now).find((x) => String(x.key).includes("utscore")).key,
+    "tag.outscoresYou",
+  );
+  const pocas = player({ betterScore: { better: 8, scored: 10 } });
+  assert.ok(!tags.teammateTags(pocas, now).some((x) => String(x.key).includes("utscore")));
+  // Y reparto parejo: no hay nada que decir
+  const parejo = player({ betterScore: { better: 25, scored: 50 } });
+  assert.ok(!tags.teammateTags(parejo, now).some((x) => String(x.key).includes("utscore")));
+
+  // Nunca mas de dos, y la diferencia de winrate manda sobre el resto
+  const ruidoso = player({
+    games: 183,
+    wins: 106,
+    withoutGames: 864,
+    withoutWins: 432,
+    streak: { win: true, length: 5 },
+    lastPlayed: now - 60 * DAY,
+    betterScore: { better: 18, scored: 20 },
+  });
+  const elegidas = tags.teammateTags(ruidoso, now, true);
+  assert.equal(elegidas.length, tags.MAX_TAGS);
+  assert.equal(elegidas[0].key, "tag.winMore");
+});
+
+test("the live tag only speaks about someone the app actually knows", () => {
+  const tags = load("src/shared/tags.ts");
+
+  // Un desconocido no lleva etiqueta: en nueve filas de diez no hay nada
+  // cierto que decir
+  assert.equal(
+    tags.livePlayerTag({ games: 3, wins: 2, withoutGames: 900, withoutWins: 450 }),
+    null,
+  );
+
+  // Un habitual con diferencia clara, la dice
+  const onji = tags.livePlayerTag({ games: 183, wins: 106, withoutGames: 864, withoutWins: 432 });
+  assert.equal(onji.key, "tag.liveWinMore");
+  assert.equal(onji.vars.games, 183);
+  assert.equal(onji.vars.points, 8);
+
+  // Y un habitual sin diferencia se queda en el dato desnudo
+  const plano = tags.livePlayerTag({ games: 50, wins: 25, withoutGames: 900, withoutWins: 450 });
+  assert.equal(plano.key, "tag.liveTogether");
+  assert.equal(plano.vars.rate, 50);
+});
+
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
   const i18n = load("src/shared/i18n/index.ts");
   const { en } = load("src/shared/i18n/en.ts");

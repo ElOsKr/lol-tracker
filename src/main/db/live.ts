@@ -56,8 +56,9 @@ export interface PlayerHistory {
   // Their line on the champion they're playing now, and across every champion
   champion: PlayerRecord | null;
   overall: PlayerRecord | null;
-  // Games on our own team, this one included
+  // Games on our own team, this one included, and how many of those we won
   withUs: number;
+  winsWithUs: number;
   // Set once there are enough shared games for the Friends page to hold them
   friendKey: string | null;
 }
@@ -174,6 +175,7 @@ export function getPlayerHistories(
       champion: null,
       overall: null,
       withUs: 0,
+      winsWithUs: 0,
       friendKey: null,
     });
 
@@ -213,7 +215,8 @@ export function getPlayerHistories(
           WITH our_teams AS (
             SELECT DISTINCT game_id, team_id FROM match_participants WHERE puuid IN (${ourList})
           )
-          SELECT o.puuid, o.game_name, o.tag_line, COUNT(*) AS games
+          SELECT o.puuid, o.game_name, o.tag_line, COUNT(*) AS games,
+                 COALESCE(SUM(o.win), 0) AS wins
           FROM our_teams t
           JOIN match_participants o ON o.game_id = t.game_id AND o.team_id = t.team_id
           WHERE ${teamWhere.join(" AND ")}
@@ -224,6 +227,7 @@ export function getPlayerHistories(
         game_name: string | null;
         tag_line: string | null;
         games: number;
+        wins: number;
       }[];
 
       for (const row of teamRows) {
@@ -233,9 +237,13 @@ export function getPlayerHistories(
           champion: null,
           overall: null,
           withUs: 0,
+          winsWithUs: 0,
           friendKey: null,
         });
         history.withUs += row.games;
+        // Their win is ours: they were on our team, which is what our_teams
+        // selected for.
+        history.winsWithUs += row.wins;
         // Built from the stored row rather than from the lobby, so it matches
         // the key the Friends page routes on even when the client spells the
         // riot id differently from the game that was recorded.

@@ -67,6 +67,25 @@ function teammateRows(puuids: string[]): TeammateRow[] {
     .all(...puuids, ...params) as TeammateRow[];
 }
 
+// Our own games and wins under the same queue filter the teammate rows use.
+// Subtracting a teammate's shared games from this is what answers "how do you
+// do without them", which is the one thing here that cannot be read off the
+// page already.
+export function ownRecord(): { games: number; wins: number } {
+  const where = ["g.is_remake = 0"];
+  const params: any[] = [];
+  applyQueueFilter(where, params, undefined, "g");
+  const row = db
+    .prepare(`
+      SELECT COUNT(*) games, COALESCE(SUM(ps.win), 0) wins
+      FROM player_stats ps
+      JOIN games g ON g.game_id = ps.game_id
+      WHERE ${where.join(" AND ")}
+    `)
+    .get(...params) as { games: number; wins: number };
+  return row;
+}
+
 export function getTeammateStats(): TeammateStats[] {
   const puuids = getAllPuuids();
   if (puuids.length === 0) return [];
@@ -84,6 +103,12 @@ export function getTeammateStats(): TeammateStats[] {
       assists: number;
       champions: Map<number, number>;
       lastPlayed: number;
+      firstPlayed: number;
+      // Rows arrive newest first, so the streak is still open while every row
+      // seen so far has the same result as the first.
+      streakWin: boolean | null;
+      streakLength: number;
+      streakOpen: boolean;
     }
   >();
 
@@ -113,6 +138,10 @@ export function getTeammateStats(): TeammateStats[] {
         assists: 0,
         champions: new Map(),
         lastPlayed: 0,
+        firstPlayed: Number.POSITIVE_INFINITY,
+        streakWin: null,
+        streakLength: 0,
+        streakOpen: true,
       });
     }
 
@@ -128,9 +157,17 @@ export function getTeammateStats(): TeammateStats[] {
     entry.deaths += row.deaths;
     entry.assists += row.assists;
     entry.lastPlayed = Math.max(entry.lastPlayed, row.game_creation);
+    entry.firstPlayed = Math.min(entry.firstPlayed, row.game_creation);
+    if (entry.streakOpen) {
+      const win = row.win === 1;
+      if (entry.streakWin === null) entry.streakWin = win;
+      if (entry.streakWin === win) entry.streakLength++;
+      else entry.streakOpen = false;
+    }
     entry.champions.set(row.champion_id, (entry.champions.get(row.champion_id) || 0) + 1);
   }
 
+  const own = ownRecord();
   return Array.from(playerMap.entries())
     .filter(([, p]) => p.games >= MIN_SHARED_GAMES)
     .map(([key, p]) => ({
@@ -150,6 +187,10 @@ export function getTeammateStats(): TeammateStats[] {
         .slice(0, 5)
         .map(([champion_id, games]) => ({ champion_id, games })),
       lastPlayed: p.lastPlayed,
+      firstPlayed: Number.isFinite(p.firstPlayed) ? p.firstPlayed : p.lastPlayed,
+      streak: p.streakWin === null ? null : { win: p.streakWin, length: p.streakLength },
+      withoutGames: Math.max(0, own.games - p.games),
+      withoutWins: Math.max(0, own.wins - p.wins),
     }))
     .sort((a, b) => b.games - a.games);
 }
@@ -224,7 +265,18 @@ export function getTeammateDetail(key: string): TeammateDetail | null {
     assists: 0,
     champions: [] as ({ champion_id: number } & ChampionTotals)[],
     lastPlayed: first.game_creation,
+    firstPlayed: first.game_creation,
+    streak: null as { win: boolean; length: number } | null,
+    withoutGames: 0,
+    withoutWins: 0,
+    betterScore: null as { better: number; scored: number } | null,
   };
+
+  // Gathered as we go and worked out below, so the order the rows arrive in
+  // cannot change the answer.
+  const shared: { creation: number; win: boolean }[] = [];
+  let better = 0;
+  let scored = 0;
 
   for (const row of ourMatches) {
     const friend = byGame.get(row.game_id);
@@ -271,9 +323,32 @@ export function getTeammateDetail(key: string): TeammateDetail | null {
         score_badge: friendScore?.badge ?? null,
       },
     });
+
+    shared.push({ creation: row.game_creation, win: friend.win === 1 });
+    if (friendScore?.score != null && row.score != null) {
+      scored++;
+      if (friendScore.score > row.score) better++;
+    }
   }
 
   if (player.games === 0) return null;
+
+  shared.sort((a, b) => b.creation - a.creation);
+  if (shared.length > 0) {
+    player.firstPlayed = shared[shared.length - 1].creation;
+    player.lastPlayed = shared[0].creation;
+    const win = shared[0].win;
+    let length = 0;
+    for (const g of shared) {
+      if (g.win !== win) break;
+      length++;
+    }
+    player.streak = { win, length };
+  }
+  const own = ownRecord();
+  player.withoutGames = Math.max(0, own.games - player.games);
+  player.withoutWins = Math.max(0, own.wins - player.wins);
+  player.betterScore = scored > 0 ? { better, scored } : null;
   player.champions = Array.from(champions.entries())
     .map(([champion_id, totals]) => ({ champion_id, ...totals }))
     .sort((a, b) => b.games - a.games);
