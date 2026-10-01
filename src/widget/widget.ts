@@ -4,6 +4,7 @@ import type {
   WidgetControls,
 } from "../shared/widget.js";
 import type { GameNotice } from "../shared/notice.js";
+import { applyWidgetAppearance, parseWidgetAppearance } from "../shared/widget-theme.js";
 declare global {
   interface Window {
     widgetControls?: WidgetControls;
@@ -247,11 +248,16 @@ async function updateWidget(): Promise<void> {
       renderNotice(data.notice);
     }
     const container = document.getElementById("matches-container");
-    const cards = JSON.stringify([version, data.matches]);
+    // El recorte va aquí y no en el servidor: la misma instantánea alimenta a
+    // la ventana del escritorio y a cuantas fuentes de OBS haya, y cada una
+    // puede pedir un número distinto.
+    const visible =
+      appearance.matches == null ? data.matches : data.matches.slice(0, appearance.matches);
+    const cards = JSON.stringify([version, visible]);
     if (container && cards !== lastCards) {
       container.replaceChildren(
-        ...(data.matches.length
-          ? data.matches.map(renderMatchCard)
+        ...(visible.length
+          ? visible.map(renderMatchCard)
           : [element("div", "no-matches", "Esperando partidas...")]),
       );
       lastCards = cards;
@@ -267,6 +273,11 @@ async function updateWidget(): Promise<void> {
     }, interval);
   }
 }
+// El aspecto se decide antes del primer dibujo, para que la fuente de OBS no
+// parpadee del tema por defecto al elegido.
+const appearance = parseWidgetAppearance(location.search);
+applyWidgetAppearance(document.documentElement, appearance);
+
 const controls = document.getElementById("window-controls");
 if (!window.widgetControls && controls) controls.hidden = true;
 document

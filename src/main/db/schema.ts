@@ -1,6 +1,6 @@
 import { AUGMENT_SLOTS } from "../../shared/queues";
 import { db, openDatabase } from "./connection";
-import { runMigrations, backfillAugmentSlots, migrateHiddenQueues } from "./migrations";
+import { runMigrations, backfillAugmentSlots } from "./migrations";
 import { getSetting, setSetting } from "./settings";
 
 export function initDatabase() {
@@ -18,8 +18,6 @@ export function initDatabase() {
     backfillAugmentSlots();
     setSetting("augment_slots", String(AUGMENT_SLOTS));
   }
-
-  migrateHiddenQueues();
 }
 
 // Every table below is declared in its *current* shape, so a new database is

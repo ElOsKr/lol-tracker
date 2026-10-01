@@ -1,4 +1,5 @@
 import type { GameNotice } from "./notice";
+import type { WidgetAppearance } from "./widget-theme";
 
 export interface WidgetMatch {
   matchId: string;
@@ -40,6 +41,10 @@ export interface WidgetPreferences {
   opacity: number;
   account: string;
   queue: number | null;
+  // Tema, color, densidad y cuántas partidas. La ventana del escritorio la
+  // recibe como parámetros al cargar la página, igual que una fuente de OBS,
+  // para que las dos superficies no puedan acabar con aspectos distintos.
+  appearance: WidgetAppearance;
 }
 export interface WidgetState {
   preferences: WidgetPreferences;

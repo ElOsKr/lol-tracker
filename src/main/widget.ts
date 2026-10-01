@@ -16,6 +16,11 @@ import { startWidgetServer } from "./widget-server";
 import { pendingNotice } from "./notice-state";
 import { showRecap } from "./notice";
 import { GAME_NOTICE_OBS_SETTING } from "../shared/notice";
+import {
+  parseWidgetAppearance,
+  widgetAppearanceQuery,
+  widgetUrlWith,
+} from "../shared/widget-theme";
 
 let window: BrowserWindow | null = null;
 let obs: Awaited<ReturnType<typeof startWidgetServer>> | null = null;
@@ -61,10 +66,14 @@ function preferences(): WidgetPreferences {
     "";
   const value = db.getSetting("widget_queue");
   const queue = value !== null && value !== "" ? Number(value) : null;
+  // Guardada como la propia cadena de consulta, así que la ventana, la URL
+  // de OBS y el analizador son literalmente lo mismo y no pueden discrepar.
+  const appearance = parseWidgetAppearance(db.getSetting("widget_appearance") ?? "");
   return {
     height,
     opacity,
     account,
+    appearance,
     // No queue of its own means the widget follows whatever queue the app has
     // selected: a query without a queue resolves to that one in db.ts. It used
     // to fall back to normal ARAM, which quietly showed the wrong games to
@@ -213,7 +222,9 @@ export function openWidget() {
     }
   });
   void win
-    .loadFile(path.join(root(), "widget.html"))
+    .loadFile(path.join(root(), "widget.html"), {
+      search: widgetAppearanceQuery(preferences().appearance),
+    })
     .then(() => {
       if (!win.isDestroyed()) win.show();
     })
@@ -226,7 +237,7 @@ export function openWidget() {
 function state(): WidgetState {
   return {
     preferences: preferences(),
-    obsUrl: obs?.url ?? null,
+    obsUrl: obs ? widgetUrlWith(obs.url, preferences().appearance) : null,
     desktopOpen: window?.isVisible() ?? false,
   };
 }
@@ -277,6 +288,15 @@ export function registerWidgetHandlers(main: () => BrowserWindow | null) {
       window.setOpacity(value.opacity / 100);
     }
     db.setSetting("widget_queue", value.queue === null ? "" : String(value.queue));
+    // Se normaliza antes de guardar: lo que entre raro sale como el valor por
+    // defecto, y lo guardado es siempre una cadena que el analizador acepta.
+    const appearance = widgetAppearanceQuery(
+      parseWidgetAppearance(widgetAppearanceQuery(value.appearance ?? {})),
+    );
+    db.setSetting("widget_appearance", appearance);
+    if (window && !window.isDestroyed()) {
+      void window.loadFile(path.join(root(), "widget.html"), { search: appearance });
+    }
     return state();
   });
   ipcMain.handle("widget:obs", async (event, enabled: boolean) => {

@@ -4,6 +4,16 @@ import type { MatchFilterOptions } from "../../shared/api";
 import type { WidgetState, WidgetPreferences } from "../../shared/widget";
 import { queueLabel } from "../components/QueueSelect";
 import { useT } from "../lib/i18n";
+import type { TranslationKey } from "../../shared/i18n";
+import {
+  DEFAULT_APPEARANCE,
+  MAX_WIDGET_MATCHES,
+  WIDGET_LAYOUTS,
+  WIDGET_THEMES,
+  type WidgetAppearance,
+  type WidgetLayout,
+  type WidgetTheme,
+} from "../../shared/widget-theme";
 
 export default function WidgetSettings() {
   const [state, setState] = useState<WidgetState | null>(null);
@@ -44,6 +54,13 @@ export default function WidgetSettings() {
   };
   const select = (change: Partial<WidgetPreferences>) => {
     if (state) void run(() => window.api.setWidgetPreferences({ ...state.preferences, ...change }));
+  };
+  // El aspecto viaja dentro de las mismas preferencias: la ventana del
+  // escritorio y la URL de OBS salen las dos de aquí, así que no pueden
+  // acabar enseñando cosas distintas.
+  const look = state?.preferences.appearance ?? DEFAULT_APPEARANCE;
+  const setLook = (change: Partial<WidgetAppearance>) => {
+    select({ appearance: { ...look, ...change } });
   };
   return (
     <div className="p-6 max-w-3xl space-y-6">
@@ -105,6 +122,82 @@ export default function WidgetSettings() {
               </label>
             </div>
             <p className="text-sm">{t("widget.historyNote")}</p>
+          </section>
+          <section className="p-5 rounded-lg border border-lol-border space-y-3">
+            <h2 className="text-lg font-semibold text-lol-text-bright">{t("widget.look")}</h2>
+            <div className="flex flex-wrap gap-4">
+              <label>
+                {t("widget.theme")}
+                <select
+                  className="select block mt-2"
+                  disabled={busy}
+                  value={look.theme}
+                  onChange={(e) => setLook({ theme: e.target.value as WidgetTheme })}
+                >
+                  {WIDGET_THEMES.map((theme) => (
+                    <option key={theme} value={theme}>
+                      {t(`widget.theme.${theme}` as TranslationKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("widget.layout")}
+                <select
+                  className="select block mt-2"
+                  disabled={busy}
+                  value={look.layout}
+                  onChange={(e) => setLook({ layout: e.target.value as WidgetLayout })}
+                >
+                  {WIDGET_LAYOUTS.map((layout) => (
+                    <option key={layout} value={layout}>
+                      {t(`widget.layout.${layout}` as TranslationKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("widget.matches")}
+                <select
+                  className="select block mt-2"
+                  disabled={busy}
+                  value={look.matches ?? ""}
+                  onChange={(e) =>
+                    setLook({ matches: e.target.value === "" ? null : Number(e.target.value) })
+                  }
+                >
+                  <option value="">{t("widget.matchesAll")}</option>
+                  {[3, 5, 8, 10, 15, MAX_WIDGET_MATCHES].map((count) => (
+                    <option key={count} value={count}>
+                      {t("widget.matchesCount", { count })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("widget.accent")}
+                <span className="mt-2 flex items-center gap-2">
+                  <input
+                    type="color"
+                    className="h-9 w-12 cursor-pointer rounded border border-lol-border bg-transparent"
+                    disabled={busy}
+                    value={look.accent ?? "#c89b3c"}
+                    onChange={(e) => setLook({ accent: e.target.value })}
+                  />
+                  {look.accent && (
+                    <button
+                      type="button"
+                      className="text-xs text-lol-text underline disabled:opacity-50"
+                      disabled={busy}
+                      onClick={() => setLook({ accent: null })}
+                    >
+                      {t("widget.accentReset")}
+                    </button>
+                  )}
+                </span>
+              </label>
+            </div>
+            <p className="text-sm">{t("widget.lookNote")}</p>
           </section>
           <section className="p-5 rounded-lg border border-lol-border space-y-3">
             <h2 className="text-lg font-semibold text-lol-text-bright">{t("widget.desktop")}</h2>

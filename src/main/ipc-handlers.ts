@@ -33,7 +33,6 @@ const RENDERER_SETTINGS = new Set([
   "selected_queue",
   "auto_start",
   "minimize_to_tray",
-  "hidden_queues",
   "hide_remakes",
   "auto_backup",
   "remember_filters",
