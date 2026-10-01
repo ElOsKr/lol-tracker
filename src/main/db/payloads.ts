@@ -47,6 +47,11 @@ export interface RawParticipantRow {
   gold_earned: number;
   total_heal: number;
   largest_killing_spree: number;
+  /** Minions plus jungle camps. */
+  cs: number;
+  vision: number;
+  /** Placed plus cleared. Zero on a map with no wards, which is the point. */
+  wards: number;
   early_surrender: number;
   spell1: number | null;
   spell2: number | null;
@@ -102,6 +107,9 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       gold_earned: s.goldEarned ?? 0,
       total_heal: s.totalHeal ?? 0,
       largest_killing_spree: s.largestKillingSpree ?? 0,
+      cs: (s.totalMinionsKilled ?? 0) + (s.neutralMinionsKilled ?? 0),
+      vision: s.visionScore ?? 0,
+      wards: (s.wardsPlaced ?? 0) + (s.wardsKilled ?? 0),
       early_surrender: s.gameEndedInEarlySurrender ? 1 : 0,
       spell1: p.spell1Id ?? s.spell1Id ?? null,
       spell2: p.spell2Id ?? s.spell2Id ?? null,

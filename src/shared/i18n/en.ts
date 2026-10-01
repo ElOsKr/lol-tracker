@@ -333,7 +333,6 @@ export const en = {
   "history.lastWeek": "Last week",
   "history.weekOf": "Week of {start}",
   "history.avgScore": "Avg Score",
-  "history.avgScoreExperimental": "Avg Score · experimental",
   "history.avgKda": "Avg KDA",
   "history.totalKda": "{kills} / {deaths} / {assists} total",
   "history.multikills": "Multikills",
@@ -968,6 +967,8 @@ export const en = {
   "axes.economyWhat": "Gold earned per minute.",
   "axes.visionWhat": "Wards placed and cleared. Only in games where somebody warded.",
   "axes.farmWhat": "Minions and camps per minute. Only where the map has a jungle.",
+  "history.cs": "cs",
+  "history.vision": "vis",
 } as const;
 
 export type TranslationKey = keyof typeof en;

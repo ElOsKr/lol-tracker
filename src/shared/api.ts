@@ -112,6 +112,11 @@ export interface MatchListItem {
   item5: number | null;
   score: number | null;
   score_badge: "MVP" | "ACE" | null;
+  /** Minions plus camps, and the vision score: the two the Rift cares about. */
+  cs: number;
+  vision: number;
+  /** Wards placed plus cleared. What decides whether the two above are shown. */
+  wards: number;
   spell1: number | null;
   spell2: number | null;
   augment_ids: string | null;

@@ -650,7 +650,7 @@ test("the home summary reads streak, session and best champion off the career ro
     game_id: ++id,
     game_creation: at,
     game_duration: 1200,
-    queue_id: 450,
+    queue_id: 2400,
     champion_id: champion,
     win: win ? 1 : 0,
     kills: 5,
@@ -670,7 +670,7 @@ test("the home summary reads streak, session and best champion off the career ro
     penta_kills: 0,
   });
 
-  const empty = home.summarizeHome([], 450, now);
+  const empty = home.summarizeHome([], 2400, now);
   assert.equal(empty.totalGames, 0);
   assert.equal(empty.streak, null);
   assert.equal(empty.session, null);
@@ -692,7 +692,7 @@ test("the home summary reads streak, session and best champion off the career ro
     row(4, true, now - 2 * 3600 * 1000, 6),
     row(4, true, now - 1 * 3600 * 1000, 8),
   ];
-  const summary = home.summarizeHome(rows, 450, now);
+  const summary = home.summarizeHome(rows, 2400, now);
   assert.equal(summary.totalGames, 10);
   assert.equal(summary.lastGameAt, rows[9].game_creation);
   assert.deepEqual(summary.streak, { kind: "win", length: 2, best: 3 });
@@ -720,6 +720,9 @@ test("the home summary reads streak, session and best champion off the career ro
   assert.equal(fallback.bestChampion.championId, 8);
   assert.equal(fallback.bestChampion.rankedBy, "winRate");
   assert.equal(fallback.streak.kind, "loss");
+  // Y desde la v0.8.3 el ARAM normal es una de esas colas: comparte mapa con
+  // ARAM Caos pero no su curva de daño, y la nota se calibro con aumentos.
+  assert.equal(home.summarizeHome(few, 450, now).bestChampion.rankedBy, "winRate");
 });
 
 test("keyboard shortcuts stay out of the way while typing and of the window manager", () => {
@@ -2547,6 +2550,46 @@ test("a skill axis is a place inside its own game, and a trend has to beat its n
   assert.equal(m.count, 3);
   assert.ok(Math.abs(m.sd - 8.165) < 0.01);
   assert.deepEqual(summarize([]), { mean: 0, sd: 0, count: 0 });
+});
+
+test("the score is ARAM Caos's alone, and the Rift's two columns hang on wards", () => {
+  const { hasScore, SCORE_POLICY_VERSION } = load("src/shared/queues.ts");
+  const { QUEUE_CATALOG } = load("src/shared/queue-catalog.ts");
+  const { showsLaneStats } = load("src/shared/history-columns.ts");
+
+  // La nota se calibro con lobbies de ARAM Caos, aumentos incluidos. El ARAM
+  // normal comparte mapa pero no curva de daño, y durante 195 partidas llevo
+  // una nota que nadie calibro para el.
+  assert.equal(hasScore(2400), true, "ARAM Caos");
+  assert.equal(hasScore(3270), true, "ARAM: Caos, que estaba fuera por escribir la lista a mano");
+  assert.equal(hasScore(2450), true, "ARAM Caos Classic");
+  assert.equal(hasScore(450), false, "ARAM normal ya no");
+  assert.equal(hasScore(440), false, "Grieta tampoco");
+  assert.equal(hasScore(1700), false, "ni Arena");
+
+  // Sale del catalogo, no de una lista escrita a mano, para que una cola de
+  // Caos nueva entre sola
+  const conNota = QUEUE_CATALOG.filter((q) => hasScore(q.id));
+  assert.ok(conNota.length >= 3, "deberia haber varias colas de Caos");
+  for (const q of conNota)
+    assert.match(q.label, /Caos/i, q.id + " no parece ARAM Caos: " + q.label);
+  // Y ninguna cola de fuera se cuela
+  for (const q of QUEUE_CATALOG)
+    if (!/Caos/i.test(q.label || "")) assert.equal(hasScore(q.id), false, q.id);
+
+  // Cambiar el conjunto de colas puntuadas tiene que mover la version, o las
+  // 195 notas viejas se quedarian guardadas
+  assert.match(SCORE_POLICY_VERSION, /caos/i);
+
+  // Las columnas de la Grieta: la prueba son los GUARDIANES, no los puntos de
+  // vision. Medido sobre la biblioteca: el Abismo no registra un solo
+  // guardian en 1003 partidas, pero el cliente reparte algun punto de vision
+  // suelto en una de cada sesenta — colgar la columna de ahi la sacaria en
+  // ARAM llena de ceros.
+  const aram = [{ wards: 0 }, { wards: 0 }, { wards: 0 }];
+  assert.equal(showsLaneStats(aram), false);
+  assert.equal(showsLaneStats([{ wards: 0 }, { wards: 14 }]), true, "una sola partida basta");
+  assert.equal(showsLaneStats([]), false, "sin partidas no se inventan columnas");
 });
 
 test("the Spanish dictionary covers every key and translate fills placeholders", () => {
