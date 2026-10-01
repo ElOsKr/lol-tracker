@@ -41,6 +41,17 @@ const WEEKDAY_NAMES = Array.from({ length: 7 }, (_, index) =>
   new Date(2024, 0, 7 + index).toLocaleDateString(LOCALE, { weekday: "long" }),
 );
 
+// La clave es el lunes de esa semana en formato ISO, que es lo que la
+// consulta agrupa; aquí se imprime como una fecha corta del idioma del lector.
+function weekLabel(key: string): string {
+  const [year, month, day] = key.split("-").map(Number);
+  if (!year || !month || !day) return key;
+  return new Date(year, month - 1, day).toLocaleDateString(LOCALE, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 function monthName(key: string): string {
   const [year, month] = key.split("-").map(Number);
   if (!year || !month) return key;
@@ -138,15 +149,17 @@ function RowName({
   const text =
     group === "patch"
       ? formatPatch(row.key)
-      : group === "month"
-        ? monthName(row.key)
-        : group === "weekday"
-          ? (WEEKDAY_NAMES[Number(row.key)] ?? row.key)
-          : group === "hour"
-            ? t("explore.hour", { hour: row.key })
-            : group === "duration"
-              ? t("explore.fromMinutes", { minutes: row.key })
-              : queueLabel(Number(row.key));
+      : group === "week"
+        ? t("explore.weekOf", { date: weekLabel(row.key) })
+        : group === "month"
+          ? monthName(row.key)
+          : group === "weekday"
+            ? (WEEKDAY_NAMES[Number(row.key)] ?? row.key)
+            : group === "hour"
+              ? t("explore.hour", { hour: row.key })
+              : group === "duration"
+                ? t("explore.fromMinutes", { minutes: row.key })
+                : queueLabel(Number(row.key));
   return <span className="text-lol-text-bright">{text}</span>;
 }
 
