@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import type { ChampionData, LiveEvent, LivePlayer } from "../lib/types";
 import { getChampionName } from "../hooks/useChampions";
-import { formatDuration, kdaRatio, winRateColor } from "../lib/format";
+import { LOCALE, formatDuration, kdaRatio, winRateColor } from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
 import SummonerSpellIcon from "./SummonerSpellIcon";
@@ -10,7 +10,7 @@ import PlayerTags from "./PlayerTags";
 import { livePlayerTag } from "../../shared/tags";
 import Kda from "./Kda";
 
-const GRID_COLS = "grid-cols-[44px_minmax(90px,1fr)_34px_72px_44px_minmax(176px,auto)_108px]";
+const GRID_COLS = "grid-cols-[44px_minmax(90px,1fr)_34px_72px_44px_minmax(176px,auto)_108px_104px]";
 
 export default function LiveScoreboard({
   players,
@@ -84,6 +84,7 @@ function LiveTeam({
         <span className="text-right">{t("live.cs")}</span>
         <span>{t("live.items")}</span>
         <span className="text-right">{t("live.onThisChamp")}</span>
+        <span className="text-right">{t("live.yourSide")}</span>
       </div>
 
       {players.map((player) => (
@@ -170,6 +171,7 @@ function LivePlayerRow({ player, champData }: { player: LivePlayer; champData: C
       </div>
 
       <ChampionRecordCell player={player} />
+      <YourMatchupCell player={player} />
     </div>
   );
 }
@@ -241,6 +243,59 @@ export function LiveEventFeed({ events }: { events: LiveEvent[] }) {
             <span className={`truncate ${EVENT_TONES[event.tone]}`}>{event.text}</span>
           </div>
         ))}
+    </div>
+  );
+}
+
+/**
+ * Lo que te ha pasado a ti alrededor de ese campeón, no lo que le ha pasado
+ * al jugador.
+ *
+ * Es la contraria de la columna de al lado: aquella habla de la persona y casi
+ * siempre es un guion, porque en una cola aleatoria son desconocidos; esta
+ * habla del campeón y casi nunca lo es. El número va siempre; el color, solo
+ * cuando la diferencia con tu media aguanta el filtro de ruido, que sobre las
+ * 799 partidas guardadas deja pasar 18 de 173 enfrentamientos.
+ */
+function YourMatchupCell({ player }: { player: LivePlayer }) {
+  const t = useT();
+  const matchup = player.yourMatchup;
+
+  if (!matchup) {
+    return (
+      <div className="text-right text-[11px] text-lol-text/40" title={t("live.noMatchup")}>
+        -
+      </div>
+    );
+  }
+
+  const label =
+    matchup.side === "self"
+      ? t("live.sideSelf")
+      : matchup.side === "ally"
+        ? t("live.sideAlly")
+        : t("live.sideEnemy");
+  const rate = (matchup.wins / matchup.games) * 100;
+  const sign = matchup.gap > 0 ? "+" : "";
+
+  return (
+    <div className="text-right" title={t("live.matchupTitle", { label, count: matchup.games })}>
+      <div
+        className={`text-[11px] font-medium ${
+          matchup.carries ? winRateColor(matchup.wins, matchup.games) : "text-lol-text"
+        }`}
+      >
+        {label} {rate.toLocaleString(LOCALE, { maximumFractionDigits: 0 })}%
+      </div>
+      <div className="text-[10px] text-lol-text/60">
+        {t("live.matchupGames", { count: matchup.games })}
+        {matchup.carries && (
+          <span className="ml-1 text-lol-gold">
+            {sign}
+            {matchup.gap.toLocaleString(LOCALE, { maximumFractionDigits: 0 })}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

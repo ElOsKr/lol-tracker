@@ -89,12 +89,29 @@ function variance(sum: number, sumSq: number, n: number): number {
   return Math.max(0, sumSq / n - (sum / n) ** 2);
 }
 
-/** Whether a win-rate gap is bigger than the noise of these two samples. */
-function winGapCarries(record: ChampionRecord, base: Baseline, gap: number): boolean {
+/**
+ * Whether a win-rate gap is bigger than the noise of these two samples.
+ *
+ * The one place in the app that answers this question. Three screens ask it —
+ * the champion verdicts here, the data explorer and the live matchups — and
+ * three copies would be three chances to drift apart on the floor, on the
+ * multiple, or on what a sample too small to speak looks like.
+ *
+ * The minimum sample is part of the rule rather than the caller's business:
+ * a group that never won has a standard error of exactly zero, so without it
+ * four losses out of four would clear any gap at all.
+ */
+export function winRateGapCarries(
+  record: { games: number; wins: number },
+  base: { games: number; wins: number },
+  minGap: number = MIN_WIN_GAP,
+): boolean {
+  if (record.games < MIN_POOL_GAMES || base.games < MIN_POOL_GAMES) return false;
   const p = record.wins / record.games;
   const q = base.wins / base.games;
+  const gap = (p - q) * 100;
   const se = Math.sqrt((p * (1 - p)) / record.games + (q * (1 - q)) / base.games) * 100;
-  return Math.abs(gap) >= MIN_WIN_GAP && Math.abs(gap) >= NOISE_MULTIPLE * se;
+  return Math.abs(gap) >= minGap && Math.abs(gap) >= NOISE_MULTIPLE * se;
 }
 
 /** The same for the score, whose spread has to be measured rather than derived. */
@@ -127,8 +144,7 @@ export function judgeChampion(record: ChampionRecord, base: Baseline): PoolJudge
   const moved = scoreGap != null && scoreGapCarries(record, base, scoreGap);
   const agreement: ScoreAgreement = !moved ? "flat" : scoreGap! > 0 ? "supports" : "contradicts";
 
-  if (record.games < MIN_POOL_GAMES) return { verdict: null, winGap, scoreGap, agreement };
-  if (!winGapCarries(record, base, winGap)) {
+  if (!winRateGapCarries(record, base)) {
     return { verdict: null, winGap, scoreGap, agreement };
   }
 

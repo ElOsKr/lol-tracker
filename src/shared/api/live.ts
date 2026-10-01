@@ -42,6 +42,27 @@ export interface LivePlayer {
   // Our record with them against our record without them, ready for the tag.
   // Null for a stranger, which is nearly everyone in a random lobby.
   shared: SharedRecord | null;
+  // Tu historial con, junto a o contra el campeón que lleva. A diferencia de
+  // los dos de arriba, esta casi siempre trae algo.
+  yourMatchup: YourMatchup | null;
+}
+
+/**
+ * Tu propio historial alrededor del campeón de esta fila.
+ *
+ * La columna de al lado dice lo que la aplicación sabe del *jugador*, que en
+ * una cola aleatoria son nueve guiones de cada diez. Esta nunca está vacía:
+ * lo lleve quien lo lleve, a ese campeón ya te lo has encontrado antes.
+ */
+export interface YourMatchup {
+  /** Si lo llevas tú, lo lleva un compañero, o lo lleva un rival. */
+  side: "self" | "ally" | "enemy";
+  games: number;
+  wins: number;
+  /** Tu winrate aquí menos tu winrate general, en puntos. */
+  gap: number;
+  /** Si esa diferencia pasa el filtro de ruido de siempre. */
+  carries: boolean;
 }
 
 export type LiveEventTone = "kill" | "objective" | "special";
@@ -71,6 +92,8 @@ export interface LiveGameSnapshot {
   players: LivePlayer[];
   // Newest last, trimmed to the recent past
   events: LiveEvent[];
+  // Tu récord en esta cola, que es contra lo que se leen los de arriba
+  yourOverall: { games: number; wins: number } | null;
 }
 
 // ---- Post-game recap ----
