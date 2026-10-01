@@ -11,6 +11,7 @@ import {
   kdaRatio,
 } from "../lib/format";
 import { useT } from "../lib/i18n";
+import { useInView } from "../hooks/useInView";
 import AugmentIcon from "./AugmentIcon";
 import ChampionIcon from "./ChampionIcon";
 import ItemIcon from "./ItemIcon";
@@ -59,16 +60,44 @@ function parseAugmentIds(raw: string | null): number[] {
   return raw.split(",").map(Number).filter(Boolean);
 }
 
-function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: string | null }) {
+/**
+ * What an icon leaves behind when its row is off screen.
+ *
+ * Exactly the size of the picture it stands in for, so a row keeps its height
+ * and nothing below it moves when the pictures come and go.
+ */
+function IconSlot({ size, round = true }: { size: number; round?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`block shrink-0 bg-white/5 ${round ? "rounded-full" : "rounded"}`}
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+function AugmentGrid({
+  augmentIds,
+  patch,
+  draw,
+}: {
+  augmentIds: number[];
+  patch?: string | null;
+  draw: boolean;
+}) {
   if (augmentIds.length === 0) return null;
   // Classic can grant bonus augments; spill past 4 into a third column so the
   // grid stays two rows tall and rows keep a uniform height.
   const cols = augmentIds.length > 4 ? "grid-cols-3" : "grid-cols-2";
   return (
     <div className={`grid ${cols} gap-0.5 w-fit`}>
-      {augmentIds.map((id, i) => (
-        <AugmentIcon key={i} augmentId={id} size={22} patch={patch} />
-      ))}
+      {augmentIds.map((id, i) =>
+        draw ? (
+          <AugmentIcon key={i} augmentId={id} size={22} patch={patch} />
+        ) : (
+          <IconSlot key={i} size={22} round={false} />
+        ),
+      )}
     </div>
   );
 }
@@ -86,6 +115,10 @@ export default function GameRow({
   onContextMenu,
 }: GameRowProps) {
   const t = useT();
+  // Las imagenes de una fila fuera de pantalla no se dibujan: son la mayor
+  // parte de los 270 MB que costaba recorrer el historial entero. La fila
+  // sigue montada y con su altura, asi que nada se mueve.
+  const [ref, draw] = useInView<HTMLDivElement>();
   const isRemake = !!match.is_remake;
   const isWin = !!match.win;
   const isFavorite = !!match.favorite;
@@ -106,7 +139,7 @@ export default function GameRow({
       : "from-lol-loss/12 to-lol-loss/[0.04]";
 
   return (
-    <div id={`game-${match.game_id}`}>
+    <div id={`game-${match.game_id}`} ref={ref}>
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
@@ -127,11 +160,20 @@ export default function GameRow({
                 ? t("history.win")
                 : t("history.loss")}
         </div>
-        <ChampionIcon championId={match.champion_id} size={36} />
+        {draw ? <ChampionIcon championId={match.champion_id} size={36} /> : <IconSlot size={36} />}
         {/* Two 17px spells + the 2px gap match the portrait's 36px height */}
         <div className="flex flex-col gap-0.5 shrink-0">
-          <SummonerSpellIcon spellId={match.spell1} size={17} />
-          <SummonerSpellIcon spellId={match.spell2} size={17} />
+          {draw ? (
+            <>
+              <SummonerSpellIcon spellId={match.spell1} size={17} />
+              <SummonerSpellIcon spellId={match.spell2} size={17} />
+            </>
+          ) : (
+            <>
+              <IconSlot size={17} round={false} />
+              <IconSlot size={17} round={false} />
+            </>
+          )}
         </div>
         <div className="w-20 shrink-0 @lg:w-24">
           <div className="text-sm text-lol-text-bright truncate">
@@ -174,15 +216,18 @@ export default function GameRow({
 
         {/* Augments – reserve 3 columns so mixed-queue lists stay aligned */}
         <div className="hidden w-[70px] shrink-0 @3xl:block">
-          <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
+          <AugmentGrid augmentIds={augmentIds} patch={match.game_version} draw={draw} />
         </div>
 
         {/* Items – 3x2 grid, no trinket (slot 6) */}
         <div className="hidden shrink-0 grid-cols-3 gap-0.5 @2xl:grid">
           {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
-            (itemId, i) => (
-              <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />
-            ),
+            (itemId, i) =>
+              draw ? (
+                <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />
+              ) : (
+                <IconSlot key={i} size={22} round={false} />
+              ),
           )}
         </div>
 
