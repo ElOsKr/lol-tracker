@@ -30,6 +30,8 @@ import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
 import VerdictLines from "../components/VerdictLines";
 import { MATCH_DETAIL_PATH } from "../../shared/match-detail";
+import { showsLaneStats } from "../../shared/history-columns";
+import { hasScore } from "../../shared/queues";
 import MatchScoreboard from "../components/MatchScoreboard";
 import MultikillBadge from "../components/MultikillBadge";
 import StatBars from "../components/StatBars";
@@ -352,6 +354,10 @@ export default function MatchHistory() {
     name: string | null;
     profileIcon: number | null;
   } | null>(null);
+  // Decided over everything loaded rather than the page on screen, so the
+  // columns do not appear halfway down an infinite scroll.
+  const laneStats = useMemo(() => showsLaneStats(matches), [matches]);
+  const scored = hasScore(queueFilter);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const lcuStatus = useLcuStatus();
   const backfill = useBackfill();
@@ -574,32 +580,43 @@ export default function MatchHistory() {
     <div className="max-w-7xl space-y-4">
       {/* Stat Cards */}
       {dashboard && dashboard.totalGames > 0 && (
-        <div className="grid grid-cols-1 gap-4 items-stretch @xl:grid-cols-2 @5xl:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
+        <div
+          className={`grid grid-cols-1 items-stretch gap-4 @xl:grid-cols-2 ${
+            scored
+              ? "@5xl:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]"
+              : "@5xl:grid-cols-[minmax(0,1.3fr)_repeat(2,minmax(0,1fr))]"
+          }`}
+        >
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
-          <StatCard
-            label={queueFilter === 450 ? t("history.avgScoreExperimental") : t("history.avgScore")}
-            accent="gold"
-            icon={<StarIcon className="w-3 h-3" />}
-            value={
-              dashboard.avgScore != null ? (
-                <span className={scoreColor(dashboard.avgScore)}>
-                  {dashboard.avgScore.toFixed(1)}
-                  <span className="text-sm font-semibold text-lol-text/60"> / 10</span>
-                </span>
-              ) : (
-                "—"
-              )
-            }
-            subtext={<ScoreMeter score={dashboard.avgScore} />}
-          >
-            <BadgeCounts
-              mvps={dashboard.mvps}
-              aces={dashboard.aces}
-              scoredWins={dashboard.scoredWins}
-              scoredLosses={dashboard.scoredLosses}
-            />
-          </StatCard>
+          {/* An unscored queue used to leave this card standing with a dash in
+              it, which is the same empty-column habit the rest of the app has
+              been getting rid of. The row closes up instead. */}
+          {scored && (
+            <StatCard
+              label={t("history.avgScore")}
+              accent="gold"
+              icon={<StarIcon className="w-3 h-3" />}
+              value={
+                dashboard.avgScore != null ? (
+                  <span className={scoreColor(dashboard.avgScore)}>
+                    {dashboard.avgScore.toFixed(1)}
+                    <span className="text-sm font-semibold text-lol-text/60"> / 10</span>
+                  </span>
+                ) : (
+                  "—"
+                )
+              }
+              subtext={<ScoreMeter score={dashboard.avgScore} />}
+            >
+              <BadgeCounts
+                mvps={dashboard.mvps}
+                aces={dashboard.aces}
+                scoredWins={dashboard.scoredWins}
+                scoredLosses={dashboard.scoredLosses}
+              />
+            </StatCard>
+          )}
 
           <StatCard
             label={t("history.avgKda")}
@@ -837,6 +854,7 @@ export default function MatchHistory() {
           <GameRow
             key={m.game_id}
             match={m}
+            laneStats={laneStats}
             champData={champData}
             expanded={expandedId === m.game_id}
             detail={expandedId === m.game_id ? detail : null}
@@ -1127,6 +1145,8 @@ function SessionHeader({ session }: { session: Session }) {
 
 interface GameRowProps {
   match: MatchListItem;
+  /** Decided once for the whole list, so every row keeps the same columns. */
+  laneStats: boolean;
   champData: ChampionData;
   expanded: boolean;
   detail: MatchDetail | null;
@@ -1135,6 +1155,16 @@ interface GameRowProps {
   puuids: string[] | null;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+}
+
+/** One of the two numbers the Rift rows carry where the score would be. */
+function LaneStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="w-10 shrink-0 text-center">
+      <div className="text-sm font-semibold tabular-nums text-lol-text-bright">{value}</div>
+      <div className="text-[10px] tracking-wider text-lol-text uppercase">{label}</div>
+    </div>
+  );
 }
 
 function parseAugmentIds(raw: string | null): number[] {
@@ -1158,6 +1188,7 @@ function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: stri
 
 function GameRow({
   match,
+  laneStats,
   champData,
   expanded,
   detail,
@@ -1227,8 +1258,17 @@ function GameRow({
           <div className={`text-xs ${kdaHighlight(kda)}`}>{t("recap.kda", { ratio: kda })}</div>
         </div>
 
-        {/* Score — a remake is scored by nothing, so it shows none */}
-        <ScoreCell score={isRemake ? null : match.score} badge={match.score_badge} />
+        {/* The score is only ever ARAM Caos's; everywhere else the column
+            would be a permanent blank, so the Rift's two numbers take the
+            space instead of being squeezed in beside it. */}
+        {hasScore(match.queue_id) ? (
+          <ScoreCell score={isRemake ? null : match.score} badge={match.score_badge} />
+        ) : laneStats ? (
+          <div className="flex shrink-0 gap-3">
+            <LaneStat value={match.cs} label={t("history.cs")} />
+            <LaneStat value={match.vision} label={t("history.vision")} />
+          </div>
+        ) : null}
 
         {/* Stat bars: only with room to spare; the row keeps what identifies the game */}
         <div className="hidden @4xl:block">

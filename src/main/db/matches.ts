@@ -42,7 +42,7 @@ export const MATCH_ROW_SQL = `
       ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
       ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
       ps.total_damage_dealt, ps.total_damage_taken, ps.total_heal, ps.gold_earned,
-      ps.score, ps.score_badge, ps.spell1, ps.spell2,
+      ps.score, ps.score_badge, ps.cs, ps.vision, ps.wards, ps.spell1, ps.spell2,
       ps.item0, ps.item1, ps.item2, ps.item3, ps.item4, ps.item5,
       (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga
         WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids,

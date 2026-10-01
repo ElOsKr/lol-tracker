@@ -338,7 +338,6 @@ export const es: Dictionary = {
   "history.lastWeek": "La semana pasada",
   "history.weekOf": "Semana del {start}",
   "history.avgScore": "Nota media",
-  "history.avgScoreExperimental": "Nota media · experimental",
   "history.avgKda": "KDA medio",
   "history.totalKda": "{kills} / {deaths} / {assists} en total",
   "history.multikills": "Multikills",
@@ -978,4 +977,6 @@ export const es: Dictionary = {
   "axes.economyWhat": "Oro ganado por minuto.",
   "axes.visionWhat": "Guardianes puestos y destruidos. Solo en partidas donde alguien puso alguno.",
   "axes.farmWhat": "Súbditos y campamentos por minuto. Solo donde el mapa tiene jungla.",
+  "history.cs": "cs",
+  "history.vision": "vis",
 };

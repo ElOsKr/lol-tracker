@@ -5,10 +5,31 @@ export const QUEUE_ID_MAYHEM_CLASSIC = 2450;
 export const QUEUE_ID_ARAM = 450;
 
 export const MAYHEM_QUEUE_IDS = [QUEUE_ID_MAYHEM, QUEUE_ID_MAYHEM_CLASSIC];
-// Version ARAM changes independently of the unchanged Mayhem v4 formula.
-export const SCORE_POLICY_VERSION = "mayhem-v4-aram-experimental-v2";
+
+/**
+ * The queues the score covers: ARAM Caos and nothing else.
+ *
+ * Mayhem v4 was calibrated on ARAM Caos lobbies — augments included — so it
+ * is the only mode whose numbers it was ever fitted to. It used to be given
+ * to plain ARAM as well, which looked harmless because both are the Abyss,
+ * but a mode with augments and one without do not share a damage curve, and
+ * a number nobody calibrated is a number nobody should trust.
+ *
+ * Taken from the catalog rather than listed by hand, so a Caos queue Riot
+ * adds next season is covered the day it appears. Riot spells the mode KIWI,
+ * and its Classic variant KIWI_JADE.
+ */
+const SCORED_MODES = ["KIWI", "KIWI_JADE"];
+const SCORED_QUEUE_IDS = new Set(
+  QUEUE_CATALOG.filter((queue) => SCORED_MODES.includes(queue.mode)).map((queue) => queue.id),
+);
+
+// Bumped when the set of scored queues changes, not just the formula: it is
+// what makes startup clear the scores of a queue that no longer qualifies.
+export const SCORE_POLICY_VERSION = "mayhem-v4-aram-caos-only";
+
 export function hasScore(queue: number): boolean {
-  return queue === QUEUE_ID_ARAM || MAYHEM_QUEUE_IDS.includes(queue);
+  return SCORED_QUEUE_IDS.has(queue);
 }
 export const TRACKED_QUEUE_IDS: number[] = QUEUE_CATALOG.map((q) => q.id);
 export const CAPTURE_POLICY_VERSION = "lol-v1";
