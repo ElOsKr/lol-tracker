@@ -70,14 +70,6 @@ function createTables() {
       gold_earned    INTEGER NOT NULL DEFAULT 0,
       total_heal     INTEGER NOT NULL DEFAULT 0,
       largest_killing_spree INTEGER NOT NULL DEFAULT 0,
-      -- Súbditos y campamentos, puntos de visión, y guardianes puestos más
-      -- destruidos. Los dos primeros se enseñan en el historial de las colas
-      -- que los tienen; el tercero es lo que decide si esas columnas salen,
-      -- porque en el Abismo nadie pone un guardián jamás pero el cliente sí
-      -- reparte algún punto de visión suelto.
-      cs                   INTEGER NOT NULL DEFAULT 0,
-      vision               INTEGER NOT NULL DEFAULT 0,
-      wards                INTEGER NOT NULL DEFAULT 0,
       early_surrender INTEGER NOT NULL DEFAULT 0,
       -- Copied down from games so an aggregate over every participant never
       -- has to join back. Kept honest by trg_games_denorm_*, since these are
@@ -165,6 +157,14 @@ function createTables() {
       gold_earned          INTEGER NOT NULL DEFAULT 0,
       total_heal           INTEGER NOT NULL DEFAULT 0,
       largest_killing_spree INTEGER NOT NULL DEFAULT 0,
+      -- Súbditos y campamentos, puntos de visión, y guardianes puestos más
+      -- destruidos. Los dos primeros se enseñan en el historial de las colas
+      -- que los tienen; el tercero es lo que decide si esas columnas salen,
+      -- porque en el Abismo nadie pone un guardián jamás pero el cliente sí
+      -- reparte algún punto de visión suelto.
+      cs                   INTEGER NOT NULL DEFAULT 0,
+      vision               INTEGER NOT NULL DEFAULT 0,
+      wards                INTEGER NOT NULL DEFAULT 0,
       score                REAL,
       -- Unclamped score, ordering key only — see PlayerScore.raw
       score_raw            REAL,

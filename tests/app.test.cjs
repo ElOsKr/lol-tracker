@@ -5,7 +5,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { load } = require("./helpers.cjs");
+const { load, repoRoot } = require("./helpers.cjs");
 
 test("queue selection persists in order and never clears to all queues", async () => {
   const previous = global.window;
@@ -375,4 +375,51 @@ test("the Riot Client is found where it records itself, and nowhere it isn't", (
     success: false,
     error: "startup.shortcutNotPackaged",
   });
+});
+
+test("the declared shape of player_stats covers every column written into it", () => {
+  // La declaración de las tablas dice de sí misma que una base nueva queda
+  // correcta sin ejecutar una sola migración. Esto lo comprueba contra la
+  // inserción de verdad, porque en la 0.8.3 las tres columnas nuevas se
+  // declararon en la tabla de al lado y la base nueva solo salió bien de
+  // rebote, porque las migraciones también corren cuando la base es nueva.
+  const dir = path.join(repoRoot, "src", "main", "db");
+  const fuentes = fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith(".ts"))
+    .map((name) => ({ name, text: fs.readFileSync(path.join(dir, name), "utf8") }));
+
+  const declara = fuentes.find((f) => f.text.includes("CREATE TABLE IF NOT EXISTS player_stats"));
+  const inserta = fuentes.find((f) => f.text.includes("INSERT OR IGNORE INTO player_stats"));
+  assert.ok(declara, "nadie declara player_stats");
+  assert.ok(inserta, "nadie inserta en player_stats");
+
+  const bloque = declara.text.slice(
+    declara.text.indexOf("CREATE TABLE IF NOT EXISTS player_stats"),
+  );
+  const declaradas = new Set(
+    bloque
+      .slice(0, bloque.indexOf(");"))
+      .split("\n")
+      .flatMap((linea) => {
+        const limpia = linea.replace(/--.*$/, "").trim();
+        // Una línea puede llevar varias columnas: "spell1 INTEGER, spell2 INTEGER"
+        return limpia
+          .split(",")
+          .map((trozo) => trozo.trim().split(/\s+/)[0])
+          .filter((nombre) => /^[a-z_][a-z0-9_]*$/.test(nombre));
+      }),
+  );
+  assert.ok(declaradas.size > 20, `columnas declaradas: ${declaradas.size}`);
+
+  const lista = inserta.text.slice(inserta.text.indexOf("INSERT OR IGNORE INTO player_stats"));
+  const escritas = lista
+    .slice(lista.indexOf("(") + 1, lista.indexOf(")"))
+    .split(",")
+    .map((nombre) => nombre.trim())
+    .filter(Boolean);
+  assert.ok(escritas.length > 20, `columnas escritas: ${escritas.length}`);
+
+  const faltan = escritas.filter((nombre) => !declaradas.has(nombre));
+  assert.deepEqual(faltan, [], "se escriben columnas que la tabla no declara");
 });
