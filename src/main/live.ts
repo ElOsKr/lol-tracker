@@ -297,7 +297,26 @@ function emptySnapshot(): LiveGameSnapshot {
     gameTime: 0,
     players: [],
     events: [],
+    yourOverall: null,
   };
+}
+
+// Your own record around each champion in the lobby. Cached on the same terms
+// as the histories below and for the same reason: it cannot change while the
+// game is running, and the poll comes round every three seconds.
+let matchupCache: { signature: string; matchups: db.ChampionMatchups } | null = null;
+
+function championMatchups(
+  gameId: number | null,
+  players: LivePlayer[],
+  queue: number | null,
+): db.ChampionMatchups {
+  const champions = players.map((p) => p.championId);
+  const signature = `${gameId}:${queue}:${champions.join("|")}`;
+  if (matchupCache?.signature === signature) return matchupCache.matchups;
+  const matchups = db.getChampionMatchups(champions, queue ?? undefined);
+  matchupCache = { signature, matchups };
+  return matchups;
 }
 
 // Records don't change mid-game, so they're looked up once per roster rather
@@ -413,6 +432,7 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
       gamesWithUs: 0,
       friendKey: null,
       shared: null,
+      yourMatchup: null,
     };
   });
 
@@ -435,6 +455,25 @@ async function buildSnapshot(): Promise<LiveGameSnapshot> {
         withoutWins: Math.max(0, own.wins - history.winsWithUs),
       };
     }
+  }
+
+  // Which side of the bridge each champion is on, from our own row rather
+  // than from a team number: the in-game API numbers the teams its own way,
+  // and in a custom game ours is not always 100.
+  const ourTeam = snapshot.players.find((p) => p.isSelf)?.teamId ?? null;
+  const matchups = championMatchups(snapshot.gameId, snapshot.players, snapshot.queueId);
+  snapshot.yourOverall = matchups.overall.games > 0 ? matchups.overall : null;
+  for (const player of snapshot.players) {
+    const side = player.isSelf
+      ? "self"
+      : ourTeam != null && player.teamId === ourTeam
+        ? "ally"
+        : "enemy";
+    player.yourMatchup = db.yourMatchup(
+      matchups.byChampion[player.championId],
+      matchups.overall,
+      side,
+    );
   }
 
   const byName = new Map<string, LivePlayer>();
@@ -507,6 +546,7 @@ function stopPolling() {
     pollTimer = null;
   }
   recordCache = null;
+  matchupCache = null;
   // One last refresh, so the page learns the match is over instead of sitting
   // on the final in-game frame until something else touches it
   void refreshLiveGame();

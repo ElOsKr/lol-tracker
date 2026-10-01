@@ -1042,4 +1042,12 @@ export const es: Dictionary = {
   "explore.what.spree": "La mayor racha de cada partida, de media.",
   "explore.what.multikills": "Dobles, triples, cuádruples y péntuples por partida.",
   "explore.what.duration": "Cuánto duraron las partidas.",
+  // Tu propio récord alrededor de cada campeón de la partida
+  "live.yourSide": "Tu historial",
+  "live.sideSelf": "con",
+  "live.sideAlly": "junto a",
+  "live.sideEnemy": "contra",
+  "live.matchupGames": "{count} partidas",
+  "live.matchupTitle": "Tu récord {label} este campeón, en {count} partidas de esta cola.",
+  "live.noMatchup": "Nunca te ha salido este campeón en una partida guardada de esta cola.",
 };

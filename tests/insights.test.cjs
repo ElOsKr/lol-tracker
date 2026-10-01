@@ -760,3 +760,66 @@ test("the explorer only colours a gap the sample can carry", () => {
   // Y una muestra de una partida nunca se marca, por lejos que caiga
   assert.equal(gapCarries(media(1, 10, 0), base, nota), false);
 });
+
+test("the live column reads your own record around a champion, and shuts up when it cannot", () => {
+  const consultas = [];
+  const filas = [
+    { champion: 222, side: "ally", games: 41, wins: 27 },
+    { champion: 222, side: "enemy", games: 38, wins: 14 },
+    { champion: 157, side: "self", games: 12, wins: 8 },
+    { champion: 157, side: "enemy", games: 26, wins: 12 },
+  ];
+  const db = {
+    prepare(sql) {
+      consultas.push(sql);
+      return {
+        get: () => ({ games: 799, wins: 408 }),
+        all: () => filas,
+      };
+    },
+  };
+  const mod = load("src/main/db/matchups.ts", {
+    "./connection": { db },
+    "./filters": {
+      applyQueueFilter: (where, params, queue) => {
+        where.push("g.queue_id = ?");
+        params.push(queue ?? 2400);
+      },
+    },
+    "./summoner": { getAllPuuids: () => ["yo"] },
+  });
+
+  const got = mod.getChampionMatchups([222, 157, 0, 222], 2400);
+  assert.deepEqual(got.overall, { games: 799, wins: 408 });
+  // El campeón sin resolver (0) no se pregunta, y los repetidos van una vez
+  assert.deepEqual(Object.keys(got.byChampion).sort(), ["157", "222"]);
+  assert.deepEqual(got.byChampion[222].ally, { games: 41, wins: 27 });
+  assert.deepEqual(got.byChampion[222].enemy, { games: 38, wins: 14 });
+  // Un lado del que no vino fila queda a cero, no indefinido
+  assert.deepEqual(got.byChampion[222].self, { games: 0, wins: 0 });
+
+  // Una misma partida no puede contarse dos veces porque dos cuentas nuestras
+  // estuvieran en ella: la consulta se queda con una sola fila propia.
+  const agrupada = consultas.find((sql) => sql.includes("GROUP BY champion, side"));
+  assert.ok(agrupada, "no se llegó a consultar por campeón y lado");
+  assert.match(agrupada, /MIN\(m2\.participant_id\)/, "falta la desambiguación de cuenta propia");
+
+  // Y la fila del marcador: el lado que toca, la distancia a tu media, y el
+  // color solo cuando la muestra la sostiene.
+  const base = { games: 799, wins: 408 };
+  const contra = mod.yourMatchup(got.byChampion[222], base, "enemy");
+  assert.equal(contra.games, 38);
+  assert.ok(contra.gap < -13 && contra.gap > -15, "distancia a tu media: " + contra.gap);
+  assert.equal(contra.carries, true);
+
+  // Doce partidas al 67% son 16 puntos, que a esa muestra no se distinguen
+  const conEl = mod.yourMatchup(got.byChampion[157], base, "self");
+  assert.equal(conEl.games, 12);
+  assert.equal(conEl.carries, false);
+
+  // Nada que decir: un lado sin partidas, y un campeón que nunca ha salido
+  assert.equal(mod.yourMatchup(got.byChampion[157], base, "ally"), null);
+  assert.equal(mod.yourMatchup(undefined, base, "enemy"), null);
+  // Y una cuenta recién estrenada, sin media contra la que comparar
+  assert.equal(mod.yourMatchup(got.byChampion[222], { games: 0, wins: 0 }, "enemy"), null);
+});

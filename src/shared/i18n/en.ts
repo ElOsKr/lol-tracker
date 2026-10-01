@@ -1030,6 +1030,14 @@ export const en = {
   "explore.what.spree": "The longest killing spree of each game, averaged.",
   "explore.what.multikills": "Doubles, triples, quadras and pentas per game.",
   "explore.what.duration": "How long the games ran.",
+  // Your own record around each champion in the lobby
+  "live.yourSide": "Your record",
+  "live.sideSelf": "with",
+  "live.sideAlly": "beside",
+  "live.sideEnemy": "against",
+  "live.matchupGames": "{count} games",
+  "live.matchupTitle": "Your record {label} this champion, over {count} games in this queue.",
+  "live.noMatchup": "You have never had this champion in a stored game of this queue.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

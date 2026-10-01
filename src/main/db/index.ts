@@ -53,6 +53,8 @@ export { getMatchExtras } from "./match-extras";
 export { getMatchTimeline } from "./timeline-view";
 export { getSkillAxes } from "./skill-axes";
 export { getExploreTable } from "./explore";
+export { getChampionMatchups, yourMatchup } from "./matchups";
+export type { ChampionMatchups, ChampionSides, MatchupSide } from "./matchups";
 export {
   saveChallenges,
   getStoredChallenges,

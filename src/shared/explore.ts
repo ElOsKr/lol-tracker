@@ -13,7 +13,7 @@
  * from your own overall figure survives that sample.
  */
 
-import { MIN_POOL_GAMES } from "./champion-pool";
+import { MIN_POOL_GAMES, winRateGapCarries } from "./champion-pool";
 import { NOISE_MULTIPLE } from "./skill-axes";
 
 export const EXPLORE_PATH = "/explore";
@@ -296,13 +296,6 @@ function floorFor(metric: Metric, overall: number): number {
   return "points" in metric.floor ? metric.floor.points : Math.abs(overall) * metric.floor.fraction;
 }
 
-/** Standard error of the difference between two proportions, in points. */
-function rateError(row: ExploreRow, overall: ExploreRow): number {
-  const p = row.wins / row.games;
-  const q = overall.wins / overall.games;
-  return Math.sqrt((p * (1 - p)) / row.games + (q * (1 - q)) / overall.games) * 100;
-}
-
 /** The same for two means, whose spread is measured rather than derived. */
 function meanError(row: ExploreRow, overall: ExploreRow): number {
   return Math.sqrt(row.sd ** 2 / row.sample + overall.sd ** 2 / overall.sample);
@@ -333,15 +326,11 @@ export function gapCarries(row: ExploreRow, overall: ExploreRow, metric: Metric)
   const difference = gap(row, overall);
   if (difference == null || overall.value == null) return false;
   if (Math.abs(difference) < floorFor(metric, overall.value)) return false;
+  // Win rates go through the shared rule, which also carries the minimum
+  // sample: a group that never won, or never lost, has a standard error of
+  // exactly zero, and four losses out of four would otherwise clear any gap.
   if (metric.kind === "rate") {
-    // A group that never won, or never lost, has no measurable spread at all:
-    // the standard error of its proportion comes out exactly zero and every
-    // gap would clear it. Four losses out of four is not evidence — it happens
-    // one time in sixteen at even odds — so the floor on the sample is what
-    // keeps that row quiet, and it is the same floor the champion verdicts use.
-    if (row.games < MIN_POOL_GAMES || overall.games < MIN_POOL_GAMES) return false;
-    const error = rateError(row, overall);
-    return error === 0 ? difference !== 0 : Math.abs(difference) >= NOISE_MULTIPLE * error;
+    return winRateGapCarries(row, overall, floorFor(metric, overall.value));
   }
   if (row.sample < MIN_POOL_GAMES || overall.sample < MIN_POOL_GAMES) return false;
   const error = meanError(row, overall);
