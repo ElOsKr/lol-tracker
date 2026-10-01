@@ -2377,24 +2377,41 @@ test("a detail block is only drawn when the queue actually has the thing it meas
   assert.equal(splitTotal({ physical: 48063, magic: 0, trueDamage: 9526 }), 57589);
 });
 
+const RUTA_A_MANO = /(to|path)=\{?"\/match/;
 test("the detail page's path is named once, not typed out in each link", () => {
   const shared = fs.readFileSync(path.resolve(__dirname, "../src/shared/match-detail.ts"), "utf8");
   assert.match(shared, /export const MATCH_DETAIL_PATH = "\/match"/);
 
   // La pantalla en negro de la v0.7.8 salio de una ruta escrita a mano que no
-  // coincidia con ninguna del router. Aqui la ruta y los enlaces salen de la
-  // misma constante, y esto lo vigila.
-  for (const file of ["src/renderer/App.tsx", "src/renderer/pages/MatchHistory.tsx"]) {
-    const source = fs.readFileSync(path.resolve(__dirname, "..", file), "utf8");
+  // coincidia con ninguna del router. Esto vigila que nadie vuelva a escribirla.
+  //
+  // Recorre el renderer entero en vez de una lista de archivos: la primera
+  // version nombraba MatchHistory.tsx, y al partir ese archivo el enlace se fue
+  // a GameRow.tsx y la prueba fallo sin que nada estuviera roto. Una prueba que
+  // hay que actualizar al mover codigo vigila el sitio, no la regla.
+  const renderer = path.resolve(__dirname, "../src/renderer");
+  const archivos = [];
+  const recorrer = (dir) => {
+    for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+      const completo = path.join(dir, entrada.name);
+      if (entrada.isDirectory()) recorrer(completo);
+      else if (/[.]tsx?$/.test(entrada.name)) archivos.push(completo);
+    }
+  };
+  recorrer(renderer);
+  assert.ok(archivos.length > 20, "esperaba bastantes archivos de renderer");
+
+  let usos = 0;
+  for (const file of archivos) {
+    const source = fs.readFileSync(file, "utf8");
+    if (source.includes("MATCH_DETAIL_PATH")) usos++;
     assert.ok(
-      source.includes("MATCH_DETAIL_PATH"),
-      file + " deberia usar MATCH_DETAIL_PATH en vez de escribir la ruta",
-    );
-    assert.ok(
-      !/(to|path)=\{?"\/match/.test(source),
-      file + " escribe /match a mano; usa la constante",
+      !RUTA_A_MANO.test(source),
+      path.relative(renderer, file) + " escribe /match a mano; usa la constante",
     );
   }
+  // El router y al menos un enlace
+  assert.ok(usos >= 2, "solo " + usos + " archivos usan la constante");
 });
 
 test("the match chart reads from your side of the game, not from Riot's team order", () => {
