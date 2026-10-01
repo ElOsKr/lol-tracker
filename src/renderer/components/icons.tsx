@@ -180,6 +180,16 @@ export function RadarIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function TableIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <line x1="3" x2="21" y1="9" y2="9" />
+      <line x1="9" x2="9" y1="9" y2="20" />
+    </Icon>
+  );
+}
+
 export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

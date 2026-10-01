@@ -13,12 +13,18 @@ import { displayName, getAllPuuids } from "./summoner";
 export const MIN_SHARED_GAMES = 2;
 
 // The id the Friends list keys a teammate on — puuid when we know it, so name
-// changes don't split a player in two.
-function teammateKey(puuid: string | null, name: string): string {
+// changes don't split a player in two. Exported for the data explorer, whose
+// teammate rows have to key and name a player exactly the same way or their
+// links would lead to a page that is not there.
+export function teammateKey(puuid: string | null, name: string): string {
   return puuid || name;
 }
 
-function teammateName(gameName: string | null, tagLine: string | null, participantId: number) {
+export function teammateName(
+  gameName: string | null,
+  tagLine: string | null,
+  participantId: number,
+) {
   return displayName(gameName, tagLine) ?? `Player ${participantId}`;
 }
 

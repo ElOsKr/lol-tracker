@@ -327,3 +327,78 @@ test("the Spanish dictionary covers every key and translate fills placeholders",
   assert.equal(i18n.parseLanguageChoice(null), "system");
   assert.equal(i18n.parseLanguageChoice("es"), "es");
 });
+
+test("every explorer metric and grouping has a label, a question and a query", () => {
+  const { METRICS, GROUPS, metricsFor, EXPLORE_PATH } = load("src/shared/explore.ts");
+  const { en } = load("src/shared/i18n/en.ts");
+  const { es } = load("src/shared/i18n/es.ts");
+
+  // La página rotula cada opción con una clave construida a partir de su id,
+  // así que una métrica nueva sin traducir saldría con la clave a la vista.
+  for (const metric of METRICS) {
+    for (const key of [`explore.metric.${metric.key}`, `explore.what.${metric.key}`]) {
+      assert.ok(key in en, `falta ${key} en inglés`);
+      assert.ok(key in es, `falta ${key} en español`);
+    }
+  }
+  for (const group of GROUPS) {
+    assert.ok(`explore.group.${group}` in en, `falta explore.group.${group}`);
+    assert.ok(`explore.group.${group}` in es, `falta explore.group.${group} en español`);
+  }
+
+  // Y la barra lateral tiene que llevar a la ruta que la página declara
+  const { NAV_ITEMS } = load("src/shared/navigation.ts");
+  assert.ok(
+    NAV_ITEMS.some((item) => item.path === EXPLORE_PATH),
+    "ninguna entrada del menú lleva al explorador",
+  );
+
+  // Medir la duración de las partidas agrupadas por duración no dice nada
+  assert.ok(!metricsFor("duration", ["winRate", "duration"]).includes("duration"));
+  assert.deepEqual(metricsFor("champion", ["winRate", "duration"]), ["winRate", "duration"]);
+
+  // Lo que de verdad protege esta prueba: que cada métrica llegue a una
+  // expresión de consulta. Sin ella la columna saldría con un recuento en vez
+  // del número pedido, sin error y sin aviso.
+  const consultas = [];
+  const fila = { scored: 1, cs: 1, wards: 1, games: 10, wins: 5, sample: 10, sum: 30, sumSq: 120 };
+  const db = {
+    prepare(sql) {
+      consultas.push(sql);
+      return { get: () => fila, all: () => [] };
+    },
+  };
+  const explore = load("src/main/db/explore.ts", {
+    "./connection": { db },
+    "./filters": {
+      applyQueueFilter: (where, params, queue) => {
+        where.push("g.queue_id = ?");
+        params.push(queue ?? 2400);
+      },
+    },
+    "./summoner": { getAllPuuids: () => ["yo"] },
+    "./teammates": { teammateKey: (p, n) => p || n, teammateName: () => "Alguien" },
+  });
+
+  for (const metric of METRICS) {
+    consultas.length = 0;
+    explore.getExploreTable({ metric: metric.key, group: "champion", queue: 2400, minGames: 1 });
+    const agrupada = consultas.find((sql) => sql.includes("GROUP BY"));
+    assert.ok(agrupada, `${metric.key} no llegó a consultar nada`);
+    // "0 sample" es el hueco sin expresión: correcto para un recuento o una
+    // proporción, un fallo para cualquier media.
+    const mide = !agrupada.includes("0 sample");
+    assert.equal(mide, metric.kind === "mean", `${metric.key} (${metric.kind}) mide: ${mide}`);
+  }
+
+  // Y que cada agrupación tenga por dónde cortar, incluida la de compañeros,
+  // que va por otra consulta entera.
+  for (const group of GROUPS) {
+    consultas.length = 0;
+    explore.getExploreTable({ metric: "winRate", group, queue: 2400, minGames: 1 });
+    const agrupada = consultas.find((sql) => sql.includes("GROUP BY"));
+    assert.ok(agrupada, `${group} no llegó a consultar nada`);
+    assert.doesNotMatch(agrupada, /SELECT\s+AS key/, `${group} agrupa por nada`);
+    if (group === "teammate") assert.match(agrupada, /our_teams/, "compañeros sin el CTE");
+  }
+});
