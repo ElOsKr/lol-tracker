@@ -9,6 +9,7 @@
 // bridge — nothing in the main process produces one — and now lives beside
 // the renderer function that builds it.
 import type { ChallengeLevel } from "./challenges";
+import type { ExploreRequest, ExploreRow, ExploreTable } from "./explore";
 import type { MatchExtras } from "./match-detail";
 import type { MatchTimeline } from "./match-timeline";
 import type { SkillAxes } from "./skill-axes";
@@ -60,7 +61,16 @@ import type {
 
 // Reexportados desde donde viven, para que importar de "shared/api" siga
 // bastando como siempre.
-export type { ChallengeLevel, GameNotice, MatchExtras, MatchTimeline, SkillAxes };
+export type {
+  ChallengeLevel,
+  ExploreRequest,
+  ExploreRow,
+  ExploreTable,
+  GameNotice,
+  MatchExtras,
+  MatchTimeline,
+  SkillAxes,
+};
 
 export * from "./api/app";
 export * from "./api/assets";
@@ -100,6 +110,9 @@ export interface ElectronAPI {
   // Reads every stored payload of the queue, so it is a page that opens
   // rather than a number a list asks for — see src/main/db/skill-axes.ts.
   getSkillAxes: (queue?: number) => Promise<SkillAxes>;
+  // Una métrica cortada por una agrupación. La cola llega dentro de la
+  // petición porque agrupar por cola es la única vista que las cruza.
+  getExploreTable: (request: ExploreRequest) => Promise<ExploreTable>;
   toggleFavorite: (gameId: number) => Promise<boolean>;
   getChampionStats: (patch?: string, queue?: number) => Promise<ChampionStats[]>;
   getAugmentStats: (championId?: number, patch?: string, queue?: number) => Promise<AugmentStats[]>;
@@ -232,6 +245,7 @@ export const INVOKE_CHANNELS = {
   getMatchExtras: "db:match-extras",
   getMatchTimeline: "db:match-timeline",
   getSkillAxes: "db:skill-axes",
+  getExploreTable: "db:explore",
   toggleFavorite: "db:toggle-favorite",
   getChampionStats: "db:champion-stats",
   getAugmentStats: "db:augment-stats",

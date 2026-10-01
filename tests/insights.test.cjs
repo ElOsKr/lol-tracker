@@ -714,3 +714,49 @@ test("the live tag only speaks about someone the app actually knows", () => {
   assert.equal(plano.key, "tag.liveTogether");
   assert.equal(plano.vars.rate, 50);
 });
+
+test("the explorer only colours a gap the sample can carry", () => {
+  const { gapCarries, metricByKey } = load("src/shared/explore.ts");
+  const winRate = metricByKey("winRate");
+  const fila = (games, wins) => ({
+    key: "x",
+    games,
+    wins,
+    sample: games,
+    value: (wins / games) * 100,
+    sd: 0,
+  });
+
+  // 799 partidas al 51% es la media con la que se compara todo
+  const global = fila(799, 408);
+
+  // Diez partidas al 80% son 29 puntos arriba: pasa el suelo y el ruido
+  assert.equal(gapCarries(fila(10, 8), global, winRate), true);
+  // Doce al 67% son 16 puntos, que a esa muestra ya no se distinguen del azar
+  assert.equal(gapCarries(fila(12, 8), global, winRate), false);
+  // Y 400 partidas al 57% son 6 puntos que la muestra sí sostiene —aguantan
+  // la prueba de ruido— pero se quedan por debajo del suelo de 8 puntos, así
+  // que tampoco se marcan: los dos filtros hacen falta, no solo el ruido.
+  assert.equal(gapCarries(fila(400, 228), global, winRate), false);
+
+  // Cuatro derrotas de cuatro no son una prueba: con una proporción de 0% el
+  // error estándar sale exactamente cero y, sin un mínimo de muestra, la
+  // regla marcaría esa fila como diferencia real. Se vio en la vista por
+  // colas, donde una cola de 4 partidas aparecía destacada.
+  assert.equal(gapCarries(fila(4, 0), global, winRate), false);
+  assert.equal(gapCarries(fila(2, 2), global, winRate), false);
+
+  // Un recuento no se compara con nada
+  assert.equal(gapCarries(fila(10, 8), global, metricByKey("games")), false);
+
+  // Las medias llevan su propia desviación, no una derivada de la proporción
+  const nota = metricByKey("score");
+  const media = (sample, value, sd) => ({ key: "x", games: sample, wins: 0, sample, value, sd });
+  const base = media(799, 6.55, 1.8);
+  // Treinta partidas una nota entera por encima, con el mismo reparto: se ve
+  assert.equal(gapCarries(media(30, 7.6, 1.8), base, nota), true);
+  // La misma distancia con el triple de dispersión deja de verse
+  assert.equal(gapCarries(media(30, 7.6, 5.4), base, nota), false);
+  // Y una muestra de una partida nunca se marca, por lejos que caiga
+  assert.equal(gapCarries(media(1, 10, 0), base, nota), false);
+});

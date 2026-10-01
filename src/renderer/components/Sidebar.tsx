@@ -25,6 +25,7 @@ import {
   HourglassIcon,
   AwardIcon,
   RadarIcon,
+  TableIcon,
   PanelLeftIcon,
   XIcon,
 } from "./icons";
@@ -43,6 +44,7 @@ const icons: Record<NavItemId, IconComponent> = {
   friends: UsersIcon,
   trends: TrendingUpIcon,
   skills: RadarIcon,
+  explore: TableIcon,
   records: MedalIcon,
   widget: HourglassIcon,
   challenges: AwardIcon,

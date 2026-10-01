@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   { id: "friends", path: "/friends" },
   { id: "trends", path: "/trends" },
   { id: "skills", path: "/skills" },
+  { id: "explore", path: "/explore" },
   { id: "records", path: "/records" },
   { id: "widget", path: "/widget" },
   { id: "challenges", path: "/challenges" },

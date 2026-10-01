@@ -52,6 +52,7 @@ export { getGameRecap } from "./recap";
 export { getMatchExtras } from "./match-extras";
 export { getMatchTimeline } from "./timeline-view";
 export { getSkillAxes } from "./skill-axes";
+export { getExploreTable } from "./explore";
 export {
   saveChallenges,
   getStoredChallenges,

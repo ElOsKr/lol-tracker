@@ -28,6 +28,7 @@ const Friends = lazy(() => import("./pages/Friends"));
 const FriendDetail = lazy(() => import("./pages/FriendDetail"));
 const Trends = lazy(() => import("./pages/Trends"));
 const Skills = lazy(() => import("./pages/Skills"));
+const Explore = lazy(() => import("./pages/Explore"));
 const Records = lazy(() => import("./pages/Records"));
 const Challenges = lazy(() => import("./pages/Challenges"));
 const GlobalStats = lazy(() => import("./pages/GlobalStats"));
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/friends/:key" element={<FriendDetail />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/skills" element={<Skills />} />
+            <Route path="/explore" element={<Explore />} />
             <Route path="/records" element={<Records />} />
             <Route path="/challenges" element={<Challenges />} />
             <Route path="/global" element={<GlobalStats />} />
