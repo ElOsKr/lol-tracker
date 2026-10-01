@@ -1,6 +1,7 @@
 import { MAYHEM_QUEUE_IDS, hasScore } from "../../shared/queues";
 import { useMemo, useState, type ReactNode } from "react";
-import type { ChampionData, MatchDetail, ParsedParticipant } from "../lib/types";
+import type { ChampionData, MatchDetail } from "../lib/types";
+import type { ParsedParticipant } from "../lib/participants";
 import { parseParticipants, groupByTeam } from "../lib/participants";
 import { getChampionName } from "../hooks/useChampions";
 import { formatCompact, kdaHighlight, kdaRatio, scoreColor } from "../lib/format";

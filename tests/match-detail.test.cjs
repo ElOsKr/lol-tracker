@@ -128,13 +128,33 @@ test("every match filter reaches the list, not just the summaries", () => {
   // montar clave por clave. Olvidar una no rompe nada visible — la lista
   // ignora ese filtro mientras el resto de la pagina lo obedece, que es
   // exactamente como se colo el filtro por objeto.
-  const api = fs.readFileSync(path.resolve(__dirname, "../src/shared/api.ts"), "utf8");
+  // Busca la interfaz donde este, en vez de nombrar un archivo: la primera
+  // version leia src/shared/api.ts, y al repartir ese archivo por areas el
+  // tipo se fue a api/matches.ts y la prueba fallo sin que nada estuviera
+  // roto. Una prueba que hay que actualizar al mover codigo vigila el sitio,
+  // no la regla.
+  const DECL = "export interface MatchFilters {";
+  const buscar = (dir) => {
+    for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+      const completo = path.join(dir, entrada.name);
+      if (entrada.isDirectory()) {
+        const dentro = buscar(completo);
+        if (dentro) return dentro;
+      } else if (entrada.name.endsWith(".ts")) {
+        const texto = fs.readFileSync(completo, "utf8");
+        if (texto.includes(DECL)) return texto;
+      }
+    }
+    return null;
+  };
+  const api = buscar(path.resolve(__dirname, "../src/shared"));
+  assert.ok(api, "no encuentro MatchFilters en src/shared");
   const hook = fs.readFileSync(
     path.resolve(__dirname, "../src/renderer/hooks/useMatches.ts"),
     "utf8",
   );
 
-  const block = api.slice(api.indexOf("export interface MatchFilters {"));
+  const block = api.slice(api.indexOf(DECL));
   const body = block.slice(block.indexOf("{") + 1, block.indexOf("\n}"));
   const keys = [...body.matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1]);
   assert.ok(keys.length >= 8, "esperaba varias claves, encontre " + keys.length);
