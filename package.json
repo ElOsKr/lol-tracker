@@ -20,7 +20,7 @@
     "predev": "npm run build:widget",
     "prebuild": "npm run build:widget",
     "predist": "npm run build:widget",
-    "test:widget": "npm run build:widget && node --test tests/widget.test.cjs",
+    "test": "npm run build:widget && node --test \"tests/*.test.cjs\"",
     "test:aram": "node scripts/test-aram.cjs"
   },
   "dependencies": {

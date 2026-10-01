@@ -35,6 +35,13 @@ jobs:
       - name: Format
         run: npm run format:check
 
+      # Nobody was running these but whoever happened to remember. The suite
+      # had reached forty-one tests before anyone noticed CI never called it.
+      # The ARAM ones stay out: they need Electron's Node and the real native
+      # SQLite, which is a different kind of job.
+      - name: Test
+        run: npm test
+
       # electron-vite does not typecheck, so this catches what tsc cannot:
       # anything that only fails once the bundler resolves it.
       - name: Build

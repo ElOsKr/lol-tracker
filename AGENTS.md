@@ -53,7 +53,7 @@
 - Usar npm y `package-lock.json`. Entorno de referencia: Node 24, como en CI.
 - Consultar `DEVELOPMENT.md` para instalación, arranque, compilación y límites de la validación.
 - Controles existentes: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`.
-- `npm run test:widget` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
+- `npm test` comprueba el servidor OBS y el adaptador del widget. Elegir comprobaciones según el cambio y separar build de validación real con Electron/LCU.
 - `npm run test:aram` usa el Node de Electron y SQLite real con datos sintéticos aislados para captura ARAM, separación de colas, persistencia y compatibilidad.
 - Evitar `npm run format` sobre todo el proyecto para un cambio localizado. No actualizar dependencias ni regenerar recursos por rutina.
 - El actualizador lee las releases de ElOsKr/lol-tracker y solo acepta descargas de ese repositorio.
