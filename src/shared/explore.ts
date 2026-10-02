@@ -38,6 +38,7 @@ export type GroupKey =
   | "champion"
   | "teammate"
   | "patch"
+  | "week"
   | "month"
   | "weekday"
   | "hour"
@@ -201,6 +202,7 @@ export const GROUPS: readonly GroupKey[] = [
   "champion",
   "teammate",
   "patch",
+  "week",
   "month",
   "weekday",
   "hour",

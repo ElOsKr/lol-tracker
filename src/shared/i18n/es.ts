@@ -1050,4 +1050,6 @@ export const es: Dictionary = {
   "live.matchupGames": "{count} partidas",
   "live.matchupTitle": "Tu récord {label} este campeón, en {count} partidas de esta cola.",
   "live.noMatchup": "Nunca te ha salido este campeón en una partida guardada de esta cola.",
+  "explore.group.week": "Semana",
+  "explore.weekOf": "semana del {date}",
 };

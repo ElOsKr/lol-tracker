@@ -1038,6 +1038,8 @@ export const en = {
   "live.matchupGames": "{count} games",
   "live.matchupTitle": "Your record {label} this champion, over {count} games in this queue.",
   "live.noMatchup": "You have never had this champion in a stored game of this queue.",
+  "explore.group.week": "Week",
+  "explore.weekOf": "week of {date}",
 } as const;
 
 export type TranslationKey = keyof typeof en;
