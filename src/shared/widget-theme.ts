@@ -91,14 +91,14 @@ export const THEME_VARS: Record<WidgetTheme, Record<string, string>> = {
   discreto: {
     "--dark": "#0b0e14",
     "--gold": "#a8853c",
-    "--card": "rgba(14, 18, 26, 0.55)",
-    "--border": "rgba(255, 255, 255, 0.10)",
+    "--card": "rgba(14, 18, 26, 0.82)",
+    "--border": "rgba(255, 255, 255, 0.14)",
     "--win": "#6fae8e",
     "--loss": "#b3777d",
-    "--text": "#8b93a4",
+    "--text": "#9aa3b4",
     "--bright": "#d7dce5",
-    "--win-wash": "rgba(24, 46, 43, 0.5)",
-    "--loss-wash": "rgba(48, 33, 43, 0.5)",
+    "--win-wash": "rgba(24, 46, 43, 0.82)",
+    "--loss-wash": "rgba(48, 33, 43, 0.82)",
   },
 };
 
