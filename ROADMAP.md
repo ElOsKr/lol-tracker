@@ -4,6 +4,13 @@ Lista viva de lo que queremos hacer, ordenada en hitos. Cada hito se convierte e
 
 Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte a entender _tus_ partidas.** Sin Overwolf, sin anuncios, sin cuenta ni servidor.
 
+**Rumbo a largo plazo (dicho el 2-oct-2026):** cubrirlo todo — ARAM, Grieta, modos especiales y, muy lejos, TFT. No es un cambio de rumbo sino el destino: la captura ya cubre **todas las colas de LoL** del catálogo, y lo único que hoy es exclusivo del Abismo es la **nota**. Lo que falta por cola:
+
+- **Grieta:** solo la nota, y está bloqueada por **muestra**, no por diseño (#27). El baremo de la nota es el propio lobby —los otros nueve de tu partida—, que en la Grieta existe igual; lo que falta son partidas. ARAM se calibró con ~800 y hoy hay 31 comparables. Se desbloquea jugando.
+- **Modos especiales:** ya se capturan y se ven. Quedan fuera de la nota a propósito, porque en ARURF o en un evento el oro y el daño por minuto no se parecen a una partida normal.
+- **Arena:** el baremo del lobby no aplica (son parejas y un puesto, no dos equipos de cinco), así que lo honesto es puesto medio y tasa de primeros, que ya se guarda (#28).
+- **TFT:** no es «una cola más». Son ocho jugadores y un puesto, sin los otros nueve contra los que medirse, así que hereda el planteamiento de Arena y no el de la nota. Aplazada sin fecha (#29).
+
 ## Hito 1 — Base limpia (v0.3.0) — completado el 2026-09-27
 
 | #   | Qué                                                                                                                                                     | Tamaño |
