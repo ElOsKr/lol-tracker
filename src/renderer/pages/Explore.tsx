@@ -49,6 +49,9 @@ function weekLabel(key: string): string {
   return new Date(year, month - 1, day).toLocaleDateString(LOCALE, {
     day: "numeric",
     month: "short",
+    // Con el año siempre: el historial guardado cruza dos, y «semana del 6
+    // oct» en octubre se lee como la de este año aunque sea la del pasado.
+    year: "numeric",
   });
 }
 
