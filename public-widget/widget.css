@@ -8,6 +8,10 @@
   --loss: #e5636e;
   --text: #94a0b8;
   --bright: #e8ecf4;
+  /* El tinte detrás de una victoria y de una derrota. Variables porque un
+     tema claro con estos dos verdes oscuros encima queda ilegible. */
+  --win-wash: #182e2b;
+  --loss-wash: #30212b;
 }
 * {
   box-sizing: border-box;
@@ -174,11 +178,11 @@ button:focus-visible {
 }
 .match-card.win {
   border-left-color: var(--win);
-  background: linear-gradient(90deg, #182e2b, var(--card));
+  background: linear-gradient(90deg, var(--win-wash), var(--card));
 }
 .match-card.loss {
   border-left-color: var(--loss);
-  background: linear-gradient(90deg, #30212b, var(--card));
+  background: linear-gradient(90deg, var(--loss-wash), var(--card));
 }
 .champ-icon {
   display: block;
@@ -449,4 +453,36 @@ button:focus-visible {
   to {
     transform: scaleX(0);
   }
+}
+
+/* ---- Diseño compacto -------------------------------------------------- */
+/* Una línea por partida: para una fuente de OBS estrecha, o para ver el
+   doble de historial en el mismo alto. Se queda el campeón, el KDA y el
+   color del resultado, que es lo que se lee de un vistazo en un directo. */
+[data-layout="compacto"] #matches-container {
+  gap: 3px;
+}
+[data-layout="compacto"] .match-card {
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 5px 8px;
+  align-items: center;
+}
+[data-layout="compacto"] .champ-icon {
+  width: 26px;
+  height: 26px;
+}
+[data-layout="compacto"] .augments-list,
+[data-layout="compacto"] .items-list {
+  display: none;
+}
+[data-layout="compacto"] .kda {
+  font-size: 12px;
+}
+
+/* Sin degradado donde el tema no lo quiere: en alto contraste el tinte es
+   el propio fondo, así que la regla general lo dejaría plano igualmente,
+   pero el borde grueso sí tiene que seguir marcando el resultado. */
+[data-theme="contraste"] .match-card {
+  border-left-width: 4px;
 }

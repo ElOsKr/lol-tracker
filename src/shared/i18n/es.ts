@@ -1050,6 +1050,23 @@ export const es: Dictionary = {
   "live.matchupGames": "{count} partidas",
   "live.matchupTitle": "Tu récord {label} este campeón, en {count} partidas de esta cola.",
   "live.noMatchup": "Nunca te ha salido este campeón en una partida guardada de esta cola.",
+  // Aspecto del widget
+  "widget.look": "Aspecto",
+  "widget.theme": "Tema",
+  "widget.theme.noche": "Noche",
+  "widget.theme.claro": "Claro",
+  "widget.theme.contraste": "Alto contraste",
+  "widget.theme.discreto": "Discreto",
+  "widget.layout": "Densidad",
+  "widget.layout.filas": "Filas",
+  "widget.layout.compacto": "Compacto",
+  "widget.matches": "Partidas que enseña",
+  "widget.matchesAll": "Las que quepan",
+  "widget.matchesCount": "{count} partidas",
+  "widget.accent": "Color de realce",
+  "widget.accentReset": "usar el del tema",
+  "widget.lookNote":
+    "El mismo aspecto va a la ventana del escritorio y a la dirección de OBS de abajo. Una fuente del navegador puede cambiar cualquiera de estas cosas desde su propia URL —theme, layout, accent, matches—, así que dos fuentes pueden verse distintas.",
   "explore.group.week": "Semana",
   "explore.weekOf": "semana del {date}",
 };

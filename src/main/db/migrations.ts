@@ -1,4 +1,3 @@
-import { QUEUE_ID_MAYHEM_CLASSIC } from "../../shared/queues";
 import zlib from "zlib";
 import { db } from "./connection";
 import {
@@ -11,16 +10,6 @@ import {
   type RawParticipantRow,
 } from "./payloads";
 import { groupByGame } from "./scoring";
-import { getSetting, setSetting } from "./settings";
-
-// The old hide-Mayhem-Classic switch became a per-queue list. Carry the boolean
-// over once; writing the key even when nothing was hidden is what keeps this
-// from firing again after the user switches every queue back on.
-export function migrateHiddenQueues() {
-  if (getSetting("hidden_queues") !== null) return;
-  const hidClassic = getSetting("hide_classic_games") === "true";
-  setSetting("hidden_queues", hidClassic ? String(QUEUE_ID_MAYHEM_CLASSIC) : "");
-}
 
 // Stamped in PRAGMA user_version. Version 0 means the database predates
 // versioning, so it could be missing any subset of the columns v1 adds — which

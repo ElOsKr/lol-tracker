@@ -1038,6 +1038,23 @@ export const en = {
   "live.matchupGames": "{count} games",
   "live.matchupTitle": "Your record {label} this champion, over {count} games in this queue.",
   "live.noMatchup": "You have never had this champion in a stored game of this queue.",
+  // Widget look
+  "widget.look": "Look",
+  "widget.theme": "Theme",
+  "widget.theme.noche": "Night",
+  "widget.theme.claro": "Light",
+  "widget.theme.contraste": "High contrast",
+  "widget.theme.discreto": "Subtle",
+  "widget.layout": "Density",
+  "widget.layout.filas": "Rows",
+  "widget.layout.compacto": "Compact",
+  "widget.matches": "Games shown",
+  "widget.matchesAll": "As many as fit",
+  "widget.matchesCount": "{count} games",
+  "widget.accent": "Highlight colour",
+  "widget.accentReset": "use the theme's",
+  "widget.lookNote":
+    "The same look goes to the desktop window and to the OBS address below. A browser source can override any of it from its own URL — theme, layout, accent, matches — so two sources can look different.",
   "explore.group.week": "Week",
   "explore.weekOf": "week of {date}",
 } as const;

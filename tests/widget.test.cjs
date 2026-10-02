@@ -342,3 +342,90 @@ test("widget shares account/queue filters, excludes remakes from streak and expo
 // carpeta userData del nombre: las instalaciones anteriores guardan sus
 // partidas bajo el nombre viejo. Se mueven solo data y backups, nunca la
 // carpeta entera, porque Chromium ya ha creado la nueva cuando esto corre.
+
+test("the widget's look is read from a URL and never trusts what it finds there", () => {
+  const theme = load("src/shared/widget-theme.ts");
+  const {
+    parseWidgetAppearance: parse,
+    widgetAppearanceQuery: query,
+    widgetUrlWith,
+    applyWidgetAppearance: apply,
+    DEFAULT_APPEARANCE,
+    MAX_WIDGET_MATCHES,
+    WIDGET_THEMES,
+    THEME_VARS,
+  } = theme;
+
+  // Una URL vacía es el aspecto por defecto, y el por defecto no escribe URL
+  assert.deepEqual(parse(""), DEFAULT_APPEARANCE);
+  assert.equal(query(DEFAULT_APPEARANCE), "");
+
+  // Ida y vuelta de un aspecto completo
+  const elegido = { theme: "claro", accent: "#00ff88", layout: "compacto", matches: 5 };
+  assert.deepEqual(parse(query(elegido)), elegido);
+
+  // Lo que entra raro no rompe la página: se cae al valor por defecto
+  const basura = parse("?theme=robado&layout=espiral&matches=abc&accent=rojo");
+  assert.deepEqual(basura, DEFAULT_APPEARANCE);
+
+  // Y lo que importa de verdad: un color es seis dígitos hexadecimales y nada
+  // más. Va a parar a una propiedad CSS de una página que permite estilos en
+  // línea, así que aquí es donde se corta.
+  for (const malo of [
+    "red; background: url(http://ahi.fuera/x.png)",
+    "#00ff88; position: fixed",
+    "javascript:alert(1)",
+    "#ggg",
+    "#00ff8",
+    "",
+  ]) {
+    assert.equal(
+      parse("?accent=" + encodeURIComponent(malo)).accent,
+      null,
+      "ha colado un color: " + malo,
+    );
+  }
+  // Un hexadecimal sin almohadilla sí vale, que es lo que copia cualquiera
+  assert.equal(parse("?accent=00ff88").accent, "#00ff88");
+  assert.equal(parse("?accent=%2300FF88").accent, "#00ff88");
+
+  // El número de partidas tiene techo
+  assert.equal(parse("?matches=999").matches, MAX_WIDGET_MATCHES);
+  assert.equal(parse("?matches=0").matches, null);
+  assert.equal(parse("?matches=-3").matches, null);
+  assert.equal(parse("?matches=2.5").matches, null);
+
+  // La URL de OBS se reescribe entera, no se le encadenan consultas
+  const base = "http://127.0.0.1:4123/widget.html";
+  const conTema = widgetUrlWith(base, { ...DEFAULT_APPEARANCE, theme: "contraste" });
+  assert.equal(conTema, base + "?theme=contraste");
+  assert.equal(widgetUrlWith(conTema, DEFAULT_APPEARANCE), base);
+
+  // Todo tema declara los mismos nombres de variable (o ninguno, el de serie),
+  // porque la mitad de una paleta sobre la otra es como salió el primer claro
+  const nombres = (t) => Object.keys(THEME_VARS[t]).sort().join(",");
+  for (const t of WIDGET_THEMES) {
+    assert.equal(
+      nombres(t),
+      nombres(WIDGET_THEMES[0]),
+      `el tema ${t} no declara las mismas variables`,
+    );
+  }
+  assert.ok(WIDGET_THEMES.length >= 2, "hace falta más de un tema para que esto vigile algo");
+  assert.ok(
+    nombres(WIDGET_THEMES[0]).split(",").length >= 8,
+    "una paleta es más de ocho variables",
+  );
+
+  // Y aplicar un aspecto solo toca variables y los dos data-, nada más
+  const escritas = {};
+  const root = { style: { setProperty: (n, v) => (escritas[n] = v) }, dataset: {} };
+  apply(root, { theme: "claro", accent: "#00ff88", layout: "compacto", matches: null });
+  assert.equal(root.dataset.layout, "compacto");
+  assert.equal(root.dataset.theme, "claro");
+  assert.equal(escritas["--gold"], "#00ff88", "el color elegido manda sobre el del tema");
+  assert.ok(
+    Object.keys(escritas).every((n) => n.startsWith("--")),
+    "ha escrito algo que no es una variable",
+  );
+});
