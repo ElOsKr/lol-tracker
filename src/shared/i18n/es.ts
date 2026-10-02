@@ -1067,4 +1067,6 @@ export const es: Dictionary = {
   "widget.accentReset": "usar el del tema",
   "widget.lookNote":
     "El mismo aspecto va a la ventana del escritorio y a la dirección de OBS de abajo. Una fuente del navegador puede cambiar cualquiera de estas cosas desde su propia URL —theme, layout, accent, matches—, así que dos fuentes pueden verse distintas.",
+  "explore.group.week": "Semana",
+  "explore.weekOf": "semana del {date}",
 };

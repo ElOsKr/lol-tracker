@@ -1055,6 +1055,8 @@ export const en = {
   "widget.accentReset": "use the theme's",
   "widget.lookNote":
     "The same look goes to the desktop window and to the OBS address below. A browser source can override any of it from its own URL — theme, layout, accent, matches — so two sources can look different.",
+  "explore.group.week": "Week",
+  "explore.weekOf": "week of {date}",
 } as const;
 
 export type TranslationKey = keyof typeof en;

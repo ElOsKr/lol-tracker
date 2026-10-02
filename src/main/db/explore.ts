@@ -65,6 +65,8 @@ function durationCase(): string {
   return `CASE ${branches.join(" ")} ELSE '${DURATION_BUCKETS[0]}' END`;
 }
 
+const localDate = "date(g.game_creation / 1000, 'unixepoch', 'localtime')";
+
 const localTime = (format: string) =>
   `strftime('${format}', g.game_creation / 1000, 'unixepoch', 'localtime')`;
 
@@ -75,6 +77,10 @@ const GROUP_SQL: Record<GroupKey, string> = {
   // Its own query shape — see teammateTable.
   teammate: "",
   patch: "g.game_version",
+  // The Monday the game belongs to, as a date, so the key reads, sorts and
+  // labels itself. strftime('%W') would number the weeks instead, which turns
+  // the new year into week 00 right after week 52.
+  week: `date(${localDate}, '-' || ((CAST(${localTime("%w")} AS INTEGER) + 6) % 7) || ' days')`,
   month: localTime("%Y-%m"),
   // 0 = Sunday, as strftime reports it.
   weekday: `CAST(CAST(${localTime("%w")} AS INTEGER) AS TEXT)`,
