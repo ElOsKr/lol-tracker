@@ -1057,6 +1057,13 @@ export const en = {
     "The same look goes to the desktop window and to the OBS address below. A browser source can override any of it from its own URL — theme, layout, accent, matches — so two sources can look different.",
   "explore.group.week": "Week",
   "explore.weekOf": "week of {date}",
+  "explore.metric.firstBlood": "First blood",
+  "explore.metric.firstBloodPart": "First blood taken part in",
+  "explore.metric.firstTower": "First tower",
+  "explore.what.firstBlood": "Share of games where you drew first blood yourself.",
+  "explore.what.firstBloodPart":
+    "Share of games where you drew first blood or assisted it. Only one player in the lobby lands the kill, so this is the fairer reading of being there.",
+  "explore.what.firstTower": "Share of games where you took the first tower down.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

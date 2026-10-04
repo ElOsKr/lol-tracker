@@ -49,6 +49,12 @@ const METRIC_SQL: Record<MetricKey, string | null> = {
   spree: "ps.largest_killing_spree",
   multikills: "ps.double_kills + ps.triple_kills + ps.quadra_kills + ps.penta_kills",
   duration: "g.game_duration / 60.0",
+  // Un 0/1 por partida, escalado a puntos porcentuales: la media es la tasa.
+  firstBlood: "ps.first_blood * 100.0",
+  // «Participaste en ella»: la hiciste o la asististe. MAX y no suma, para que
+  // un payload raro con los dos a uno no produzca un 200%.
+  firstBloodPart: "MAX(ps.first_blood, ps.first_blood_assist) * 100.0",
+  firstTower: "ps.first_tower * 100.0",
 };
 
 /**
@@ -166,12 +172,18 @@ function selectList(metric: MetricKey): string {
 function queueData(where: string[], params: any[]): QueueData {
   const row = db
     .prepare(`
-      SELECT COUNT(ps.score) scored, COALESCE(SUM(ps.cs), 0) cs, COALESCE(SUM(ps.wards), 0) wards
+      SELECT COUNT(ps.score) scored, COALESCE(SUM(ps.cs), 0) cs, COALESCE(SUM(ps.wards), 0) wards,
+             COALESCE(SUM(ps.first_blood + ps.first_blood_assist + ps.first_tower), 0) firsts
       FROM games g JOIN player_stats ps ON ps.game_id = g.game_id
       WHERE ${where.join(" AND ")}
     `)
-    .get(...params) as { scored: number; cs: number; wards: number };
-  return { score: row.scored > 0, cs: row.cs > 0, wards: row.wards > 0 };
+    .get(...params) as { scored: number; cs: number; wards: number; firsts: number };
+  return {
+    score: row.scored > 0,
+    cs: row.cs > 0,
+    wards: row.wards > 0,
+    firsts: row.firsts > 0,
+  };
 }
 
 /**

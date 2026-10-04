@@ -1069,4 +1069,11 @@ export const es: Dictionary = {
     "El mismo aspecto va a la ventana del escritorio y a la dirección de OBS de abajo. Una fuente del navegador puede cambiar cualquiera de estas cosas desde su propia URL —theme, layout, accent, matches—, así que dos fuentes pueden verse distintas.",
   "explore.group.week": "Semana",
   "explore.weekOf": "semana del {date}",
+  "explore.metric.firstBlood": "Primera sangre",
+  "explore.metric.firstBloodPart": "Participación en primera sangre",
+  "explore.metric.firstTower": "Primera torre",
+  "explore.what.firstBlood": "Porcentaje de partidas en las que la primera sangre la hiciste tú.",
+  "explore.what.firstBloodPart":
+    "Porcentaje de partidas en las que hiciste la primera sangre o la asististe. Matarla solo puede uno de los diez, así que esto mide mejor el haber estado ahí.",
+  "explore.what.firstTower": "Porcentaje de partidas en las que tiraste la primera torre.",
 };

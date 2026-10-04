@@ -52,6 +52,11 @@ export interface RawParticipantRow {
   vision: number;
   /** Placed plus cleared. Zero on a map with no wards, which is the point. */
   wards: number;
+  /** Drew first blood. One per game across the whole lobby, or none. */
+  first_blood: number;
+  /** Assisted it. Can be several, so the two together are "took part in it". */
+  first_blood_assist: number;
+  first_tower: number;
   early_surrender: number;
   spell1: number | null;
   spell2: number | null;
@@ -110,6 +115,9 @@ export function participantRowsFromRaw(raw: any): RawParticipantRow[] {
       cs: (s.totalMinionsKilled ?? 0) + (s.neutralMinionsKilled ?? 0),
       vision: s.visionScore ?? 0,
       wards: (s.wardsPlaced ?? 0) + (s.wardsKilled ?? 0),
+      first_blood: s.firstBloodKill ? 1 : 0,
+      first_blood_assist: s.firstBloodAssist ? 1 : 0,
+      first_tower: s.firstTowerKill ? 1 : 0,
       early_surrender: s.gameEndedInEarlySurrender ? 1 : 0,
       spell1: p.spell1Id ?? s.spell1Id ?? null,
       spell2: p.spell2Id ?? s.spell2Id ?? null,

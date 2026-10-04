@@ -163,6 +163,12 @@ function createTables() {
       cs                   INTEGER NOT NULL DEFAULT 0,
       vision               INTEGER NOT NULL DEFAULT 0,
       wards                INTEGER NOT NULL DEFAULT 0,
+      -- Primera sangre y primera torre, que el cliente ya daba en cada partida
+      -- y no leía nadie. Booleanos: la primera sangre la hace uno solo de los
+      -- diez, la asisten varios, y las dos juntas son «participaste en ella».
+      first_blood          INTEGER NOT NULL DEFAULT 0,
+      first_blood_assist   INTEGER NOT NULL DEFAULT 0,
+      first_tower          INTEGER NOT NULL DEFAULT 0,
       score                REAL,
       -- Unclamped score, ordering key only — see PlayerScore.raw
       score_raw            REAL,

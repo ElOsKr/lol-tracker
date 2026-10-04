@@ -83,10 +83,11 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       game_id, champion_id, win, kills, deaths, assists,
       double_kills, triple_kills, quadra_kills, penta_kills,
       total_damage_dealt, total_damage_taken, gold_earned, total_heal,
-      largest_killing_spree, cs, vision, wards, spell1, spell2,
+      largest_killing_spree, cs, vision, wards,
+      first_blood, first_blood_assist, first_tower, spell1, spell2,
       item0, item1, item2, item3, item4, item5, item6,
       score, score_raw, score_badge, score_rank, score_rank_total
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertAugmentStmt = db.prepare(`
@@ -133,6 +134,9 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       owner.cs,
       owner.vision,
       owner.wards,
+      owner.first_blood,
+      owner.first_blood_assist,
+      owner.first_tower,
       owner.spell1,
       owner.spell2,
       owner.items[0],
