@@ -4,6 +4,13 @@ Lista viva de lo que queremos hacer, ordenada en hitos. Cada hito se convierte e
 
 Idea que guía todo: **guardar tu historial para siempre y en local, y ayudarte a entender _tus_ partidas.** Sin Overwolf, sin anuncios, sin cuenta ni servidor.
 
+**Rumbo a largo plazo (dicho el 2-oct-2026):** cubrirlo todo — ARAM, Grieta, modos especiales y, muy lejos, TFT. No es un cambio de rumbo sino el destino: la captura ya cubre **todas las colas de LoL** del catálogo, y lo único que hoy es exclusivo del Abismo es la **nota**. Lo que falta por cola:
+
+- **Grieta:** ya se ve todo menos la nota: historial, detalle, línea temporal, mapa de muertes, columnas de CS y visión, explorador y el perfil de ejes de habilidad, que funciona allí desde el primer día porque mide dentro del propio lobby. Lo único que falta es la **nota** (#27), y conviene separar sus dos mitades: el **baremo** son los otros nueve de tu partida y existe en la Grieta igual que en el Abismo, mientras que los **pesos** son lo que se calibró con ~800 partidas. Hoy hay 31 comparables y, dicho el 2-oct-2026, **no se espera jugar lo bastante para llegar**. Así que o se saca una nota provisional sin calibrar —combinando los ejes de la #26, que ya funcionan allí— y se rotula como tal, o se deja estar. Lo que no es, es un problema de tiempo.
+- **Modos especiales:** ya se capturan y se ven. Quedan fuera de la nota a propósito, porque en ARURF o en un evento el oro y el daño por minuto no se parecen a una partida normal.
+- **Arena:** el baremo del lobby no aplica (son parejas y un puesto, no dos equipos de cinco), así que lo honesto es puesto medio y tasa de primeros, que ya se guarda (#28).
+- **TFT:** no es «una cola más». Son ocho jugadores y un puesto, sin los otros nueve contra los que medirse, así que hereda el planteamiento de Arena y no el de la nota. Aplazada sin fecha (#29).
+
 ## Hito 1 — Base limpia (v0.3.0) — completado el 2026-09-27
 
 | #   | Qué                                                                                                                                                     | Tamaño |
