@@ -15,7 +15,7 @@ import { groupByGame } from "./scoring";
 // versioning, so it could be missing any subset of the columns v1 adds — which
 // is why each step checks for its column rather than assuming. A database that
 // createTables just built is also version 0, and lands on the same no-op path.
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 function tableColumns(table: string): Set<string> {
   const rows = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -34,6 +34,7 @@ export function runMigrations() {
   if (current < 6) migrateToV6();
   if (current < 7) migrateToV7();
   if (current < 8) migrateToV8();
+  if (current < 9) migrateToV9();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
@@ -246,6 +247,55 @@ function migrateToV8() {
     db.exec("ALTER TABLE player_stats ADD COLUMN wards INTEGER NOT NULL DEFAULT 0");
   }
   backfillPlayerStatsLaneStats();
+}
+
+/**
+ * Adds first blood and first tower, and fills them from the stored payloads.
+ *
+ * Same shape as v8 and for the same reason: the client has been sending these
+ * in every game since forever and nothing read them, so the answer is already
+ * on disk and this is a read rather than a thousand requests.
+ */
+function migrateToV9() {
+  const columns = tableColumns("player_stats");
+  if (!columns.has("first_blood")) {
+    db.exec("ALTER TABLE player_stats ADD COLUMN first_blood INTEGER NOT NULL DEFAULT 0");
+    db.exec("ALTER TABLE player_stats ADD COLUMN first_blood_assist INTEGER NOT NULL DEFAULT 0");
+    db.exec("ALTER TABLE player_stats ADD COLUMN first_tower INTEGER NOT NULL DEFAULT 0");
+  }
+  backfillPlayerStatsFirsts();
+}
+
+function backfillPlayerStatsFirsts() {
+  const rows = db
+    .prepare(`
+      SELECT g.game_id, g.puuid, g.raw_gz,
+             ps.champion_id, ps.kills, ps.deaths, ps.assists
+      FROM games g
+      JOIN player_stats ps ON g.game_id = ps.game_id
+      WHERE g.raw_gz IS NOT NULL
+    `)
+    .all() as {
+    game_id: number;
+    puuid: string | null;
+    raw_gz: Buffer;
+    champion_id: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+  }[];
+
+  const update = db.prepare(
+    "UPDATE player_stats SET first_blood = ?, first_blood_assist = ?, first_tower = ? WHERE game_id = ?",
+  );
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      const owner = ownerRowFromPayload(unpackRaw(row.raw_gz), row.puuid, row.champion_id, row);
+      if (!owner) continue;
+      update.run(owner.first_blood, owner.first_blood_assist, owner.first_tower, row.game_id);
+    }
+  });
+  tx();
 }
 
 /**

@@ -329,7 +329,8 @@ test("the Spanish dictionary covers every key and translate fills placeholders",
 });
 
 test("every explorer metric and grouping has a label, a question and a query", () => {
-  const { METRICS, GROUPS, metricsFor, EXPLORE_PATH } = load("src/shared/explore.ts");
+  const theme2 = load("src/shared/explore.ts");
+  const { METRICS, GROUPS, metricsFor, EXPLORE_PATH } = theme2;
   const { en } = load("src/shared/i18n/en.ts");
   const { es } = load("src/shared/i18n/es.ts");
 
@@ -353,6 +354,18 @@ test("every explorer metric and grouping has a label, a question and a query", (
     "ninguna entrada del menú lleva al explorador",
   );
 
+  // Las tasas de primera sangre solo se ofrecen donde la cola las trae: en un
+  // modo que no registra ninguna serían una columna de ceros, que es justo lo
+  // que la prueba de los guardianes existe para evitar.
+  const { availableMetrics } = theme2;
+  const base = { score: true, cs: true, wards: true };
+  const con = availableMetrics({ ...base, firsts: true });
+  const sin = availableMetrics({ ...base, firsts: false });
+  for (const k of ["firstBlood", "firstBloodPart", "firstTower"]) {
+    assert.ok(con.includes(k), k + " debería ofrecerse donde hay datos");
+    assert.ok(!sin.includes(k), k + " no debería ofrecerse sin datos");
+  }
+
   // Medir la duración de las partidas agrupadas por duración no dice nada
   assert.ok(!metricsFor("duration", ["winRate", "duration"]).includes("duration"));
   assert.deepEqual(metricsFor("champion", ["winRate", "duration"]), ["winRate", "duration"]);
@@ -361,7 +374,17 @@ test("every explorer metric and grouping has a label, a question and a query", (
   // expresión de consulta. Sin ella la columna saldría con un recuento en vez
   // del número pedido, sin error y sin aviso.
   const consultas = [];
-  const fila = { scored: 1, cs: 1, wards: 1, games: 10, wins: 5, sample: 10, sum: 30, sumSq: 120 };
+  const fila = {
+    scored: 1,
+    cs: 1,
+    wards: 1,
+    firsts: 1,
+    games: 10,
+    wins: 5,
+    sample: 10,
+    sum: 30,
+    sumSq: 120,
+  };
   const db = {
     prepare(sql) {
       consultas.push(sql);

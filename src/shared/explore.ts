@@ -32,7 +32,10 @@ export type MetricKey =
   | "vision"
   | "spree"
   | "multikills"
-  | "duration";
+  | "duration"
+  | "firstBlood"
+  | "firstBloodPart"
+  | "firstTower";
 
 export type GroupKey =
   | "champion"
@@ -57,7 +60,7 @@ export type MetricKind = "count" | "rate" | "mean";
 export type MetricUnit = "none" | "percent" | "perMinute" | "minutes";
 
 /** A column the queue has to actually carry before the metric is offered. */
-export type MetricNeeds = "score" | "cs" | "wards";
+export type MetricNeeds = "score" | "cs" | "wards" | "firsts";
 
 export interface Metric {
   key: MetricKey;
@@ -75,6 +78,17 @@ export interface Metric {
    * knowing whether the average is 600 or 60.
    */
   floor: { points: number } | { fraction: number };
+  /**
+   * Para métricas que son un sí/no por partida enseñado como porcentaje.
+   *
+   * Cambia cómo se mide el ruido, y no es un detalle: la desviación de un
+   * grupo que nunca lo consiguió es **exactamente cero**, así que la fórmula
+   * de medias le atribuye una precisión que no tiene y marca como hallazgo un
+   * 0% que ocurre una vez de cada siete. Con esto, el error se calcula desde
+   * tu tasa general —la hipótesis de que ese grupo es como tú— en vez de desde
+   * la del propio grupo.
+   */
+  proportion?: true;
 }
 
 // Win rate and score keep the absolute floors the champion verdicts already
@@ -196,6 +210,40 @@ export const METRICS: readonly Metric[] = [
     higherIsBetter: null,
     floor: { fraction: 0.05 },
   },
+  // Tasas, no cuentas: la media de un 0/1 por partida es el porcentaje de
+  // partidas en que pasó, y su desviación sale medida como la de cualquier
+  // otra media. El suelo es absoluto —cinco puntos— porque uno relativo sobre
+  // un 12% serían 1,2 puntos, que no es una diferencia que nadie note.
+  {
+    key: "firstBlood",
+    kind: "mean",
+    unit: "percent",
+    decimals: 1,
+    higherIsBetter: true,
+    needs: "firsts",
+    floor: { points: 5 },
+    proportion: true,
+  },
+  {
+    key: "firstBloodPart",
+    kind: "mean",
+    unit: "percent",
+    decimals: 1,
+    higherIsBetter: true,
+    needs: "firsts",
+    floor: { points: 5 },
+    proportion: true,
+  },
+  {
+    key: "firstTower",
+    kind: "mean",
+    unit: "percent",
+    decimals: 1,
+    higherIsBetter: true,
+    needs: "firsts",
+    floor: { points: 5 },
+    proportion: true,
+  },
 ];
 
 export const GROUPS: readonly GroupKey[] = [
@@ -226,6 +274,8 @@ export interface QueueData {
   score: boolean;
   cs: boolean;
   wards: boolean;
+  /** Whether any game of the queue ever recorded a first blood or first tower. */
+  firsts: boolean;
 }
 
 /**
@@ -298,6 +348,19 @@ function floorFor(metric: Metric, overall: number): number {
   return "points" in metric.floor ? metric.floor.points : Math.abs(overall) * metric.floor.fraction;
 }
 
+/**
+ * El error de la diferencia entre dos proporciones, en puntos.
+ *
+ * Agrupado: bajo la hipótesis de que el grupo se comporta como tú en general,
+ * la varianza de los dos lados es la de **tu tasa general**, no la que el
+ * grupo enseñe. Es lo que impide que un grupo con cero aciertos, cuya
+ * desviación es cero, parezca medido con una precisión infinita.
+ */
+function proportionError(row: ExploreRow, overall: ExploreRow): number {
+  const q = (overall.value ?? 0) / 100;
+  return Math.sqrt(q * (1 - q) * (1 / row.sample + 1 / overall.sample)) * 100;
+}
+
 /** The same for two means, whose spread is measured rather than derived. */
 function meanError(row: ExploreRow, overall: ExploreRow): number {
   return Math.sqrt(row.sd ** 2 / row.sample + overall.sd ** 2 / overall.sample);
@@ -335,6 +398,6 @@ export function gapCarries(row: ExploreRow, overall: ExploreRow, metric: Metric)
     return winRateGapCarries(row, overall, floorFor(metric, overall.value));
   }
   if (row.sample < MIN_POOL_GAMES || overall.sample < MIN_POOL_GAMES) return false;
-  const error = meanError(row, overall);
+  const error = metric.proportion ? proportionError(row, overall) : meanError(row, overall);
   return error === 0 ? difference !== 0 : Math.abs(difference) >= NOISE_MULTIPLE * error;
 }

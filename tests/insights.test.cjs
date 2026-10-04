@@ -823,3 +823,27 @@ test("the live column reads your own record around a champion, and shuts up when
   // Y una cuenta recién estrenada, sin media contra la que comparar
   assert.equal(mod.yourMatchup(got.byChampion[222], { games: 0, wins: 0 }, "enemy"), null);
 });
+
+test("a rate of zero is not evidence, however many games it spans", () => {
+  const { gapCarries, metricByKey } = load("src/shared/explore.ts");
+  const tasa = metricByKey("firstBlood");
+  assert.equal(tasa.proportion, true, "la primera sangre debe medirse como proporción");
+
+  // Tu media real: 12,6% de las partidas con primera sangre propia.
+  const global = { key: "", games: 799, wins: 0, sample: 799, value: 12.6, sd: 33.2 };
+  // Un campeón que nunca la hizo en 15 partidas. Su desviación es CERO, y esa
+  // es la trampa: con la fórmula de medias el error se va casi a cero y un
+  // hueco de 12,6 puntos pasaría por hallazgo. Pero cero de quince al 12,6%
+  // ocurre una vez de cada siete.
+  const nunca = { key: "x", games: 15, wins: 0, sample: 15, value: 0, sd: 0 };
+  assert.equal(gapCarries(nunca, global, tasa), false, "cero en quince no es un hallazgo");
+
+  // Y lo que sí lo es: cinco de doce, cuando lo normal es una de ocho.
+  const mucho = { key: "y", games: 12, wins: 0, sample: 12, value: 41.7, sd: 49.3 };
+  assert.equal(gapCarries(mucho, global, tasa), true);
+
+  // La guarda de que el arreglo es el que creemos: con la regla de medias, la
+  // fila de ceros sí pasaría. Si alguien quita `proportion`, esto lo caza.
+  const comoMedia = { ...tasa, proportion: undefined };
+  assert.equal(gapCarries(nunca, global, comoMedia), true, "así es como fallaba antes");
+});
