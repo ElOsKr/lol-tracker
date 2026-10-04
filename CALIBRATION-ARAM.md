@@ -1,5 +1,13 @@
 # Perfil experimental ARAM normal v2
 
+> [!] DOCUMENTO HISTÓRICO — 2026-10-04
+>
+> Describe un perfil que **ya no existe**. Desde la v0.8.3 la nota se calcula
+> únicamente en ARAM Caos, así que la cola 450 no recibe puntuación y este
+> perfil no se aplica a nada. La tabla de pesos y el método se conservan aquí
+> por si algún día se retoma; el código que la usaba se retiró de
+> `src/shared/opScore.ts` el 2026-10-04 por ser inalcanzable.
+
 Fecha: 2026-09-15. Alcance: solo cola 450. Autorización: Oscar pide usar las partidas disponibles aunque pertenezcan a parches antiguos. Sustituye la reutilización directa de Mayhem v4 en ARAM normal v1; la fórmula de Mayhem permanece intacta.
 
 ## Cambio

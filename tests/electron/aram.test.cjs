@@ -52,9 +52,9 @@ Module._load = function (name, parent, main) {
     };
   return load.call(this, name, parent, main);
 };
-const db = require("../src/main/db");
-const { importBackupFile } = require("../src/main/import.ts");
-const lcu = require("../src/main/lcu.ts");
+const db = require("../../src/main/db");
+const { importBackupFile } = require("../../src/main/import.ts");
+const lcu = require("../../src/main/lcu.ts");
 const account = "fixture-owner";
 
 function game(gameId, queueId, win = true, duration = 1200, early = false) {
@@ -89,10 +89,10 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
   db.initDatabase();
   try {
     const sql = db.getDatabase();
-    const maps = require("../src/shared/maps.ts");
+    const maps = require("../../src/shared/maps.ts");
     assert.equal(maps.mapNameForSkin("Default", 11), "Grieta del Invocador");
     assert.equal(maps.mapNameForSkin("Default", 12), "Howling Abyss");
-    const totals = require("../src/main/queue-totals.ts");
+    const totals = require("../../src/main/queue-totals.ts");
     const observation = { gameId: 500, localPlayer: { puuid: account, wins: 2000, losses: 1800 } };
     const observedGame = game(500, 450);
     assert.equal(totals.saveQueueLifetimeTotal(observation, observedGame, account), true);
@@ -205,31 +205,16 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     assert.doesNotThrow(() => db.getGlobalStats());
     assert.doesNotThrow(() => db.getTrendsData());
     assert.equal(db.getAugmentStatsAll().length, 0);
-    const aramScore = db.getMatchDetail(1).stats.score;
-    assert.equal(typeof aramScore, "number");
-    assert.equal(db.getDashboardData().avgScore, aramScore);
-    const scoring = require("../src/shared/opScore.ts");
-    const inputs = game(1, 450).participants.map((p) => ({
-      ...p,
-      ...p.stats,
-      doubleKills: 0,
-      tripleKills: 0,
-      quadraKills: 0,
-      pentaKills: 0,
-      totalHeal: 0,
-    }));
-    const classes = { 1: "Tank", 2: "Support", 3: "Marksman" };
-    const breakdown = scoring.computeMatchScoreBreakdowns(inputs, classes, 450).get(1);
-    assert.equal(aramScore, breakdown.score, "stored score matches renderer breakdown");
-    assert.equal(
-      db.getTeammateDetail("fixture-1").matches[0].friend.score,
-      scoring.computeMatchScores(inputs, classes, 450).get(2).score,
-      "friends use the same queue profile",
-    );
-    const oldAramScore = scoring.computeMatchScores(inputs, classes, 2400).get(1);
-    assert.notEqual(aramScore, oldAramScore.score, "fixture distinguishes ARAM profiles");
+    // Desde la v0.8.3 la nota es exclusiva de ARAM Caos, así que la 450 se
+    // guarda entera y sin puntuar. Esta prueba exigía lo contrario —que
+    // tuviera nota y que su perfil se distinguiera del de Mayhem— y llevaba
+    // desfasada desde entonces sin que nadie lo viera, porque el lanzador
+    // tampoco arrancaba.
+    assert.equal(db.getMatchDetail(1).stats.score, null, "ARAM normal se guarda sin nota");
+    assert.equal(db.getDashboardData().avgScore, null, "y no deja media de nota");
+    assert.equal(db.getTeammateDetail("fixture-1").matches[0].friend.score, null);
     const mayhemBefore = [2, 3].map((id) => db.getMatchDetail(id).stats);
-    assert.equal(typeof db.getMatchDetail(2).stats.score, "number");
+    assert.equal(typeof db.getMatchDetail(2).stats.score, "number", "ARAM Caos sí la tiene");
     db.setSetting("selected_queue", "2400");
     assert.equal(db.getDashboardData().wins, 0);
     assert.equal(db.getMatchHistory(20, 0).matches[0].queue_id, 2400);
@@ -254,13 +239,15 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     db.insertGameFull(game(9, 450, false, 120, true), account);
     assert.equal(db.getMatchDetail(8).game.is_remake, 0);
     assert.equal(db.getMatchDetail(9).game.is_remake, 1);
-    // Simulate an existing ARAM score under the v1 profile, not only a null note.
+    // Una nota vieja guardada en una cola que hoy no puntúa. El recálculo que
+    // dispara un cambio de política tiene que **retirarla**, no dejarla ahí:
+    // es el camino por el que la 0.8.3 limpió las notas que sobraban.
     sql
       .prepare("UPDATE player_stats SET score=?, score_raw=?, score_badge=? WHERE game_id=1")
-      .run(oldAramScore.score, oldAramScore.raw, oldAramScore.badge);
+      .run(7.5, 7.52, null);
     db.setSetting("score_formula_version", "4@test:mayhem-v4-aram-experimental-v1");
     assert.equal(db.checkScoreBackfill(), true);
-    assert.equal(db.getMatchDetail(1).stats.score, aramScore);
+    assert.equal(db.getMatchDetail(1).stats.score, null, "el recálculo retira la nota sobrante");
     assert.equal(db.getMatchDetail(9).stats.score, null);
     assert.deepEqual(
       [2, 3].map((id) => db.getMatchDetail(id).stats),
@@ -277,7 +264,7 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     assert.equal(await importBackupFile(file, null), 0);
     assert.deepEqual(totals.getQueueLifetimeTotals(), savedTotals);
     db.repairPuuids();
-    assert.equal(db.getMatchDetail(1).stats.score, aramScore);
+    assert.equal(db.getMatchDetail(1).stats.score, null, "y sigue sin nota después");
     assert.equal(db.getMatchDetail(9).stats.score, null);
     assert.deepEqual(
       [2, 3].map((id) => db.getMatchDetail(id).stats),
@@ -286,7 +273,7 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     assert.equal(db.getMatchDetail(8).game.is_remake, 0);
     db.setSetting("widget_queue", "450");
     db.setSetting("widget_account", account);
-    const widget = require("../src/main/widget.ts");
+    const widget = require("../../src/main/widget.ts");
     const snapshot = widget.widgetSnapshot();
     assert.equal(
       snapshot.matches.every((row) => row.queueId === 450),
@@ -302,7 +289,7 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
     db.closeDatabase();
     db.initDatabase();
     assert.equal(db.selectedQueue(), 2400);
-    assert.equal(db.getMatchDetail(1).stats.score, aramScore);
+    assert.equal(db.getMatchDetail(1).stats.score, null, "y sigue sin nota después");
     assert.equal(totals.getQueueLifetimeTotals().length, 2);
     assert.equal(db.getSetting("widget_queue"), "450");
     assert.equal(db.getDatabase().pragma("integrity_check", { simple: true }), "ok");
@@ -314,8 +301,11 @@ test("ARAM capture, legacy discards, isolated statistics, scores and persistence
   }
 });
 
-test("ARAM profile is isolated, bounded and consistent with its breakdown", () => {
-  const { computeMatchScores, computeMatchScoreBreakdowns } = require("../src/shared/opScore.ts");
+test("the score takes no queue, stays in range and matches its breakdown", () => {
+  const {
+    computeMatchScores,
+    computeMatchScoreBreakdowns,
+  } = require("../../src/shared/opScore.ts");
   const classes = {
     1: "Tank",
     2: "Support",
@@ -337,14 +327,14 @@ test("ARAM profile is isolated, bounded and consistent with its breakdown", () =
     totalHeal: i * 1000,
     totalDamageDealtToChampions: 2000 + i * 2500,
   }));
-  const mayhem = computeMatchScores(inputs, classes, 2400);
-  const aram = computeMatchScoreBreakdowns(inputs, classes, 450);
-  const compact = computeMatchScores(inputs, classes, 450);
-  assert.deepEqual(computeMatchScores(inputs, classes, 2450), mayhem);
-  assert.deepEqual(computeMatchScores(inputs, classes, 2400), mayhem, "no shared weight mutation");
-  for (const [id, b] of aram) {
+  // La fórmula ya no recibe la cola: un perfil por cola es imposible por
+  // construcción, que es más fuerte que una prueba que lo vigile.
+  assert.equal(computeMatchScores.length, 2, "la nota no debe volver a tomar una cola");
+  const compact = computeMatchScores(inputs, classes);
+  const breakdowns = computeMatchScoreBreakdowns(inputs, classes);
+  assert.deepEqual(computeMatchScores(inputs, classes), compact, "sin mutar los pesos compartidos");
+  for (const [id, b] of breakdowns) {
     assert.ok(Number.isFinite(b.score) && b.score >= 1 && b.score <= 10);
-    assert.ok(Math.abs(b.raw - mayhem.get(id).raw) <= 0.31200000001);
     const sum =
       b.components.reduce((s, c) => s + c.points, 0) +
       (b.multikill?.points ?? 0) +
@@ -352,13 +342,10 @@ test("ARAM profile is isolated, bounded and consistent with its breakdown", () =
       b.win;
     assert.ok(Math.abs(b.raw - sum) < 1e-12);
     assert.deepEqual(compact.get(id), { score: b.score, raw: b.raw, badge: b.badge });
-    if (id >= 4) assert.deepEqual(compact.get(id).score, mayhem.get(id).score);
   }
-  assert.deepEqual(
-    computeMatchScores(inputs, undefined, 450),
-    computeMatchScores(inputs, undefined, 2400),
-  );
-  assert.equal(computeMatchScores([], classes, 450).size, 0);
+  // Sin clases conocidas, todos caen en el perfil por defecto
+  assert.equal(computeMatchScores(inputs, undefined).size, inputs.length);
+  assert.equal(computeMatchScores([], classes).size, 0);
   const perfect = inputs.map((p) => ({
     ...p,
     kills: 50,
@@ -370,6 +357,5 @@ test("ARAM profile is isolated, bounded and consistent with its breakdown", () =
     goldEarned: 10000,
     pentaKills: 1,
   }));
-  for (const score of computeMatchScores(perfect, classes, 450).values())
-    assert.equal(score.score, 10);
+  for (const score of computeMatchScores(perfect, classes).values()) assert.equal(score.score, 10);
 });

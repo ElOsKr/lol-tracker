@@ -119,7 +119,7 @@ export function computeOwnerStanding(
   }
   if (!owner) return null;
 
-  const scores = computeMatchScores(inputs, getChampionClasses(), queueId);
+  const scores = computeMatchScores(inputs, getChampionClasses());
   const score = scores.get(owner.participantId);
   if (!score) return null;
 

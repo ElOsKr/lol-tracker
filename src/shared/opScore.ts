@@ -6,7 +6,6 @@
 // so class changes trigger a recompute too). Settings → Repair rescores
 // unconditionally, which is the way out when stored values went stale under a
 // key that never changed.
-import { QUEUE_ID_ARAM } from "./queues";
 
 export const SCORE_FORMULA_VERSION = 4;
 
@@ -113,15 +112,15 @@ const CLASS_WEIGHTS: Record<string, ClassWeights> = {
   Support: { kda: 2.2, kp: 2.7, dmg: 1.7, taken: 0.8, heal: 1.8, gold: 0.6 },
 };
 
-// Conservative ARAM-normal profile: shift a small amount of damage/gold weight
-// to participation. Evaluated on historical ARAM games, not fitted to Riot grades.
-// Each row still sums to 9.8. Keep the Mayhem table and arithmetic unchanged.
-const ARAM_CLASS_WEIGHTS: Record<string, ClassWeights> = {
-  ...CLASS_WEIGHTS,
-  Marksman: { kda: 2.2, kp: 2.4, dmg: 2.7, taken: 0.7, heal: 0.5, gold: 1.3 },
-  Tank: { kda: 2.0, kp: 2.8, dmg: 1.8, taken: 2.2, heal: 0.3, gold: 0.7 },
-  Support: { kda: 2.2, kp: 3.0, dmg: 1.4, taken: 0.8, heal: 1.8, gold: 0.6 },
-};
+// There used to be a second weight table here, a conservative profile for
+// normal ARAM (queue 450) that moved a little damage and gold weight onto
+// participation. It was unreachable: since v0.8.3 every scoring path goes
+// through hasScore(), which admits only the ARAM Chaos modes, so queue 450
+// never reaches this file at all. Dead weights that look live are worse than
+// none — anyone reading this would conclude 450 has a profile.
+//
+// The table itself is not lost: it is written out in CALIBRATION-ARAM.md
+// along with how it was evaluated, and it is in the history of this file.
 
 export type ScoreComponentKey = "kda" | "kp" | "dmg" | "taken" | "heal" | "gold";
 
@@ -233,7 +232,6 @@ function buildBreakdown(
 export function computeMatchScoreBreakdowns(
   participants: ScoreInput[],
   classes: ChampionClassMap | undefined,
-  queueId: number,
 ): Map<number, ScoreBreakdown> {
   const breakdowns = new Map<number, ScoreBreakdown>();
   if (participants.length === 0) return breakdowns;
@@ -262,14 +260,7 @@ export function computeMatchScoreBreakdowns(
   for (const p of participants) {
     breakdowns.set(
       p.participantId,
-      buildBreakdown(
-        p,
-        teamKills.get(p.teamId) ?? 0,
-        max,
-        runnerUpDmg,
-        classes,
-        queueId === QUEUE_ID_ARAM ? ARAM_CLASS_WEIGHTS : CLASS_WEIGHTS,
-      ),
+      buildBreakdown(p, teamKills.get(p.teamId) ?? 0, max, runnerUpDmg, classes, CLASS_WEIGHTS),
     );
   }
 
@@ -310,10 +301,9 @@ export function rankByRaw(scores: Map<number, { raw: number }>): Map<number, num
 export function computeMatchScores(
   participants: ScoreInput[],
   classes: ChampionClassMap | undefined,
-  queueId: number,
 ): Map<number, PlayerScore> {
   const scores = new Map<number, PlayerScore>();
-  for (const [id, b] of computeMatchScoreBreakdowns(participants, classes, queueId)) {
+  for (const [id, b] of computeMatchScoreBreakdowns(participants, classes)) {
     scores.set(id, { score: b.score, raw: b.raw, badge: b.badge });
   }
   return scores;
