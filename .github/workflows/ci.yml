@@ -37,10 +37,17 @@ jobs:
 
       # Nobody was running these but whoever happened to remember. The suite
       # had reached forty-one tests before anyone noticed CI never called it.
-      # The ARAM ones stay out: they need Electron's Node and the real native
-      # SQLite, which is a different kind of job.
       - name: Test
         run: npm test
+
+      # And these were worse off: they run under Electron's Node against the
+      # real native SQLite, so they stayed out of CI — and when the suite was
+      # split on 2026-10-01 the move to tests/electron/ left their relative
+      # requires one level short. They threw on the first line for three days
+      # and nothing noticed. Running them here is the only way that does not
+      # happen again.
+      - name: Test (ARAM, Electron)
+        run: npm run test:aram
 
       # electron-vite does not typecheck, so this catches what tsc cannot:
       # anything that only fails once the bundler resolves it.

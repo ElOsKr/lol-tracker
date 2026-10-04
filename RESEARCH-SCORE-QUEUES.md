@@ -1,5 +1,16 @@
 # AVG Score por cola
 
+> [!] PARCIALMENTE DESFASADO — 2026-10-04
+>
+> **Sigue siendo exacto:** la descripción de la fórmula Mayhem v4, su tabla de
+> pesos por clase, las bonificaciones y los límites del modelo. Es la mejor
+> referencia escrita que hay de cómo se calcula la nota.
+>
+> **Ya no es cierto:** todo lo que da por vigente el perfil experimental de
+> ARAM normal (450). Desde la v0.8.3 la nota es exclusiva de ARAM Caos.
+> Las propuestas por familia de cola se mantienen como lo que son: propuestas
+> sin implementar, hoy aparcadas por falta de muestra.
+
 Actualización 2026-09-15: ARAM normal (450) ya usa un perfil experimental v2, con transferencias pequeñas de peso a participación para tanques, soportes y tiradores, contrastadas con las partidas antiguas autorizadas por Oscar. Véase CALIBRATION-ARAM.md. Sustituye la primera entrega que reutilizaba todos los pesos Mayhem v4. El análisis siguiente describe la fórmula Mayhem y conserva las propuestas de ampliación pendientes; las demás colas aún no reciben puntuación nueva.
 
 Fecha: 2026-09-15. Revisión del código local de Riftally, basado en Mayhem Tracker v1.11.1. Estado: investigación; no se han activado puntuaciones para otras colas ni cambiado la fórmula Mayhem.

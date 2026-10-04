@@ -68,7 +68,7 @@ export default function MatchScoreboard({
       return new Map<number, ScoreBreakdown>();
     const classes: Record<number, string | undefined> = {};
     for (const p of participants) classes[p.championId] = champData[p.championId]?.class;
-    return computeMatchScoreBreakdowns(participants, classes, detail.game.queue_id);
+    return computeMatchScoreBreakdowns(participants, classes);
   }, [participants, champData, detail.game.queue_id, detail.game.is_remake]);
 
   // Everyone's place in the game, so a row can say "3.º" and not just "7.3".

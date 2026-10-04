@@ -309,7 +309,7 @@ export function getTeammateDetail(key: string): TeammateDetail | null {
     const gameRows = scoreRows.get(row.game_id) ?? [];
     const friendScore = !hasScore(row.queue_id)
       ? undefined
-      : computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses(), row.queue_id).get(
+      : computeMatchScores(scoreInputsFromRows(gameRows), getChampionClasses()).get(
           friend.participant_id,
         );
     const friendStats = gameRows.find((p) => p.participant_id === friend.participant_id);
